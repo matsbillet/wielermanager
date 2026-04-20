@@ -1,0 +1,9 @@
+# Negeer de zware library mappen
+node_modules/
+
+# Negeer omgevingsvariabelen met wachtwoorden/sleutels
+.env
+
+# Negeer OS-specifieke rommel
+.DS_Store
+Thumbs.db
