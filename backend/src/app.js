@@ -13,6 +13,9 @@ const draftRoutes = require('./routes/draft');
 
 const app = express();
 
+const adminRoutes = require('./routes/adminRoutes');
+app.use('/api/admin', adminRoutes);
+
 // --- MIDDLEWARE ---
 
 // Zorgt dat je React frontend (meestal poort 5173) mag praten met deze server
