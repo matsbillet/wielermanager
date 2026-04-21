@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const draftRoutes = require('./routes/draft');
 const rennersRoutes = require('./routes/renners');
+const spelersRoutes = require('./routes/spelers');
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.use('/api/draft', draftRoutes);
 app.use('/api/renners', rennersRoutes);
+app.use('/api/spelers', spelersRoutes);
 
 app.get('/', (req, res) => {
     res.json({ bericht: 'Wielermanager API werkt!' });

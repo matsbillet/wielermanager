@@ -1,26 +1,36 @@
 import { useEffect, useState } from 'react';
-import { getBeschikbareRenners, kiesRenner } from '../services/api';
+import { getBeschikbareRenners, getSpelers, kiesRenner } from '../services/api';
 
 export default function DraftPage() {
     const [riders, setRiders] = useState([]);
-    const [ladenRenners, setLadenRenners] = useState(true);
+    const [spelers, setSpelers] = useState([]);
+    const [ladenPagina, setLadenPagina] = useState(true);
     const [loading, setLoading] = useState(false);
     const [melding, setMelding] = useState('');
 
+    // Tijdelijk nog hardcoded tot jullie draft-status ook uit backend komt
+    const huidigeBeurt = 1;
+    const actieveSpelerId = 1;
+
     useEffect(() => {
-        async function laadRenners() {
+        async function laadData() {
             try {
-                const response = await getBeschikbareRenners();
-                setRiders(response.data);
+                const [rennersResponse, spelersResponse] = await Promise.all([
+                    getBeschikbareRenners(),
+                    getSpelers()
+                ]);
+
+                setRiders(rennersResponse.data);
+                setSpelers(spelersResponse.data);
             } catch (err) {
-                console.error('Fout bij ophalen renners:', err);
-                setMelding('Kon renners niet laden.');
+                console.error('Fout bij ophalen draft data:', err);
+                setMelding('Kon draft data niet laden.');
             } finally {
-                setLadenRenners(false);
+                setLadenPagina(false);
             }
         }
 
-        laadRenners();
+        laadData();
     }, []);
 
     async function handleKiesRenner(rennerId, naam) {
@@ -29,9 +39,9 @@ export default function DraftPage() {
             setMelding('');
 
             const response = await kiesRenner({
-                spelerId: 1,
+                spelerId: actieveSpelerId,
                 rennerId,
-                huidigeBeurt: 1
+                huidigeBeurt
             });
 
             setMelding(response.data.bericht || `${naam} gekozen!`);
@@ -51,8 +61,8 @@ export default function DraftPage() {
         }
     }
 
-    if (ladenRenners) {
-        return <div>Laden van renners...</div>;
+    if (ladenPagina) {
+        return <div>Laden van draft data...</div>;
     }
 
     return (
@@ -60,23 +70,16 @@ export default function DraftPage() {
             <section className="banner card draft-board">
                 <div className="banner-title">Draft Board</div>
                 <div className="banner-sub">Snake Draft - Pro Peloton League</div>
+
                 <div className="draft-order">
-                    <div className="draft-slot panel">
-                        <strong>You</strong>
-                        <span className="yellow">Picking now</span>
-                    </div>
-                    <div className="draft-slot panel">
-                        <strong>User 2</strong>
-                        <span className="small-muted">Waiting</span>
-                    </div>
-                    <div className="draft-slot panel">
-                        <strong>User 3</strong>
-                        <span className="small-muted">Waiting</span>
-                    </div>
-                    <div className="draft-slot panel">
-                        <strong>User 4</strong>
-                        <span className="small-muted">Waiting</span>
-                    </div>
+                    {spelers.map((speler) => (
+                        <div key={speler.id} className="draft-slot panel">
+                            <strong>{speler.naam}</strong>
+                            <span className={speler.id === actieveSpelerId ? 'yellow' : 'small-muted'}>
+                                {speler.id === actieveSpelerId ? 'Picking now' : 'Waiting'}
+                            </span>
+                        </div>
+                    ))}
                 </div>
             </section>
 

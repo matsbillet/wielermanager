@@ -11,6 +11,7 @@ export const triggerScrape = (ritId) => api.post(`/ritten/${ritId}/scrape`);
 
 export const getRenners = () => api.get('/renners');
 export const getBeschikbareRenners = () => api.get('/renners/beschikbaar');
+export const getSpelers = () => api.get('/spelers');
 
 export const kiesRenner = async (data) => {
     try {
