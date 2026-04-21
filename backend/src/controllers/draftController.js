@@ -1,44 +1,41 @@
-/**
- * draftController.js
- * Beheert de keuzes en bewaakt de uniekheid van de renners. 
- */
+const supabase = require('../db/supabase');
 const { getSpelerVoorBeurt } = require('../utils/draftHelper');
 
-// Tijdelijke placeholder voor gekozen renners (tot de DB werkt)
-let gekozenRennersSlugs = [];
-
 const voerKeuzeUit = async (req, res) => {
+    // De frontend stuurt: welke speler, welke renner (slug) en welk beurtnummer
     const { spelerNaam, rennerSlug, huidigeBeurt } = req.body;
 
-    // 1. Check de volgorde: Winnaar vorig jaar kiest als 4de [cite: 18]
-    const volgordeVorigJaar = ["Jente", "Piet", "Jan", "Roel"]; // Voorbeeld uitslag [cite: 18]
-    const aanDeBeurt = getSpelerVoorBeurt(huidigeBeurt, volgordeVorigJaar);
+    // 1. Bereken de ronde en bankzitter-status via je helper
+    // De volgorde vorig jaar: [Laatste, 3de, 2de, Winnaar]
+    const volgorde = ["Jente", "Piet", "Jan", "Roel"];
+    const info = getSpelerVoorBeurt(huidigeBeurt, volgorde);
 
-    // Validatie A: Is de juiste speler aan de beurt? [cite: 29]
-    if (spelerNaam !== aanDeBeurt.spelerNaam) {
-        return res.status(403).json({ error: `Niet jouw beurt! Het is de beurt aan ${aanDeBeurt.spelerNaam}` });
+    try {
+        // 2. Sla de keuze op in de 'draft' tabel
+        const { data, error } = await supabase
+            .from('draft')
+            .insert([
+                {
+                    beurt_nummer: huidigeBeurt,
+                    speler_naam: spelerNaam,
+                    renner_slug: rennerSlug,
+                    is_bank: info.isBank
+                }
+            ]);
+
+        if (error) throw error;
+
+        res.json({
+            status: "Succes",
+            bericht: `${spelerNaam} heeft ${rennerSlug} gekozen!`,
+            ronde: info.ronde,
+            type: info.isBank ? "Bankzitter" : "Basis"
+        });
+
+    } catch (error) {
+        // Als de renner al gekozen is, zal Supabase een error geven (vanwege UNIQUE constraint)
+        res.status(400).json({ error: "Deze renner is al bezet of er is een database fout." });
     }
-
-    // Validatie B: Is de renner uniek (niet al gekozen)? 
-    if (gekozenRennersSlugs.includes(rennerSlug)) {
-        return res.status(400).json({ error: "Deze renner is al gekozen door iemand anders!" });
-    }
-
-    // 2. Keuze verwerken
-    gekozenRennersSlugs.push(rennerSlug);
-
-    // Hier komt straks de query voor Persoon 3:
-    // await supabase.from('draft').insert({ speler, renner, is_bank: aanDeBeurt.isBank }) [cite: 29]
-
-    res.json({
-        bericht: "Keuze succesvol opgeslagen!",
-        details: {
-            renner: rennerSlug,
-            speler: spelerNaam,
-            ronde: aanDeBeurt.ronde,
-            type: aanDeBeurt.isBank ? "Bankzitter" : "Vaste renner"
-        }
-    });
 };
 
 module.exports = { voerKeuzeUit };
