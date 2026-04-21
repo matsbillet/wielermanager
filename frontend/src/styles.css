@@ -1,0 +1,448 @@
+:root {
+    --bg: #07080c;
+    --panel: #11141b;
+    --panel-2: #171b24;
+    --border: #272d3b;
+    --text: #f5f7fb;
+    --muted: #9aa3b6;
+    --yellow: #f3c300;
+    --green: #23dc87;
+    --red: #ff5b66;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: radial-gradient(circle at top left, rgba(255, 255, 255, .03), transparent 25%), var(--bg);
+    color: var(--text);
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+}
+
+a {
+    color: inherit;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: #11131a;
+    border-bottom: 1px solid rgba(255, 255, 255, .05);
+}
+
+.brand {
+    font-weight: 800;
+    font-size: 1.35rem;
+}
+
+.main-nav {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+
+.main-nav a {
+    text-decoration: none;
+    color: var(--muted);
+    padding: .7rem 1rem;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.main-nav a.active {
+    background: var(--yellow);
+    color: #111;
+}
+
+.page-shell {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 1.5rem;
+}
+
+.card,
+.panel {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 16px 30px rgba(0, 0, 0, .25);
+}
+
+.loading,
+.empty-state {
+    padding: 2rem;
+    text-align: center;
+    color: var(--muted);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    padding: 1.5rem;
+}
+
+.stat-card.highlight {
+    background: linear-gradient(180deg, #f2c300, #efbe00);
+    color: #111;
+}
+
+.stat-label {
+    color: var(--muted);
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.stat-card.highlight .stat-label {
+    color: rgba(17, 17, 17, .75);
+}
+
+.stat-value {
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: .25rem;
+}
+
+.stat-sub {
+    color: var(--muted);
+}
+
+.stat-card.highlight .stat-sub {
+    color: rgba(17, 17, 17, .75);
+}
+
+.green {
+    color: var(--green);
+}
+
+.red {
+    color: var(--red);
+}
+
+.banner {
+    padding: 1.75rem;
+    border: 1px solid rgba(243, 195, 0, .3);
+    margin-bottom: 1.5rem;
+    position: relative;
+    background: linear-gradient(90deg, #101520 0%, #12141c 55%, #1a1009 100%);
+}
+
+.banner-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: .35rem;
+}
+
+.banner-sub {
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+}
+
+.live-pill {
+    position: absolute;
+    right: 1.5rem;
+    top: 1.5rem;
+    background: var(--yellow);
+    color: #111;
+    border-radius: 999px;
+    padding: .8rem 1.1rem;
+    font-weight: 800;
+}
+
+.progress-track {
+    height: 10px;
+    background: rgba(255, 255, 255, .08);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 57%;
+    background: var(--yellow);
+}
+
+.section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0 1rem;
+}
+
+.section-head h2 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+.section-link {
+    color: var(--yellow);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.team-grid,
+.riders-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.rider-card {
+    overflow: hidden;
+}
+
+.rider-image {
+    height: 180px;
+    background: #d7d7db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-size: 2rem;
+    position: relative;
+}
+
+.rider-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.badge {
+    position: absolute;
+    top: .75rem;
+    right: .75rem;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+}
+
+.badge-yellow {
+    background: var(--yellow);
+    color: #111;
+}
+
+.badge-red {
+    background: #ff3948;
+}
+
+.badge-green {
+    background: #0cda63;
+}
+
+.badge-white {
+    background: #f3f4f6;
+    color: #111;
+}
+
+.rider-body {
+    padding: 1rem;
+}
+
+.rider-topline {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    margin-bottom: .3rem;
+}
+
+.rider-name {
+    font-weight: 800;
+    font-size: 1.1rem;
+}
+
+.rider-country,
+.rider-team,
+.muted {
+    color: var(--muted);
+}
+
+.rider-meta {
+    margin-top: .8rem;
+    padding-top: .8rem;
+    border-top: 1px solid rgba(255, 255, 255, .06);
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: .5rem;
+    align-items: center;
+}
+
+.yellow {
+    color: var(--yellow);
+}
+
+.chart-panel {
+    padding: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+
+.rit-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: .85rem;
+}
+
+.rit-link {
+    background: #121620;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 1rem;
+    text-decoration: none;
+    border-radius: 14px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.rit-link.pending {
+    color: var(--muted);
+}
+
+.list-panel {
+    overflow: hidden;
+}
+
+.list-row {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, .05);
+}
+
+.list-row:first-child {
+    border-top: 0;
+}
+
+.list-row.me {
+    background: rgba(243, 195, 0, .09);
+}
+
+.rank {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    background: #202431;
+}
+
+.rank.gold {
+    background: var(--yellow);
+    color: #111;
+}
+
+.rank.silver {
+    background: #b7bac3;
+    color: #111;
+}
+
+.rank.bronze {
+    background: #ce7d2b;
+}
+
+.pill-btn {
+    background: var(--yellow);
+    color: #111;
+    border: 0;
+    border-radius: 14px;
+    padding: .9rem 1.2rem;
+    font-weight: 800;
+}
+
+.admin-list,
+.draft-order {
+    display: grid;
+    gap: 1rem;
+}
+
+.admin-row,
+.draft-slot,
+.turn-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+}
+
+.draft-board,
+.turn-banner {
+    margin-bottom: 1.5rem;
+}
+
+.turn-banner {
+    background: var(--yellow);
+    color: #111;
+    border-radius: 18px;
+}
+
+.turn-banner p {
+    margin: .25rem 0 0;
+    color: rgba(17, 17, 17, .8);
+}
+
+.small-muted {
+    color: var(--muted);
+    font-size: .95rem;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: .85rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+    text-align: left;
+}
+
+.table th {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+
+    .stats-grid,
+    .team-grid,
+    .riders-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .rit-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+
+    .stats-grid,
+    .team-grid,
+    .riders-grid,
+    .rit-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .list-row {
+        grid-template-columns: 48px 1fr;
+    }
+}
