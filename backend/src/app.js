@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const adminRoutes = require('./routes/adminRoutes');
+app.use('/api/admin', adminRoutes);
+
 const draftRoutes = require('./routes/draft');
 const rennersRoutes = require('./routes/renners');
 const spelersRoutes = require('./routes/spelers');
