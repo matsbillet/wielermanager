@@ -8,7 +8,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 // Importeer de routes
-const draftRoutes = require('./src/routes/draftRoutes');
+const draftRoutes = require('./routes/draft');
 // const rennerRoutes = require('./src/routes/rennerRoutes'); // Toekomstige toevoeging
 
 const app = express();
