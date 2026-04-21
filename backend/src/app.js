@@ -5,48 +5,55 @@
 
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // Importeer de routes
 const draftRoutes = require('./routes/draft');
-// const rennerRoutes = require('./src/routes/rennerRoutes'); // Toekomstige toevoeging
+const adminRoutes = require('./routes/adminRoutes');
+const standRoutes = require('./routes/standRoutes'); // Zorg dat dit bestand bestaat!
 
 const app = express();
 
-const adminRoutes = require('./routes/adminRoutes');
-app.use('/api/admin', adminRoutes);
+// --- 1. MIDDLEWARE (Altijd bovenaan!) ---
 
-// --- MIDDLEWARE ---
-
-// Zorgt dat je React frontend (meestal poort 5173) mag praten met deze server
+// Zorgt dat je React frontend (poort 5173) mag praten met deze server
 app.use(cors());
 
-// Zorgt dat de server binnenkomende JSON-pakketjes (van de frontend) begrijpt
+// Zorgt dat de server JSON data uit de frontend kan lezen (cruciaal voor POST)
 app.use(express.json());
 
-// --- ROUTES ---
+// --- 2. ROUTES ---
 
-/**
- * Alle routes die te maken hebben met het draften (kiezen van renners).
- * Endpoint: http://localhost:3001/api/draft/...
- */
+// Draft routes (Renners kiezen)
 app.use('/api/draft', draftRoutes);
+
+// Admin routes (Scraper triggeren)
+app.use('/api/admin', adminRoutes);
+
+// Stand routes (Scorebord ophalen)
+app.use('/api/stand', standRoutes);
 
 /**
  * Basis test-route om te checken of de server live is.
  */
 app.get('/', (req, res) => {
-    res.json({ bericht: "Wielermanager API is online!" });
+    res.json({
+        bericht: "Wielermanager API is online!",
+        status: "🚀 Running"
+    });
 });
 
-// --- SERVER START ---
+// --- 3. SERVER START ---
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log('--------------------------------------------------');
-    console.log(`Server succesvol gestart op poort: ${PORT}`);
-    console.log(`API adres: http://localhost:${PORT}`);
-    console.log(`Draft endpoint: http://localhost:${PORT}/api/draft/kies`);
+    console.log(`🚀 Server succesvol gestart op poort: ${PORT}`);
+    console.log(`📍 API Base: http://localhost:${PORT}/api`);
+    console.log(`📍 Scorebord: http://localhost:${PORT}/api/stand/totaal`);
+    console.log(`📍 Admin Scraper: http://localhost:${PORT}/api/admin/scrape-rit`);
+    console.log(`📍 Draft endpoint: http://localhost:${PORT}/api/draft/kies`);
     console.log('--------------------------------------------------');
 });
