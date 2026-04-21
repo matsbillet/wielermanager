@@ -81,17 +81,42 @@ async function saveToDatabase(ritId, scraperData) {
  * HOOFDFUNCTIE
  */
 async function runScraper(ritId, url) {
-    console.log(`🚀 Start scraper voor rit ${ritId}...`);
-    const data = await scrapeRit(url);
+    try {
+        console.log(`🚀 Start scraper voor rit ${ritId} via URL: ${url}`);
+        const data = await scrapeRit(url);
 
-    if (data.length > 0) {
-        await saveToDatabase(ritId, data);
-    } else {
-        console.log("❌ Geen data gevonden om op te slaan.");
+        if (data.length === 0) throw new Error("Geen data gevonden op de website.");
+
+        // Haal renners op voor ID-matching
+        const { data: dbRenners } = await supabase.from('renners').select('id, slug');
+
+        const uploadData = data.map(res => {
+            const renner = dbRenners.find(r => r.slug === res.slug);
+            if (!renner) return null;
+
+            return {
+                rit_id: ritId,
+                renner_id: renner.id,
+                positie: res.positie,
+                rit_punten: (res.positie === 1 ? 50 : (res.positie === 2 ? 40 : (res.positie === 3 ? 30 : 10))), // Voorbeeldpunten
+                truien_punten: 0
+            };
+        }).filter(Boolean);
+
+        // Upsert in de database
+        const { error } = await supabase
+            .from('ritresultaten')
+            .upsert(uploadData, { onConflict: 'rit_id, renner_id' });
+
+        if (error) throw error;
+
+        // Update de 'ritten' tabel om aan te geven dat deze gescraped is (zie jouw schema)
+        await supabase.from('ritten').update({ gescrapet: true }).eq('id', ritId);
+
+        return { success: true, aantal: uploadData.length };
+    } catch (error) {
+        return { success: false, error: error.message };
     }
 }
-
-// VOORBEELD GEBRUIK (pas de URL en het rit_id aan naar de werkelijkheid)
-// runScraper(1, 'https://www.procyclingstats.com/race/tour-de-france/2024/stage-1');
 
 module.exports = { runScraper };
