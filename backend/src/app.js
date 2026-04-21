@@ -10,8 +10,8 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // Importeer de routes
 const draftRoutes = require('./routes/draft');
-const adminRoutes = require('./routes/adminRoutes');
-const standRoutes = require('./routes/standRoutes'); // Zorg dat dit bestand bestaat!
+const adminRoutes = require('./routes/admin');
+const standRoutes = require('./routes/stand'); // Zorg dat dit bestand bestaat!
 
 const app = express();
 
