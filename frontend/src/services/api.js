@@ -7,8 +7,6 @@ const api = axios.create({
 export const getScoreboard = (wedstrijdId) => api.get(`/scores/${wedstrijdId}`);
 export const getRitten = () => api.get('/ritten');
 export const getRit = (id) => api.get(`/ritten/${id}`);
-export const getDraft = (wedstrijdId) => api.get(`/draft/${wedstrijdId}`);
-export const getSpelers = () => api.get('/spelers');
 export const triggerScrape = (ritId) => api.post(`/ritten/${ritId}/scrape`);
 
 export default api;
