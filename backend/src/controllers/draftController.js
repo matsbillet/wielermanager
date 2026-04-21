@@ -23,7 +23,10 @@ const voerKeuzeUit = async (req, res) => {
                 }
             ]);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Supabase insert error:', error);
+            throw error;
+        }
 
         res.json({
             status: "Succes",
@@ -33,8 +36,12 @@ const voerKeuzeUit = async (req, res) => {
         });
 
     } catch (error) {
-        // Als de renner al gekozen is, zal Supabase een error geven (vanwege UNIQUE constraint)
-        res.status(400).json({ error: "Deze renner is al bezet of er is een database fout." });
+        console.error('Supabase fout bij draft keuze:', error);
+
+        res.status(400).json({
+            error: 'Draft keuze mislukt',
+            details: error.message
+        });
     }
 };
 
