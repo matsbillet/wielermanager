@@ -1,0 +1,92 @@
+[
+    {
+        "naam": "Tadej Pogačar",
+        "slug": "tadej-pogacar",
+        "ploeg": "UAE Team Emirates"
+    },
+    {
+        "naam": "Jonas Vingegaard",
+        "slug": "jonas-vingegaard",
+        "ploeg": "Team Visma | Lease a Bike"
+    },
+    {
+        "naam": "Remco Evenepoel",
+        "slug": "remco-evenepoel",
+        "ploeg": "Soudal Quick-Step"
+    },
+    {
+        "naam": "Primož Roglič",
+        "slug": "primoz-roglic",
+        "ploeg": "Red Bull - BORA - hansgrohe"
+    },
+    {
+        "naam": "Wout van Aert",
+        "slug": "wout-van-aert",
+        "ploeg": "Team Visma | Lease a Bike"
+    },
+    {
+        "naam": "Mathieu van der Poel",
+        "slug": "mathieu-van-der-poel",
+        "ploeg": "Alpecin - Deceuninck"
+    },
+    {
+        "naam": "Jasper Philipsen",
+        "slug": "jasper-philipsen",
+        "ploeg": "Alpecin - Deceuninck"
+    },
+    {
+        "naam": "Biniam Girmay",
+        "slug": "biniam-girmay",
+        "ploeg": "Intermarché - Wanty"
+    },
+    {
+        "naam": "Mark Cavendish",
+        "slug": "mark-cavendish",
+        "ploeg": "Astana Qazaqstan Team"
+    },
+    {
+        "naam": "Romain Bardet",
+        "slug": "romain-bardet",
+        "ploeg": "Team dsm-firmenich PostNL"
+    },
+    {
+        "naam": "Frank van den Broek",
+        "slug": "frank-van-den-broek",
+        "ploeg": "Team dsm-firmenich PostNL"
+    },
+    {
+        "naam": "Matteo Jorgenson",
+        "slug": "matteo-jorgenson",
+        "ploeg": "Team Visma | Lease a Bike"
+    },
+    {
+        "naam": "Carlos Rodríguez",
+        "slug": "carlos-rodriguez",
+        "ploeg": "INEOS Grenadiers"
+    },
+    {
+        "naam": "Derek Gee",
+        "slug": "derek-gee",
+        "ploeg": "Israel - Premier Tech"
+    },
+    {
+        "naam": "Adam Yates",
+        "slug": "adam-yates",
+        "ploeg": "UAE Team Emirates"
+    },
+    {
+        "naam": "João Almeida",
+        "slug": "joao-almeida",
+        "ploeg": "UAE Team Emirates"
+    },
+    {
+        "naam": "Richard Carapaz",
+        "slug": "richard-carapaz",
+        "ploeg": "EF Education - EasyPost"
+    },
+    {
+        "naam": "Victor Campenaerts",
+        "slug": "victor-campenaerts",
+        "ploeg": "Lotto Dstny"
+    }
+]
