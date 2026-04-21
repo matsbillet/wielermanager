@@ -6,17 +6,18 @@ const getStand = async (req, res) => {
         const { data, error } = await supabase
             .from('spelers')
             .select(`
-                naam,
-                draft (
-                    is_bank,
-                    renner_id,
-                    renners (
-                        ritresultaten (
-                            rit_punten
-                        )
+            naam,
+            draft!inner (
+                is_bank,
+                renners!inner (
+                    id,
+                    naam,
+                    ritresultaten (
+                        rit_punten
                     )
                 )
-            `);
+            )
+        `);
 
         if (error) throw error;
 
