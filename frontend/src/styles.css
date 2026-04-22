@@ -1,11 +1,11 @@
 :root {
-    --bg: #07080c;
+    --bg: #29373D;
     --panel: #11141b;
     --panel-2: #171b24;
     --border: #272d3b;
-    --text: #f5f7fb;
+    --text: #D0D9DD;
     --muted: #9aa3b6;
-    --yellow: #f3c300;
+    --yellow: #00F5D4;
     --green: #23dc87;
     --red: #ff5b66;
 }
