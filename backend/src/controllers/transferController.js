@@ -1,4 +1,4 @@
-const supabase = require('../db/supabase');
+const { supabase } = require('../db/supabase');
 
 const voerWisselUit = async (req, res) => {
     const { speler_id, wedstrijd_id, rit_nummer, renner_uit_id, renner_in_id } = req.body;

@@ -1,4 +1,4 @@
-const supabase = require('../db/supabase');
+const { supabase } = require('../db/supabase');
 const { getSpelerVoorBeurt } = require('../utils/draftHelper');
 
 const voerKeuzeUit = async (req, res) => {
@@ -6,6 +6,13 @@ const voerKeuzeUit = async (req, res) => {
 
     const volgorde = ["Jente", "Piet", "Jan", "Roel"];
     const info = getSpelerVoorBeurt(huidigeBeurt, volgorde);
+
+    // --- NIEUWE LOGICA VOOR BANKZITTERS ---
+    const aantalSpelers = volgorde.length;
+    const maxBasisPlekkenTotaal = aantalSpelers * 12; // 4 * 12 = 48
+
+    // Bepaal automatisch of het een bankzitter is op basis van het beurtnummer
+    const isBankZitter = huidigeBeurt > maxBasisPlekkenTotaal;
 
     try {
         const { data, error } = await supabase
@@ -15,7 +22,7 @@ const voerKeuzeUit = async (req, res) => {
                     beurt_nummer: huidigeBeurt,
                     speler_id: spelerId,
                     renner_id: rennerId,
-                    is_bank: info.isBank
+                    is_bank: isBankZitter
                 }
             ])
             .select();
@@ -29,7 +36,7 @@ const voerKeuzeUit = async (req, res) => {
             status: 'Succes',
             bericht: `Speler ${spelerId} heeft renner ${rennerId} gekozen!`,
             ronde: info.ronde,
-            type: info.isBank ? 'Bankzitter' : 'Basis',
+            type: isBankZitter ? 'Bankzitter' : 'Basis',
             data
         });
     } catch (error) {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const standController = require('../controllers/standController');
+const { supabase } = require('../db/supabase');
 
 /**
  * Route: GET /api/stand/totaal
