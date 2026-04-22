@@ -3,6 +3,8 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+app.use(cors());
+app.use(express.json());
 
 const adminRoutes = require('./routes/admin');
 app.get('/test', (req, res) => {
@@ -17,8 +19,6 @@ const transferRoutes = require('./routes/transfer');
 const wedstrijdenRoutes = require('./routes/wedstrijden');
 
 
-app.use(cors());
-app.use(express.json());
 
 app.use('/api/draft', draftRoutes);
 app.use('/api/renners', rennersRoutes);
