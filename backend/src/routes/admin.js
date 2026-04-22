@@ -78,6 +78,21 @@ router.delete('/renners/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+// Verwijder ALLE drafts
+router.delete('/drafts-all', async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('drafts') // Controleer of je tabel exact 'drafts' heet
+            .delete()
+            .neq('id', 0);
+
+        if (error) throw error;
+        res.json({ success: true, message: "Alle drafts zijn verwijderd." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Verwijder ALLE renners
 router.delete('/renners-all', async (req, res) => {
     try {

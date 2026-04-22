@@ -43,6 +43,22 @@ export default function AdminPage() {
         }
     };
 
+    const handleDeleteAllDrafts = async () => {
+        if (!window.confirm("⚠️ WEET JE DIT ZEKER? Dit verwijdert alle gekozen teams van alle gebruikers!")) return;
+
+        setLoading(true);
+        try {
+            await axios.delete('http://localhost:3000/api/admin/drafts-all');
+            alert("Alle drafts zijn succesvol verwijderd.");
+            fetchData(); // Vernieuw de data
+        } catch (err) {
+            console.error(err);
+            alert("Fout bij het verwijderen van drafts: " + (err.response?.data?.error || "Serverfout"));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --- SCRAPER ACTIONS ---
     const handleScrapeRit = async (ritId, ritNummer) => {
         setLoading(true);
@@ -72,6 +88,8 @@ export default function AdminPage() {
             setLoading(false);
         }
     };
+
+
 
     // --- DELETE ACTIONS ---
     const deleteItem = async (type, id) => {
@@ -137,32 +155,56 @@ export default function AdminPage() {
                             >
                                 ➕ Importeer Startlijst (PCS)
                             </button>
+
+                            {/* NIEUWE KNOP VOOR DRAFTS */}
+                            <button
+                                className="pill-btn"
+                                onClick={handleDeleteAllDrafts}
+                                style={{ backgroundColor: '#FF9800', color: 'white' }}
+                            >
+                                🔥 Drafts Leegmaken
+                            </button>
+
                             <button
                                 className="pill-btn"
                                 onClick={handleDeleteAllRenners}
                                 style={{ backgroundColor: '#f44336', color: 'white' }}
                                 disabled={renners.length === 0}
                             >
-                                🗑️ Alles Verwijderen
+                                🗑️ Renners Verwijderen
                             </button>
                         </div>
                     </div>
 
                     <div className="add-form" style={{ marginBottom: '20px', display: 'flex', gap: '5px' }}>
-                        <input type="text" placeholder="Naam" value={newRenner.naam} onChange={e => setNewRenner({ ...newRenner, naam: e.target.value })} />
-                        <input type="text" placeholder="Ploeg" value={newRenner.ploeg} onChange={e => setNewRenner({ ...newRenner, ploeg: e.target.value })} />
-                        <input type="number" placeholder="Prijs" value={newRenner.prijs} onChange={e => setNewRenner({ ...newRenner, prijs: e.target.value })} />
-                        <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/renners/add', newRenner); fetchData(); }}>+</button>
+                        <input
+                            type="text"
+                            placeholder="Naam"
+                            value={newRenner.naam}
+                            onChange={e => setNewRenner({ ...newRenner, naam: e.target.value })}
+                        />
+                        <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/renners/add', newRenner); fetchData(); }}>Toevoegen</button>
                     </div>
 
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                         <table style={{ width: '100%', textAlign: 'left' }}>
-                            <thead><tr><th>Naam</th><th>Actie</th></tr></thead>
+                            <thead>
+                                <tr>
+                                    <th>Naam</th>
+                                    <th>Ploeg</th>
+                                    <th>Actie</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 {renners.map(r => (
                                     <tr key={r.id}>
                                         <td>{r.naam}</td>
-                                        <td><button onClick={() => deleteItem('renners', r.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>🗑️</button></td>
+                                        <td>{r.ploeg || '-'}</td>
+                                        <td>
+                                            <button onClick={() => deleteItem('renners', r.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
+                                                🗑️
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
