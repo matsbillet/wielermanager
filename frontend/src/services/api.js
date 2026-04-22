@@ -13,6 +13,10 @@ export const getRenners = () => api.get('/renners');
 export const getBeschikbareRenners = () => api.get('/renners/beschikbaar');
 export const getSpelers = () => api.get('/spelers');
 
+export const getWedstrijden = () => api.get('/wedstrijden');
+export const getWedstrijd = (slug) => api.get(`/wedstrijden/${slug}`);
+export const getRittenVanWedstrijd = (slug) => api.get(`/wedstrijden/${slug}/ritten`);
+
 export const kiesRenner = async (data) => {
     try {
         const res = await api.post('/draft/kies', data);
