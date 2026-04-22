@@ -1,4 +1,4 @@
-const supabase = require('../db/supabase');
+const { supabase } = require('../db/supabase');
 const { getSpelerVoorBeurt } = require('../utils/draftHelper');
 
 const voerKeuzeUit = async (req, res) => {
