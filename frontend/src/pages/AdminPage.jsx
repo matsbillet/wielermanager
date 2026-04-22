@@ -121,7 +121,7 @@ export default function AdminPage() {
                         <input type="text" placeholder="Naam" value={newRenner.naam} onChange={e => setNewRenner({ ...newRenner, naam: e.target.value })} />
                         <input type="text" placeholder="Ploeg" value={newRenner.ploeg} onChange={e => setNewRenner({ ...newRenner, ploeg: e.target.value })} />
                         <input type="number" placeholder="Prijs" value={newRenner.prijs} onChange={e => setNewRenner({ ...newRenner, prijs: e.target.value })} />
-                        <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/renners/add', newRenner); fetchData(); }}>Toevoegen</button>
+                        <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/renners/add', newRenner); fetchData(); }}>+</button>
                     </div>
 
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
@@ -150,7 +150,7 @@ export default function AdminPage() {
                         <input type="number" placeholder="Rit nr" value={newRit.rit_nummer} onChange={e => setNewRit({ ...newRit, rit_nummer: e.target.value })} />
                         <input type="text" placeholder="Naam (vlak, berg...)" value={newRit.naam} onChange={e => setNewRit({ ...newRit, naam: e.target.value })} />
                         <input type="date" value={newRit.datum} onChange={e => setNewRit({ ...newRit, datum: e.target.value })} />
-                        <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/ritten/add', newRit); fetchData(); }}>Toevoegen</button>
+                        <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/ritten/add', newRit); fetchData(); }}>+</button>
                     </div>
                     <table style={{ width: '100%', textAlign: 'left' }}>
                         <thead><tr><th>Nr</th><th>Naam</th><th>Datum</th><th>Actie</th></tr></thead>
