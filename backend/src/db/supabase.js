@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
-        
+
 if (!supabaseUrl || !supabaseKey) {
     throw new Error('SUPABASE_URL en SUPABASE_KEY moeten ingesteld zijn in .env');
 }
@@ -64,7 +64,7 @@ async function getStageResults(raceId = null) {
 async function insertRider(riderData) {
     try {
         const { data, error } = await supabase
-            .from('riders')
+            .from('renners')
             .upsert(
                 [
                     {
@@ -93,7 +93,7 @@ async function insertRider(riderData) {
 async function getRiders() {
     try {
         const { data, error } = await supabase
-            .from('riders')
+            .from('renners')
             .select('*')
             .order('points', { ascending: false });
 
@@ -111,7 +111,7 @@ async function getRiders() {
 async function updateRiderPoints(slug, points) {
     try {
         const { data, error } = await supabase
-            .from('riders')
+            .from('renners')
             .update({ points })
             .eq('slug', slug)
             .select();
