@@ -1,76 +1,130 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
-const supabase = require('../db/supabase');
+const puppeteer = require('puppeteer');
+const { supabase } = require('../db/supabase');
 
-// Helper om namen te matchen (bijv. "Tadej Pogačar" -> "tadej-pogacar")
-const createSlug = (name) => {
-    return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, '-');
-};
+// Browser configuratie
+async function getBrowser() {
+    return await puppeteer.launch({
+        headless: false, // We houden hem op false zodat je kunt meekijken
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-blink-features=AutomationControlled'
+        ]
+    });
+}
 
-
+/**
+ * STARTLIJST SCRAPER
+ */
 async function importStartlist(url) {
+    const browser = await getBrowser();
     try {
-        console.log("Poging tot scrapen van URL:", url);
-
-        const { data: html } = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Accept-Language': 'nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7',
-                'Cache-Control': 'max-age=0',
-                'Sec-Ch-Ua': '"Chromium";v="123", "Not:A-Brand";v="8"',
-                'Sec-Ch-Ua-Mobile': '?0',
-                'Sec-Ch-Ua-Platform': '"macOS"',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'Upgrade-Insecure-Requests': '1'
-            }
+        const page = await browser.newPage();
+        await page.evaluateOnNewDocument(() => {
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
         });
 
-        const $ = cheerio.load(html);
-        const renners = [];
+        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1600, height: 1200 });
 
-        // Selecteer de teams en renners
-        $('ul.startlist-v1 > li.team').each((i, teamEl) => {
-            const ploeg = $(teamEl).find('b a').text().trim();
-            $(teamEl).find('ul li').each((j, riderEl) => {
-                const naam = $(riderEl).find('a').first().text().trim();
-                if (naam) {
-                    renners.push({
+        console.log(`🚀 Navigeren naar: ${url}`);
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+        console.log("Pagina geladen. We scannen nu de gehele pagina op renners...");
+        await new Promise(r => setTimeout(r, 5000));
+
+        const renners = await page.evaluate(() => {
+            const list = [];
+
+            // Methode: Zoek ELKE link die naar een rider gaat
+            const allRiderLinks = Array.from(document.querySelectorAll('a[href^="rider/"]'));
+
+            allRiderLinks.forEach(a => {
+                const naam = a.innerText.trim();
+                const href = a.getAttribute('href');
+
+                // Filter rotzooi eruit (zoals iconen of lege links)
+                if (naam && naam.length > 3 && !naam.toLowerCase().includes('statistics')) {
+                    // We zoeken de dichtstbijzijnde teamnaam door omhoog te kijken in de HTML
+                    // Meestal staat de teamnaam in een <b> of <h5> boven de renner
+                    let teamNode = a.closest('div, li, table')?.parentElement?.querySelector('b, h5, .team-name');
+                    const ploeg = teamNode?.innerText.trim() || 'Onbekend';
+
+                    const slug = href.split('rider/')[1];
+
+                    list.push({
                         naam: naam,
-                        ploeg: ploeg || 'Onbekend',
-                        prijs: 5,
-                        slug: naam.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, '-')
+                        slug: slug,
                     });
                 }
             });
+
+            return list;
         });
 
-        if (renners.length === 0) {
-            throw new Error("Geen renners gevonden op de pagina. Is de URL correct?");
+        // Verwijder duplicaten op basis van slug
+        const uniqueRenners = Array.from(new Map(renners.map(r => [r.slug, r])).values());
+
+        if (uniqueRenners.length === 0) {
+            // Als dit nog steeds niet werkt, dumpen we de HTML voor inspectie
+            const htmlSnippet = await page.evaluate(() => document.body.innerHTML.substring(0, 1000));
+            console.log("Debug HTML Snippet:", htmlSnippet);
+            return { success: false, error: "Zelfs met de brede scan geen renners gevonden." };
         }
 
-        console.log(`✅ Succes! ${renners.length} renners gevonden. Opslaan...`);
-
-        const { error } = await supabase.from('renners').upsert(renners, { onConflict: 'slug' });
+        console.log(`✅ Succes! ${uniqueRenners.length} unieke renners gevonden.`);
+        const { error } = await supabase.from('renners').upsert(uniqueRenners, { onConflict: 'slug' });
         if (error) throw error;
 
-        return { success: true, count: renners.length };
+        return { success: true, count: uniqueRenners.length };
 
     } catch (error) {
-        console.error("❌ Scraper fout:", error.message);
-        return {
-            success: false,
-            error: error.response?.status === 403
-                ? "PCS blokkeert de server nog steeds (403). Probeer een andere URL of wacht even."
-                : error.message
-        };
+        console.error("❌ Scraper Error:", error.message);
+        return { success: false, error: error.message };
+    } finally {
+        await browser.close();
     }
 }
 
+/**
+ * RIT UITSLAG SCRAPER
+ */
+async function runScraper(ritId, ritNummer) {
+    const url = `https://www.procyclingstats.com/race/tour-de-france/2024/stage-${ritNummer}`;
+    const browser = await getBrowser();
+    try {
+        const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
+        await page.goto(url, { waitUntil: 'networkidle2' });
 
-module.exports = { importStartlist, createSlug };
+        const results = await page.evaluate(() => {
+            const tables = Array.from(document.querySelectorAll('table'));
+            const resultTable = tables.find(t => t.innerText.includes('Rider') && t.querySelectorAll('tr').length > 10);
+
+            if (!resultTable) return null;
+
+            const rows = Array.from(resultTable.querySelectorAll('tbody tr')).slice(0, 20);
+            return rows.map(row => {
+                const a = row.querySelector('a[href^="rider/"]');
+                return {
+                    naam: a?.innerText.trim(),
+                    slug: a?.getAttribute('href')?.replace('rider/', '')
+                };
+            }).filter(r => r.slug);
+        });
+
+        if (!results) throw new Error("Uitslag tabel niet gevonden.");
+
+        await supabase.from('ritten').update({ gescrapet: true }).eq('id', ritId);
+        return { success: true, count: results.length, data: results };
+
+    } catch (error) {
+        console.error("❌ Scraper Error:", error.message);
+        return { success: false, error: error.message };
+    } finally {
+        await browser.close();
+    }
+}
+
+module.exports = { importStartlist, runScraper };
