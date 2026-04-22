@@ -48,11 +48,14 @@ export default function AdminPage() {
             await axios.post('http://localhost:3000/api/admin/import-startlist', { url });
             alert("Startlijst succesvol geïmporteerd!");
             fetchData();
+
         } catch (err) {
-            alert("Fout bij importeren startlijst.");
+            console.error(err);
+            alert("Fout: " + (err.response?.data?.error || "Server onbereikbaar"));
         } finally {
             setLoading(false);
         }
+
     };
 
     // --- DELETE ACTIONS ---
