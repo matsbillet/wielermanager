@@ -9,7 +9,7 @@ export default function AdminPage() {
 
     // Formulieren state
     const [newRit, setNewRit] = useState({ rit_nummer: '', naam: '', datum: '' });
-    const [newRenner, setNewRenner] = useState({ naam: '', ploeg: '', prijs: '' });
+    const [newRenner, setNewRenner] = useState({ naam: '' });
 
     useEffect(() => {
         fetchData();
@@ -150,20 +150,16 @@ export default function AdminPage() {
 
                     <div className="add-form" style={{ marginBottom: '20px', display: 'flex', gap: '5px' }}>
                         <input type="text" placeholder="Naam" value={newRenner.naam} onChange={e => setNewRenner({ ...newRenner, naam: e.target.value })} />
-                        <input type="text" placeholder="Ploeg" value={newRenner.ploeg} onChange={e => setNewRenner({ ...newRenner, ploeg: e.target.value })} />
-                        <input type="number" placeholder="Prijs" value={newRenner.prijs} onChange={e => setNewRenner({ ...newRenner, prijs: e.target.value })} />
                         <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/renners/add', newRenner); fetchData(); }}>Toevoegen</button>
                     </div>
 
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                         <table style={{ width: '100%', textAlign: 'left' }}>
-                            <thead><tr><th>Naam</th><th>Ploeg</th><th>Prijs</th><th>Actie</th></tr></thead>
+                            <thead><tr><th>Naam</th><th>Actie</th></tr></thead>
                             <tbody>
                                 {renners.map(r => (
                                     <tr key={r.id}>
                                         <td>{r.naam}</td>
-                                        <td>{r.ploeg}</td>
-                                        <td>€{r.prijs}</td>
                                         <td><button onClick={() => deleteItem('renners', r.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>🗑️</button></td>
                                     </tr>
                                 ))}

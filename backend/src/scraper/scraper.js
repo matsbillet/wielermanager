@@ -4,7 +4,7 @@ const { supabase } = require('../db/supabase');
 // Browser configuratie
 async function getBrowser() {
     return await puppeteer.launch({
-        headless: false, // We houden hem op false zodat je kunt meekijken
+        headless: true, // We houden hem op false zodat je kunt meekijken
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
