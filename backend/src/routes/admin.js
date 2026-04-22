@@ -78,4 +78,19 @@ router.delete('/renners/:id', async (req, res) => {
     res.json({ success: true });
 });
 
+// Verwijder ALLE renners
+router.delete('/renners-all', async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('renners')
+            .delete()
+            .neq('id', 0); // Hack om te zeggen: verwijder alles waar ID niet 0 is (dus alles)
+
+        if (error) throw error;
+        res.json({ success: true, message: "Alle renners zijn verwijderd." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

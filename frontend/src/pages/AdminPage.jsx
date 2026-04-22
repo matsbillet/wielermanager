@@ -9,7 +9,7 @@ export default function AdminPage() {
 
     // Formulieren state
     const [newRit, setNewRit] = useState({ rit_nummer: '', naam: '', datum: '' });
-    const [newRenner, setNewRenner] = useState({ naam: '', ploeg: '', prijs: '' });
+    const [newRenner, setNewRenner] = useState({ naam: '' });
 
     useEffect(() => {
         fetchData();
@@ -23,6 +23,23 @@ export default function AdminPage() {
             setRenners(resRenners.data);
         } catch (err) {
             console.error("Fout bij ophalen data:", err);
+        }
+    };
+
+    // --- DELETE ALL RENNERS ---
+    const handleDeleteAllRenners = async () => {
+        if (!window.confirm("⚠️ WEET JE DIT ZEKER? Je verwijdert alle 191 renners uit de database!")) return;
+
+        setLoading(true);
+        try {
+            await axios.delete('http://localhost:3000/api/admin/renners-all');
+            alert("De deelnemerslijst is volledig leeggemaakt.");
+            fetchData();
+        } catch (err) {
+            console.error(err);
+            alert("Fout bij het leegmaken: " + (err.response?.data?.error || "Serverfout"));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -48,14 +65,12 @@ export default function AdminPage() {
             await axios.post('http://localhost:3000/api/admin/import-startlist', { url });
             alert("Startlijst succesvol geïmporteerd!");
             fetchData();
-
         } catch (err) {
             console.error(err);
             alert("Fout: " + (err.response?.data?.error || "Server onbereikbaar"));
         } finally {
             setLoading(false);
         }
-
     };
 
     // --- DELETE ACTIONS ---
@@ -112,9 +127,25 @@ export default function AdminPage() {
             {/* TAB 2: RENNERS BEHEER */}
             {activeTab === 'renners' && (
                 <section className="panel card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                        <h3>Deelnemerslijst</h3>
-                        <button className="pill-btn" onClick={handleImportStartlist} style={{ backgroundColor: '#2196F3', color: 'white' }}>➕ Importeer Startlijst (PCS)</button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3>Deelnemerslijst ({renners.length})</h3>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                className="pill-btn"
+                                onClick={handleImportStartlist}
+                                style={{ backgroundColor: '#2196F3', color: 'white' }}
+                            >
+                                ➕ Importeer Startlijst (PCS)
+                            </button>
+                            <button
+                                className="pill-btn"
+                                onClick={handleDeleteAllRenners}
+                                style={{ backgroundColor: '#f44336', color: 'white' }}
+                                disabled={renners.length === 0}
+                            >
+                                🗑️ Alles Verwijderen
+                            </button>
+                        </div>
                     </div>
 
                     <div className="add-form" style={{ marginBottom: '20px', display: 'flex', gap: '5px' }}>
@@ -126,13 +157,11 @@ export default function AdminPage() {
 
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                         <table style={{ width: '100%', textAlign: 'left' }}>
-                            <thead><tr><th>Naam</th><th>Ploeg</th><th>Prijs</th><th>Actie</th></tr></thead>
+                            <thead><tr><th>Naam</th><th>Actie</th></tr></thead>
                             <tbody>
                                 {renners.map(r => (
                                     <tr key={r.id}>
                                         <td>{r.naam}</td>
-                                        <td>{r.ploeg}</td>
-                                        <td>€{r.prijs}</td>
                                         <td><button onClick={() => deleteItem('renners', r.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>🗑️</button></td>
                                     </tr>
                                 ))}
@@ -146,6 +175,7 @@ export default function AdminPage() {
             {activeTab === 'ritten' && (
                 <section className="panel card">
                     <h3>Etappes Beheren</h3>
+                    {/* ... (inhoud ongewijzigd) ... */}
                     <div className="add-form" style={{ marginBottom: '20px', display: 'flex', gap: '5px' }}>
                         <input type="number" placeholder="Rit nr" value={newRit.rit_nummer} onChange={e => setNewRit({ ...newRit, rit_nummer: e.target.value })} />
                         <input type="text" placeholder="Naam (vlak, berg...)" value={newRit.naam} onChange={e => setNewRit({ ...newRit, naam: e.target.value })} />
