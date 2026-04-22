@@ -2,50 +2,56 @@ const { supabase } = require('../db/supabase');
 const { getSpelerVoorBeurt } = require('../utils/draftHelper');
 
 const voerKeuzeUit = async (req, res) => {
-    const { spelerId, rennerId, huidigeBeurt } = req.body;
-
+    const { spelerId, rennerId } = req.body;
     const volgorde = ["Jente", "Piet", "Jan", "Roel"];
-    const info = getSpelerVoorBeurt(huidigeBeurt, volgorde);
-
-    // --- NIEUWE LOGICA VOOR BANKZITTERS ---
-    const aantalSpelers = volgorde.length;
-    const maxBasisPlekkenTotaal = aantalSpelers * 12; // 4 * 12 = 48
-
-    // Bepaal automatisch of het een bankzitter is op basis van het beurtnummer
-    const isBankZitter = huidigeBeurt > maxBasisPlekkenTotaal;
 
     try {
-        const { data, error } = await supabase
+        // 1. Check hoeveel rijen er al in de 'draft' tabel staan
+        const { count, error: countError } = await supabase
+            .from('draft')
+            .select('*', { count: 'exact', head: true });
+
+        if (countError) throw countError;
+
+        // 2. De beurt is altijd het huidige aantal + 1
+        const huidigeBeurt = (count || 0) + 1;
+
+        // 3. Bereken wie er aan de beurt is op basis van de slangvolgorde
+        const info = getSpelerVoorBeurt(huidigeBeurt, volgorde);
+
+        // Optioneel: Validatie of de juiste speler de request stuurt
+        // if (volgorde[spelerId] !== info.spelerNaam) { ... }
+
+        // 4. Voeg de keuze toe aan de database
+        const { data, error: insertError } = await supabase
             .from('draft')
             .insert([
                 {
                     beurt_nummer: huidigeBeurt,
                     speler_id: spelerId,
                     renner_id: rennerId,
-                    is_bank: isBankZitter
+                    is_bank: info.isBank // Gebruikt de logica: ronde > 12
                 }
             ])
             .select();
 
-        if (error) {
-            console.error('Supabase insert error:', error);
-            throw error;
-        }
+        if (insertError) throw insertError;
 
+        // 5. Stuur het resultaat terug naar de frontend
         res.json({
             status: 'Succes',
-            bericht: `Speler ${spelerId} heeft renner ${rennerId} gekozen!`,
+            bericht: `${info.spelerNaam} (Beurt ${huidigeBeurt}) heeft renner ${rennerId} gekozen!`,
+            volgendeBeurt: huidigeBeurt + 1,
             ronde: info.ronde,
-            type: isBankZitter ? 'Bankzitter' : 'Basis',
+            isBank: info.isBank,
             data
         });
+
     } catch (error) {
-        console.error('Supabase fout bij draft keuze:', error);
-        res.status(400).json({
-            error: 'Draft keuze mislukt',
-            details: error.message
-        });
+        console.error('Fout bij uitvoeren keuze:', error);
+        res.status(500).json({ error: 'Kon keuze niet verwerken', details: error.message });
     }
 };
 
 module.exports = { voerKeuzeUit };
+
