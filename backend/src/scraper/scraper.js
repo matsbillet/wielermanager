@@ -2,136 +2,94 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const supabase = require('../db/supabase');
 
-/**
- * Helper: Maakt van een naam een slug voor matching met de DB
- * Tadej Pogačar -> tadej-pogacar
- */
 const createSlug = (name) => {
     return name
         .toLowerCase()
-        .normalize("NFD")
+        .normalize("NFD") // Haalt accenten weg (Pogačar -> Pogacar)
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9 ]/g, '')
         .replace(/\s+/g, '-');
 };
-
 /**
- * Officieel puntensysteem op basis van je screenshot (Top 25)
+ * 1. Het puntensysteem uit jullie reglement
  */
 const berekenRitPunten = (positie) => {
     const p = parseInt(positie);
     const puntenSchema = [
-        100, 80, 65, 55, 45, // 1-5
-        35, 30, 25, 20, 17,  // 6-10
-        15, 14, 13, 12, 11,  // 11-15
-        10, 9, 8, 7, 6,      // 16-20
-        5, 4, 3, 2, 1        // 21-25
+        100, 80, 65, 55, 45, 35, 30, 25, 20, 17,
+        15, 14, 13, 12, 11, 10, 9, 8, 7, 6,
+        5, 4, 3, 2, 1
     ];
-
-    if (p >= 1 && p <= 25) {
-        return puntenSchema[p - 1];
-    }
-    return 0;
+    return (p >= 1 && p <= 25) ? puntenSchema[p - 1] : 0;
 };
 
 /**
- * Scrapt de data van een URL (bijv. ProCyclingStats)
+ * 2. De hoofdfunctie die alles koppelt
  */
-async function scrapeRit(url) {
-    try {
-        const { data } = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        const $ = cheerio.load(data);
-        const resultaten = [];
-
-        // LET OP: De selector 'table.results tbody tr' werkt voor de meeste wielersites.
-        // Controleer de HTML van je bron als er niets binnenkomt.
-        $('table.results tbody tr').each((index, element) => {
-            const naam = $(element).find('.rider a').text().trim();
-            // Soms staat de positie in een specifieke kolom, anders gebruiken we de index
-            const positieRaw = $(element).find('.pos').text().trim();
-            const positie = parseInt(positieRaw) || index + 1;
-
-            if (naam && positie <= 25) {
-                resultaten.push({
-                    slug: createSlug(naam),
-                    positie: positie
-                });
-            }
-        });
-
-        console.log(`🔍 Scraper vond ${resultaten.length} renners in de top 25.`);
-        return resultaten;
-    } catch (error) {
-        console.error("❌ Scrape fout:", error.message);
-        return [];
-    }
-}
-
 /**
- * Slaat de resultaten op in de database en koppelt ze aan de juiste renner_id
+ * Importeert de volledige deelnemerslijst (Startlist)
  */
-async function saveToDatabase(ritId, scraperData) {
+async function importStartlist(url) {
     try {
-        // 1. Haal alle renners op om slugs te kunnen matchen aan IDs
-        const { data: dbRenners, error: rennerError } = await supabase
-            .from('renners')
-            .select('id, slug');
+        const { data: html } = await axios.get(url);
+        const $ = cheerio.load(html);
+        const renners = [];
 
-        if (rennerError) throw rennerError;
+        // De juiste selector voor de PCS startlijst-pagina
+        $('ul.startlist-v1 > li.team').each((i, teamElement) => {
+            const ploeg = $(teamElement).find('b a').text().trim();
 
-        // 2. Transformeer scraper data naar database rijen
-        const uploadData = scraperData.map(res => {
-            const renner = dbRenners.find(r => r.slug === res.slug);
+            $(teamElement).find('ul li').each((j, riderElement) => {
+                const naam = $(riderElement).find('a').first().text().trim();
 
-            if (!renner) {
-                console.warn(`⚠️ Renner niet gevonden in database: ${res.slug}`);
-                return null;
-            }
+                if (naam) {
+                    renners.push({
+                        naam: naam,
+                        ploeg: ploeg || 'Onbekend',
+                        prijs: 5,
+                        slug: createSlug(naam) // Zorg dat deze functie BOVENAAN je bestand staat
+                    });
+                }
+            });
+        });
 
-            return {
-                rit_id: ritId,
-                renner_id: renner.id,
-                positie: res.positie,
-                rit_punten: berekenRitPunten(res.positie),
-                truien_punten: 0 // Kan later handmatig of via andere scraper gevuld worden
-            };
-        }).filter(item => item !== null);
-
-        if (uploadData.length === 0) {
-            return { success: false, message: "Geen match gevonden tussen scraper en database renners." };
+        if (renners.length === 0) {
+            throw new Error("Geen renners gevonden op deze pagina. Check de URL.");
         }
 
-        // 3. Voer de data in (upsert overschrijft bestaande data bij re-scrape)
-        const { error: insertError } = await supabase
-            .from('ritresultaten')
-            .upsert(uploadData, { onConflict: 'rit_id, renner_id' });
+        const { error } = await supabase.from('renners').upsert(renners, { onConflict: 'slug' });
+        if (error) throw error;
 
-        if (insertError) throw insertError;
-
-        // 4. Markeer rit als gescrapet in de 'ritten' tabel
-        await supabase
-            .from('ritten')
-            .update({ gescrapet: true })
-            .eq('id', ritId);
-
-        return { success: true, count: uploadData.length };
+        return { success: true, count: renners.length };
     } catch (error) {
-        console.error("❌ Database Opslag Fout:", error.message);
+        console.error("❌ Import fout:", error.message);
         return { success: false, error: error.message };
     }
 }
 
 /**
- * Hoofdfunctie die wordt aangeroepen door de Admin-route
+ * Aangepaste runScraper met URL-generator en check
  */
-async function runScraper(ritId, url) {
-    const data = await scrapeRit(url);
-    if (data.length > 0) {
-        return await saveToDatabase(ritId, data);
+async function runScraper(ritId, ritNummer) {
+    // Dynamische URL voor de Tour de France 2026
+    const url = `https://www.procyclingstats.com/race/tour-de-france/2026/stage-${ritNummer}`;
+
+    try {
+        const { data: html } = await axios.get(url);
+        const $ = cheerio.load(html);
+
+        // CHECK: Is de uitslag-tabel aanwezig?
+        const resultsTable = $('table.results tbody tr');
+        if (resultsTable.length === 0) {
+            return { success: false, message: "De uitslag voor deze etappe is nog niet beschikbaar." };
+        }
+
+        // ... hier volgt de rest van je bestaande top-25 scraping en saveToDatabase logica ...
+        // (Zorg dat je de saveToDatabase functie aanroept die we eerder hebben gemaakt)
+
+    } catch (error) {
+        return { success: false, message: "Kon de pagina niet bereiken. Is de rit al aangemaakt op PCS?" };
     }
-    return { success: false, message: "Geen data kunnen scrapen van de URL." };
 }
 
 module.exports = { runScraper };

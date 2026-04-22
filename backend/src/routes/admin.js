@@ -1,19 +1,30 @@
 // backend/src/routes/adminRoutes.js
 const express = require('express');
 const router = express.Router();
-const { runScraper } = require('../scraper/scraper');
+const scraper = require('../scraper/scraper');
 
+// 1. De automatische rit-scraper
 router.post('/scrape-rit', async (req, res) => {
-    const { ritId, url } = req.body; // De frontend stuurt deze twee mee
+    const { ritId, ritNummer } = req.body;
 
-    if (!ritId || !url) {
-        return res.status(400).json({ error: "ritId en url zijn verplicht voor de scraper." });
-    }
-
-    const resultaat = await runScraper(ritId, url);
+    // De scraper bouwt zelf de URL op basis van ritNummer
+    const resultaat = await scraper.runScraper(ritId, ritNummer);
 
     if (resultaat.success) {
-        res.json({ message: `Succes! ${resultaat.aantal} resultaten verwerkt.` });
+        res.json({ message: `Succesvol ${resultaat.count} renners verwerkt voor rit ${ritNummer}`, count: resultaat.count });
+    } else {
+        // Hier sturen we de "nog niet gereden" melding terug naar de frontend
+        res.status(400).json({ message: resultaat.message || "Fout bij scrapen" });
+    }
+});
+
+// 2. De eenmalige Startlijst Import
+router.post('/import-startlist', async (req, res) => {
+    const { url } = req.body;
+    const resultaat = await scraper.importStartlist(url);
+
+    if (resultaat.success) {
+        res.json({ message: `Startlijst geïmporteerd! ${resultaat.count} renners toegevoegd.` });
     } else {
         res.status(500).json({ error: resultaat.error });
     }
