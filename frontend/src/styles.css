@@ -131,7 +131,7 @@ a {
 
 .banner {
     padding: 1.75rem;
-    border: 1px solid rgba(243, 195, 0, .3);
+    border: 1px solid #00F5D4;
     margin-bottom: 1.5rem;
     position: relative;
     background: linear-gradient(90deg, #101520 0%, #12141c 55%, #1a1009 100%);
