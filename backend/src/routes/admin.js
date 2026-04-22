@@ -108,4 +108,38 @@ router.delete('/renners-all', async (req, res) => {
     }
 });
 
+// 1. Haal alle drafts op (liefst met renner namen erbij)
+router.get('/drafts', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('drafts')
+            .select(`
+                id,
+                user_id,
+                renner_id,
+                renners ( naam )
+            `); // Dit werkt als je een Foreign Key relatie hebt in Supabase
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. Verwijder 1 specifieke draft
+router.delete('/drafts/:id', async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('drafts')
+            .delete()
+            .eq('id', req.params.id);
+
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
