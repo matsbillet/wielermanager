@@ -10,6 +10,7 @@ app.use('/api/admin', adminRoutes);
 const draftRoutes = require('./routes/draft');
 const rennersRoutes = require('./routes/renners');
 const spelersRoutes = require('./routes/spelers');
+const transferRoutes = require('./routes/transfer');
 
 
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/draft', draftRoutes);
 app.use('/api/renners', rennersRoutes);
 app.use('/api/spelers', spelersRoutes);
+app.use('/api/transfer', transferRoutes);
 
 app.get('/', (req, res) => {
     res.json({ bericht: 'Wielermanager API werkt!' });
