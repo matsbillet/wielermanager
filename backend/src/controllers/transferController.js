@@ -1,14 +1,31 @@
 const supabase = require('../db/supabase');
 
-const voerTransferUit = async (req, res) => {
+const voerWisselUit = async (req, res) => {
     const { speler_id, wedstrijd_id, rit_nummer, renner_uit_id, renner_in_id } = req.body;
 
     try {
-        console.log(`🔄 Transfer starten voor speler ${speler_id} in rit ${rit_nummer}`);
+        console.log(`🔄 Wissel starten voor speler ${speler_id} bij start rit ${rit_nummer}`);
 
-        // STAP 1: Log de transfer in de 'transfers' tabel
-        // Dit is je "bewijsmateriaal" voor de puntentelling later
-        const { error: transferError } = await supabase
+        // STAP 1: De renner die eruit gaat op de bank zetten
+        const { error: uitError } = await supabase
+            .from('draft')
+            .update({ is_bank: true })
+            .eq('speler_id', speler_id)
+            .eq('renner_id', renner_uit_id);
+
+        if (uitError) throw uitError;
+
+        // STAP 2: De renner die erin komt van de bank halen
+        const { error: inError } = await supabase
+            .from('draft')
+            .update({ is_bank: false })
+            .eq('speler_id', speler_id)
+            .eq('renner_id', renner_in_id);
+
+        if (inError) throw inError;
+
+        // STAP 3: Log de wissel in de 'transfers' tabel als bewijs voor de puntentelling
+        const { error: logError } = await supabase
             .from('transfers')
             .insert([
                 {
@@ -20,28 +37,17 @@ const voerTransferUit = async (req, res) => {
                 }
             ]);
 
-        if (transferError) throw transferError;
-
-        // STAP 2: Update de 'draft' tabel
-        // We zoeken de oude renner in het team van de speler en vervangen deze door de nieuwe
-        const { error: draftError } = await supabase
-            .from('draft')
-            .update({ renner_id: renner_in_id })
-            .eq('speler_id', speler_id)
-            .eq('renner_id', renner_uit_id)
-            .eq('wedstrijd_id', wedstrijd_id);
-
-        if (draftError) throw draftError;
+        if (logError) throw logError;
 
         res.json({
             status: "Succes",
-            bericht: "Transfer succesvol verwerkt. De nieuwe renner ontvangt punten vanaf de volgende rit."
+            bericht: "Wissel verwerkt: Basis en bank zijn omgedraaid!"
         });
 
     } catch (error) {
-        console.error("❌ Transfer mislukt:", error.message);
+        console.error("❌ Wissel mislukt:", error.message);
         res.status(500).json({ status: "Fout", foutmelding: error.message });
     }
 };
 
-module.exports = { voerTransferUit };
+module.exports = { voerWisselUit };
