@@ -95,6 +95,9 @@ textarea {
     border: 1px solid var(--border);
     border-radius: 18px;
     box-shadow: 0 16px 30px rgba(0, 0, 0, .25);
+
+    /* 🔥 DIT TOEVOEGEN */
+    padding: 1.25rem 1.25rem 1.25rem 1.5rem;
 }
 
 .loading,
@@ -728,6 +731,6 @@ textarea {
     }
 
     .page-shell {
-        padding: .85rem;
+        padding: 1.5rem;
     }
 }
