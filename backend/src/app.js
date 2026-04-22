@@ -5,6 +5,9 @@ require('dotenv').config();
 const app = express();
 
 const adminRoutes = require('./routes/admin');
+app.get('/test', (req, res) => {
+    res.send('De server reageert!');
+});
 app.use('/api/admin', adminRoutes);
 
 const draftRoutes = require('./routes/draft');
