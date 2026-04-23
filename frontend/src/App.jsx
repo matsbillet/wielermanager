@@ -1,6 +1,7 @@
 import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import UserMenu from './components/UserMenu';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 
 import LoginPage from './pages/LoginPage';
 import ScoreboardPage from './pages/ScoreboardPage';
@@ -10,17 +11,20 @@ import AdminPage from './pages/AdminPage';
 import RacesPage from './pages/RacesPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 
+
 import logo from './img/fietsimgneon.png';
 
 function Layout() {
     const location = useLocation();
     const token = localStorage.getItem('token');
+    const gebruiker = JSON.parse(localStorage.getItem('gebruiker'));
     const isLoginPage = location.pathname === '/';
 
     return (
         <div className="app-shell">
             {!isLoginPage && token && (
                 <header className="topbar">
+
                     <div className="brand">
                         <img src={logo} alt="Wielermanager logo" className="logo" />
                         <span className="brand-text">WIELER MANAGER</span>
@@ -29,8 +33,8 @@ function Layout() {
                     <nav className="main-nav">
                         <NavLink to="/scoreboard">Scorebord</NavLink>
                         <NavLink to="/draft">Draft</NavLink>
-                        <NavLink to="/races">Races</NavLink>
-                        <NavLink to="/admin">Admin</NavLink>
+                        <NavLink to="/races">Koersen</NavLink>
+                        {gebruiker?.is_admin && <NavLink to="/admin">Admin</NavLink>}
                     </nav>
 
                     <UserMenu />
@@ -71,9 +75,9 @@ function Layout() {
                     <Route
                         path="/admin"
                         element={
-                            <ProtectedRoute>
+                            <AdminRoute>
                                 <AdminPage />
-                            </ProtectedRoute>
+                            </AdminRoute>
                         }
                     />
 

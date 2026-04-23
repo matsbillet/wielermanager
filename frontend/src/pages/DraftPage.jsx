@@ -113,8 +113,6 @@ export default function DraftPage() {
                                 <div className="rider-country">-</div>
                             </div>
 
-                            <div className="rider-team">{rider.ploeg || '-'}</div>
-
                             <div style={{ marginTop: '1rem' }}>
                                 <button
                                     className="pill-btn"
