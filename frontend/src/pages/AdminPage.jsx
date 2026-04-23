@@ -11,6 +11,9 @@ export default function AdminPage() {
     // Formulieren state
     const [newRit, setNewRit] = useState({ rit_nummer: '', naam: '', datum: '' });
     const [newRenner, setNewRenner] = useState({ naam: '' });
+    //state voor de geselecteerde wedstrijden
+    const [selectedWedstrijd, setSelectedWedstrijd] = useState(null);
+    const [wedstrijden, setWedstrijden] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -18,18 +21,36 @@ export default function AdminPage() {
 
     const fetchData = async () => {
         try {
-            const resRitten = await axios.get('http://localhost:3000/api/admin/ritten');
-            const resRenners = await axios.get('http://localhost:3000/api/admin/renners');
-            const resDrafts = await axios.get('http://localhost:3000/api/admin/drafts');
-            console.log("Ontvangen drafts in frontend:", resDrafts.data);
-            setRitten(resRitten.data);
-            setRenners(resRenners.data);
-            setDrafts(resDrafts.data);
+            // 1. Eerst het token ophalen
+            const token = localStorage.getItem('token');
+
+            // 2. Dan de config definiëren
+            const config = {
+                headers: { Authorization: `Bearer ${token}` }
+            };
+
+            // 3. Nu pas de data ophalen met de juiste config
+            const [resRitten, resRenners, resDrafts, resWedstrijden] = await Promise.all([
+                axios.get('http://localhost:3000/api/admin/ritten', config),
+                axios.get('http://localhost:3000/api/admin/renners', config),
+                axios.get('http://localhost:3000/api/admin/drafts', config),
+                axios.get('http://localhost:3000/api/admin/wedstrijden', config)
+            ]);
+
+            // 4. States updaten
+            setRitten(resRitten.data || []);
+            setRenners(resRenners.data || []);
+            setDrafts(resDrafts.data || []);
+            setWedstrijden(resWedstrijden.data || []);
+
+            console.log("Data succesvol ververst");
         } catch (err) {
             console.error("Fout bij ophalen data:", err);
+            if (err.response?.status === 401) {
+                alert("Sessie verlopen of ongeldig token. Log opnieuw in.");
+            }
         }
     };
-
     // --- DELETE DRAFT (1 per 1) ---
     const deleteDraft = async (id) => {
         if (!window.confirm("Weet je zeker dat je deze specifieke draft wilt verwijderen?")) return;
@@ -164,62 +185,27 @@ export default function AdminPage() {
 
 
 
-            {/* TAB 2: RENNERS BEHEER */}
+            {/* TAB 2: RENNERS */}
             {activeTab === 'renners' && (
-                <section className="panel card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                        <h3>Deelnemerslijst ({renners.length})</h3>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                className="pill-btn"
-                                onClick={handleImportStartlist}
-                                style={{ backgroundColor: '#2196F3', color: 'white' }}
-                            >
-                                ➕ Importeer Startlijst (PCS)
-                            </button>
-
-                            <button
-                                className="pill-btn"
-                                onClick={handleDeleteAllRenners}
-                                style={{ backgroundColor: '#f44336', color: 'white' }}
-                                disabled={renners.length === 0}
-                            >
-                                🗑️ Renners Verwijderen
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="add-form" style={{ marginBottom: '20px', display: 'flex', gap: '5px' }}>
-                        <input
-                            type="text"
-                            placeholder="Naam"
-                            value={newRenner.naam}
-                            onChange={e => setNewRenner({ ...newRenner, naam: e.target.value })}
-                        />
-                        <button onClick={async () => { await axios.post('http://localhost:3000/api/admin/renners/add', newRenner); fetchData(); }}>Toevoegen</button>
-                    </div>
-
+                <section className="card">
+                    <h3>Renners ({renners ? renners.length : 0})</h3>
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                        <table style={{ width: '100%', textAlign: 'left' }}>
+                        <table width="100%">
                             <thead>
-                                <tr>
-                                    <th>Naam</th>
-                                    <th>Ploeg</th>
-                                    <th>Actie</th>
-                                </tr>
+                                <tr><th>Naam</th><th>Ploeg</th><th>Actie</th></tr>
                             </thead>
                             <tbody>
-                                {renners.map(r => (
-                                    <tr key={r.id}>
-                                        <td>{r.naam}</td>
-                                        <td>{r.ploeg || '-'}</td>
-                                        <td>
-                                            <button onClick={() => deleteItem('renners', r.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
-                                                🗑️
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {renners && renners.length > 0 ? (
+                                    renners.map(r => (
+                                        <tr key={r.id}>
+                                            <td>{r.naam}</td>
+                                            <td>{r.ploeg || '-'}</td>
+                                            <td><button onClick={() => deleteItem('renners', r.id)}>🗑️</button></td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr><td colSpan="3">Geen renners gevonden of niet geautoriseerd.</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -270,7 +256,7 @@ export default function AdminPage() {
                             🗑️ Alles Leegmaken
                         </button>
                     </div>
-
+                    {/* TAB 4: DRAFTS BEHEER */}
                     <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
                         <table style={{ width: '100%', textAlign: 'left' }}>
                             <thead>
@@ -299,6 +285,8 @@ export default function AdminPage() {
                 </section>
             )}
 
+
+
         </div >
     );
-}
+};

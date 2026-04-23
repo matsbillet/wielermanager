@@ -6,7 +6,23 @@ const requireAdmin = require('../middleware/requireAdmin');
 
 router.use(requireAdmin);
 
+
+
 // --- 1. OVERZICHTS ROUTES (GET) ---
+
+router.get('/wedstrijden', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('wedstrijden')
+            .select('*')
+            .order('jaar', { ascending: false });
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Haal alle ritten op
 router.get('/ritten', async (req, res) => {
@@ -192,8 +208,6 @@ router.delete('/drafts/:id', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-// backend/src/routes/admin.js
 
 router.post('/scrape-rit', async (req, res) => {
     const { ritId, ritNummer } = req.body;
