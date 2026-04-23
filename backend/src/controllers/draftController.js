@@ -6,58 +6,62 @@ const voerKeuzeUit = async (req, res) => {
     const volgorde = ["Jente", "Piet", "Jan", "Roel"];
 
     try {
-        // 1. Check hoeveel rijen er al in de 'draft' tabel staan
+        // 1. Zoek de actieve sessie
+        // GEBRUIK: 'Draft_sessies' en 'is_actief' (zoals in je screenshot)
+        const { data: actieveSessie, error: sessieError } = await supabase
+            .from('Draft_sessies')
+            .select('id')
+            .eq('is_actief', true) // AANGEPAST: was 'actief'
+            .single();
+
+        if (sessieError || !actieveSessie) {
+            console.error("Sessie fout:", sessieError);
+            return res.status(404).json({ error: "Geen actieve draft-sessie gevonden." });
+        }
+
+        const sessieId = actieveSessie.id;
+
+        // 2. Tel beurten voor deze specifieke sessie
         const { count, error: countError } = await supabase
             .from('draft')
-            .select('*', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true })
+            .eq('sessie_id', sessieId);
 
         if (countError) throw countError;
 
-        // 2. De beurt is altijd het huidige aantal + 1
         const huidigeBeurt = (count || 0) + 1;
 
-        // 3. Bereken wie er aan de beurt is op basis van de slangvolgorde
+        // Slangvolgorde: Oneven rondes 1->4, Even rondes 4->1
         const info = getSpelerVoorBeurt(huidigeBeurt, volgorde);
 
-        // Optioneel: Validatie of de juiste speler de request stuurt
-        // if (volgorde[spelerId] !== info.spelerNaam) { ... }
-
         if (!info) {
-            return res.status(400).json({
-                error: 'Draft voltooid',
-                bericht: 'Iedereen heeft al 18 renners gekozen. De draft is afgelopen!'
-            });
+            return res.status(400).json({ error: 'Draft voltooid' });
         }
 
-        // 4. Voeg de keuze toe aan de database
-        const { data, error: insertError } = await supabase
-            .from('draft')
-            .insert([
-                {
-                    beurt_nummer: huidigeBeurt,
-                    speler_id: spelerId,
-                    renner_id: rennerId,
-                    ronde: info.ronde,
-                    is_bank: info.isBank // Gebruikt de logica: ronde > 12
-                }
-            ])
-            .select();
+        // 3. RPC aanroep
+        // De parameters (p_...) moeten matchen met je SQL functie
+        const { data, error: rpcError } = await supabase.rpc('voer_draft_keuze_uit', {
+            p_sessie_id: sessieId,
+            p_speler_id: spelerId,
+            p_renner_id: rennerId,
+            p_ronde: info.ronde, // De eerste 12 zijn vast, de laatste 6 zijn bank
+            p_is_bank: info.isBank
+        });
 
-        if (insertError) throw insertError;
+        if (rpcError) throw rpcError;
 
-        // 5. Stuur het resultaat terug naar de frontend
         res.json({
             status: 'Succes',
-            bericht: `${info.spelerNaam} (Beurt ${huidigeBeurt}) heeft renner ${rennerId} gekozen!`,
-            volgendeBeurt: huidigeBeurt + 1,
-            ronde: info.ronde,
-            isBank: info.isBank,
+            bericht: `${info.spelerNaam} heeft gekozen!`,
             data
         });
 
     } catch (error) {
-        console.error('Fout bij uitvoeren keuze:', error);
-        res.status(500).json({ error: 'Kon keuze niet verwerken', details: error.message });
+        console.error('VOLLEDIGE FOUT:', error);
+        res.status(500).json({
+            error: 'Draft actie mislukt',
+            details: error.message
+        });
     }
 };
 
