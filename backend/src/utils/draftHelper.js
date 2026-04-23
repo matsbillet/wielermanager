@@ -20,8 +20,11 @@ const getSpelerVoorBeurt = (beurtNummer, spelersRanked) => {
         ? indexInRonde
         : (aantalSpelers - 1 - indexInRonde);
 
+    const gekozenSpeler = spelersRanked[spelerIndex];
+
     return {
-        spelerNaam: spelersRanked[spelerIndex],
+        spelerNaam: gekozenSpeler.naam,
+        spelerId: gekozenSpeler.id,
         ronde: ronde,
         isBank: ronde > 12, // De eerste 12 zijn vast, de laatste 6 zijn bank [cite: 18]
         isDraftVoltooid: beurtNummer === maxAantalBeurten
