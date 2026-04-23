@@ -6,8 +6,6 @@ const requireAdmin = require('../middleware/requireAdmin');
 
 router.use(requireAdmin);
 
-
-
 // --- 1. OVERZICHTS ROUTES (GET) ---
 
 router.get('/wedstrijden', async (req, res) => {
@@ -18,6 +16,7 @@ router.get('/wedstrijden', async (req, res) => {
             .order('jaar', { ascending: false });
 
         if (error) throw error;
+
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -56,6 +55,38 @@ router.get('/renners', async (req, res) => {
     }
 });
 
+// haal alle drafts op
+router.get('/drafts', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('draft')
+            .select(`
+                id,
+                speler_id,
+                renner_id,
+                renners (
+                    naam
+                )
+            `);
+
+        if (error) {
+            console.error('JOIN ERROR:', error.message);
+
+            const { data: simpleData, error: simpleError } = await supabase
+                .from('draft')
+                .select('*, renners(naam)');
+
+            if (simpleError) throw simpleError;
+
+            return res.json(simpleData);
+        }
+
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- 2. SCRAPER ACTIONS (POST) ---
 
 // Startlijst importeren
@@ -74,18 +105,64 @@ router.post('/import-startlist', async (req, res) => {
     }
 });
 
-// Rit uitslag scrapen
+// Rit uitslag scrapen en verwerken
 router.post('/scrape-rit', async (req, res) => {
-    try {
-        const { ritId, ritNummer } = req.body;
-        const resultaat = await scraper.runScraper(ritId, ritNummer);
+    const { ritId, ritNummer } = req.body;
 
-        if (resultaat.success) {
-            res.json({ message: `Rit ${ritNummer} verwerkt!`, count: resultaat.count });
-        } else {
-            res.status(400).json({ message: resultaat.message || 'Fout bij scrapen' });
+    try {
+        const { data: rit, error: ritErr } = await supabase
+            .from('ritten')
+            .select('*, wedstrijden(pcs_url)')
+            .eq('id', ritId)
+            .single();
+
+        if (ritErr) throw ritErr;
+        if (!rit?.wedstrijden?.pcs_url) {
+            throw new Error('Race URL niet gevonden voor deze rit.');
         }
+
+        const uitslagData = await scraper.scrapeRitUitslag(rit.wedstrijden.pcs_url, ritNummer);
+
+        for (const item of uitslagData) {
+            const { data: renner, error: rennerErr } = await supabase
+                .from('renners')
+                .select('id')
+                .eq('slug', item.slug)
+                .single();
+
+            if (rennerErr || !renner) {
+                console.warn(`Renner met slug ${item.slug} niet gevonden.`);
+                continue;
+            }
+
+            const puntenVerdeling = [50, 44, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2];
+            const punten = puntenVerdeling[item.positie - 1] || 0;
+
+            const { error: upsertError } = await supabase
+                .from('ritresultaten')
+                .upsert({
+                    rit_id: ritId,
+                    renner_id: renner.id,
+                    positie: item.positie,
+                    punten: punten
+                });
+
+            if (upsertError) throw upsertError;
+        }
+
+        const { error: updateError } = await supabase
+            .from('ritten')
+            .update({ gescrapet: true })
+            .eq('id', ritId);
+
+        if (updateError) throw updateError;
+
+        res.json({
+            success: true,
+            message: `Rit ${ritNummer} gescrapet! ${uitslagData.length} renners verwerkt.`
+        });
     } catch (err) {
+        console.error('Fout bij /scrape-rit:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -95,6 +172,7 @@ router.post('/scrape-rit', async (req, res) => {
 router.post('/ritten/add', async (req, res) => {
     try {
         const { rit_nummer, datum, naam } = req.body;
+
         const { error } = await supabase
             .from('ritten')
             .insert([{ rit_nummer, datum, naam }]);
@@ -137,6 +215,23 @@ router.delete('/renners/:id', async (req, res) => {
     }
 });
 
+// Verwijder ALLE renners
+router.delete('/renners-all', async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('renners')
+            .delete()
+            .not('id', 'is', null);
+
+        if (error) throw error;
+
+        res.json({ success: true, message: 'Alle renners zijn succesvol verwijderd.' });
+    } catch (err) {
+        console.error('Fout bij renners-all:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Verwijder ALLE drafts
 router.delete('/drafts-all', async (req, res) => {
     try {
@@ -157,38 +252,6 @@ router.delete('/drafts-all', async (req, res) => {
     }
 });
 
-// haal alle drafts op
-router.get('/drafts', async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('draft')
-            .select(`
-                id,
-                speler_id,
-                renner_id,
-                renners (
-                    naam
-                )
-            `);
-
-        if (error) {
-            console.error('JOIN ERROR:', error.message);
-
-            const { data: simpleData, error: simpleError } = await supabase
-                .from('draft')
-                .select('*, renners(naam)');
-
-            if (simpleError) throw simpleError;
-
-            return res.json(simpleData);
-        }
-
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // Verwijder 1 specifieke draft
 router.delete('/drafts/:id', async (req, res) => {
     try {
@@ -205,55 +268,6 @@ router.delete('/drafts/:id', async (req, res) => {
         res.json({ success: true, message: 'Draft item verwijderd' });
     } catch (err) {
         console.error('Fout bij verwijderen:', err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-router.post('/scrape-rit', async (req, res) => {
-    const { ritId, ritNummer } = req.body;
-
-    try {
-        // 1. Haal rit info en de bijbehorende race URL op
-        const { data: rit, error: ritErr } = await supabase
-            .from('ritten')
-            .select('*, wedstrijden(pcs_url)')
-            .eq('id', ritId)
-            .single();
-
-        if (ritErr || !rit.wedstrijden?.pcs_url) throw new Error("Race URL niet gevonden voor deze rit.");
-
-        // 2. Start de scraper
-        const uitslagData = await scraper.scrapeRitUitslag(rit.wedstrijden.pcs_url, ritNummer);
-
-        // 3. Verwerk de resultaten
-        for (const item of uitslagData) {
-            // Zoek de interne renner ID op basis van de slug
-            const { data: renner } = await supabase
-                .from('renners')
-                .select('id')
-                .eq('slug', item.slug)
-                .single();
-
-            if (renner) {
-                // Bereken punten (bijv: 1e = 50, 2e = 40, etc. - kun je zelf aanpassen)
-                const puntenVerdeling = [50, 44, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2];
-                const punten = puntenVerdeling[item.positie - 1] || 0;
-
-                await supabase.from('ritresultaten').upsert({
-                    rit_id: ritId,
-                    renner_id: renner.id,
-                    positie: item.positie,
-                    punten: punten
-                });
-            }
-        }
-
-        // 4. Update de status van de rit
-        await supabase.from('ritten').update({ gescrapet: true }).eq('id', ritId);
-
-        res.json({ success: true, message: `Rit ${ritNummer} gescrapet! ${uitslagData.length} renners verwerkt.` });
-    } catch (err) {
-        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
