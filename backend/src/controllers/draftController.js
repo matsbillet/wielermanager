@@ -9,7 +9,7 @@ const voerKeuzeUit = async (req, res) => {
         // 1. Zoek de actieve sessie
         // GEBRUIK: 'Draft_sessies' en 'is_actief' (zoals in je screenshot)
         const { data: actieveSessie, error: sessieError } = await supabase
-            .from('Draft_sessies')
+            .from('draft_sessies')
             .select('id')
             .eq('is_actief', true) // AANGEPAST: was 'actief'
             .single();
