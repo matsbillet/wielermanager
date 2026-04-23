@@ -147,4 +147,55 @@ router.delete('/drafts/:id', async (req, res) => {
     }
 });
 
+// backend/src/routes/admin.js
+
+router.post('/scrape-rit', async (req, res) => {
+    const { ritId, ritNummer } = req.body;
+
+    try {
+        // 1. Haal rit info en de bijbehorende race URL op
+        const { data: rit, error: ritErr } = await supabase
+            .from('ritten')
+            .select('*, races(pcs_url)')
+            .eq('id', ritId)
+            .single();
+
+        if (ritErr || !rit.races?.pcs_url) throw new Error("Race URL niet gevonden voor deze rit.");
+
+        // 2. Start de scraper
+        const uitslagData = await scraper.scrapeRitUitslag(rit.races.pcs_url, ritNummer);
+
+        // 3. Verwerk de resultaten
+        for (const item of uitslagData) {
+            // Zoek de interne renner ID op basis van de slug
+            const { data: renner } = await supabase
+                .from('renners')
+                .select('id')
+                .eq('slug', item.slug)
+                .single();
+
+            if (renner) {
+                // Bereken punten (bijv: 1e = 50, 2e = 40, etc. - kun je zelf aanpassen)
+                const puntenVerdeling = [50, 44, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2];
+                const punten = puntenVerdeling[item.positie - 1] || 0;
+
+                await supabase.from('ritresultaten').upsert({
+                    rit_id: ritId,
+                    renner_id: renner.id,
+                    positie: item.positie,
+                    punten: punten
+                });
+            }
+        }
+
+        // 4. Update de status van de rit
+        await supabase.from('ritten').update({ gescrapet: true }).eq('id', ritId);
+
+        res.json({ success: true, message: `Rit ${ritNummer} gescrapet! ${uitslagData.length} renners verwerkt.` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

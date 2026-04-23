@@ -89,42 +89,41 @@ async function importStartlist(url) {
 /**
  * RIT UITSLAG SCRAPER
  */
-async function runScraper(ritId, ritNummer) {
-    const url = `https://www.procyclingstats.com/race/tour-de-france/2024/stage-${ritNummer}`;
+async function scrapeRitUitslag(racePcsUrl, ritNummer) {
+    // racePcsUrl is bijv: https://www.procyclingstats.com/race/tour-de-france/2025
+    // We voegen '/stage-' + ritNummer toe voor de uitslagpagina
+    const url = `${racePcsUrl}/stage-${ritNummer}`;
+
     const browser = await getBrowser();
     try {
         const page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setUserAgent('Mozilla/5.0 ...');
 
-        await page.goto(url, { waitUntil: 'networkidle2' });
+        console.log(`🚀 Scrapen uitslag Rit ${ritNummer} via: ${url}`);
+        await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-        const results = await page.evaluate(() => {
-            const tables = Array.from(document.querySelectorAll('table'));
-            const resultTable = tables.find(t => t.innerText.includes('Rider') && t.querySelectorAll('tr').length > 10);
-
-            if (!resultTable) return null;
-
-            const rows = Array.from(resultTable.querySelectorAll('tbody tr')).slice(0, 20);
-            return rows.map(row => {
+        const uitslag = await page.evaluate(() => {
+            const rows = Array.from(document.querySelectorAll('table.results tbody tr'));
+            // We pakken de top 25
+            return rows.slice(0, 25).map((row, index) => {
                 const a = row.querySelector('a[href^="rider/"]');
                 return {
-                    naam: a?.innerText.trim(),
-                    slug: a?.getAttribute('href')?.replace('rider/', '')
+                    pos: index + 1,
+                    slug: a?.getAttribute('href')?.split('rider/')[1],
+                    naam: a?.innerText.trim()
                 };
             }).filter(r => r.slug);
         });
 
-        if (!results) throw new Error("Uitslag tabel niet gevonden.");
-
-        await supabase.from('ritten').update({ gescrapet: true }).eq('id', ritId);
-        return { success: true, count: results.length, data: results };
-
-    } catch (error) {
-        console.error("❌ Scraper Error:", error.message);
-        return { success: false, error: error.message };
+        return uitslag;
+    } catch (err) {
+        console.error("Scrape fout:", err);
+        throw err;
     } finally {
         await browser.close();
     }
 }
 
-module.exports = { importStartlist, runScraper };
+
+
+module.exports = { importStartlist, scrapeRitUitslag };
