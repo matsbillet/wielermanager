@@ -30,6 +30,7 @@ const voerKeuzeUit = async (req, res) => {
                     beurt_nummer: huidigeBeurt,
                     speler_id: spelerId,
                     renner_id: rennerId,
+                    ronde: info.ronde,
                     is_bank: info.isBank // Gebruikt de logica: ronde > 12
                 }
             ])
