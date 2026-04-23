@@ -4,6 +4,9 @@ const api = axios.create({
     baseURL: 'http://localhost:3000/api'
 });
 
+export const loginGebruiker = (data) => api.post('/auth/login', data);
+export const registreerGebruiker = (data) => api.post('/auth/register', data);
+
 export const getScoreboard = (wedstrijdId) => api.get(`/scores/${wedstrijdId}`);
 export const getRitten = () => api.get('/ritten');
 export const getRit = (id) => api.get(`/ritten/${id}`);
