@@ -1,4 +1,6 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import UserMenu from './components/UserMenu';
+
 import LoginPage from './pages/LoginPage';
 import ScoreboardPage from './pages/ScoreboardPage';
 import DraftPage from './pages/DraftPage';
@@ -12,12 +14,15 @@ function Layout() {
         <div className="app-shell">
             <header className="topbar">
                 <div className="brand">🚴 Wielermanager</div>
+
                 <nav className="main-nav">
                     <NavLink to="/scoreboard">Scorebord</NavLink>
                     <NavLink to="/draft">Draft</NavLink>
                     <NavLink to="/races">Races</NavLink>
                     <NavLink to="/admin">Admin</NavLink>
                 </nav>
+
+                <UserMenu />
             </header>
 
             <main className="page-shell">

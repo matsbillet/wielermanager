@@ -614,6 +614,32 @@ textarea {
     padding: 0;
 }
 
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-name {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.logout-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.8rem;
+    border-radius: 10px;
+    color: var(--text);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.logout-btn:hover {
+    border-color: var(--yellow);
+    color: var(--yellow);
+}
+
 /* Tablet */
 @media (max-width: 1100px) {
 
