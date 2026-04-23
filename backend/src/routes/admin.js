@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const scraper = require('../scraper/scraper');
 const { supabase } = require('../db/supabase');
+const requireAdmin = require('../middleware/requireAdmin');
+
+router.use(requireAdmin);
 
 // --- 1. OVERZICHTS ROUTES (GET) ---
 
@@ -12,7 +15,9 @@ router.get('/ritten', async (req, res) => {
             .from('ritten')
             .select('*')
             .order('rit_nummer', { ascending: true });
+
         if (error) throw error;
+
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -26,7 +31,9 @@ router.get('/renners', async (req, res) => {
             .from('renners')
             .select('*')
             .order('naam', { ascending: true });
+
         if (error) throw error;
+
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -37,45 +44,81 @@ router.get('/renners', async (req, res) => {
 
 // Startlijst importeren
 router.post('/import-startlist', async (req, res) => {
-    const { url } = req.body;
-    const resultaat = await scraper.importStartlist(url);
-    if (resultaat.success) {
-        res.json({ message: `Succes! ${resultaat.count} renners toegevoegd.` });
-    } else {
-        res.status(500).json({ error: resultaat.error });
+    try {
+        const { url } = req.body;
+        const resultaat = await scraper.importStartlist(url);
+
+        if (resultaat.success) {
+            res.json({ message: `Succes! ${resultaat.count} renners toegevoegd.` });
+        } else {
+            res.status(500).json({ error: resultaat.error });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
 // Rit uitslag scrapen
 router.post('/scrape-rit', async (req, res) => {
-    const { ritId, ritNummer } = req.body;
-    const resultaat = await scraper.runScraper(ritId, ritNummer);
-    if (resultaat.success) {
-        res.json({ message: `Rit ${ritNummer} verwerkt!`, count: resultaat.count });
-    } else {
-        res.status(400).json({ message: resultaat.message || "Fout bij scrapen" });
+    try {
+        const { ritId, ritNummer } = req.body;
+        const resultaat = await scraper.runScraper(ritId, ritNummer);
+
+        if (resultaat.success) {
+            res.json({ message: `Rit ${ritNummer} verwerkt!`, count: resultaat.count });
+        } else {
+            res.status(400).json({ message: resultaat.message || 'Fout bij scrapen' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
 // --- 3. BEHEER (ADD/DELETE) ---
 
 router.post('/ritten/add', async (req, res) => {
-    const { rit_nummer, datum, naam } = req.body;
-    const { data, error } = await supabase.from('ritten').insert([{ rit_nummer, datum, naam }]);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
+    try {
+        const { rit_nummer, datum, naam } = req.body;
+        const { error } = await supabase
+            .from('ritten')
+            .insert([{ rit_nummer, datum, naam }]);
+
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 router.delete('/ritten/:id', async (req, res) => {
-    const { error } = await supabase.from('ritten').delete().eq('id', req.params.id);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
+    try {
+        const { error } = await supabase
+            .from('ritten')
+            .delete()
+            .eq('id', req.params.id);
+
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 router.delete('/renners/:id', async (req, res) => {
-    const { error } = await supabase.from('renners').delete().eq('id', req.params.id);
-    if (error) return res.status(500).json({ error: error.message });
-    res.json({ success: true });
+    try {
+        const { error } = await supabase
+            .from('renners')
+            .delete()
+            .eq('id', req.params.id);
+
+        if (error) throw error;
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Verwijder ALLE drafts
@@ -83,24 +126,22 @@ router.delete('/drafts-all', async (req, res) => {
     try {
         console.log("🚀 Poging om de gehele draft-tabel leeg te maken...");
 
-        // We gebruiken .gt('id', 0) voor integers OF we filteren op een kolom die altijd bestaat
-        // De veiligste manier voor Supabase om ALLES te verwijderen:
         const { error } = await supabase
             .from('draft')
             .delete()
-            .not('id', 'is', null); // "Verwijder alles waar ID niet leeg is" (dus alles)
+            .not('id', 'is', null);
 
         if (error) throw error;
 
         console.log("✅ Tabel 'draft' is nu leeg.");
-        res.json({ success: true, message: "Alle drafts zijn succesvol gewist." });
+        res.json({ success: true, message: 'Alle drafts zijn succesvol gewist.' });
     } catch (err) {
-        console.error("❌ Fout bij drafts-all:", err.message);
+        console.error('❌ Fout bij drafts-all:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-//haal alle drafts op
+// haal alle drafts op
 router.get('/drafts', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -115,9 +156,14 @@ router.get('/drafts', async (req, res) => {
             `);
 
         if (error) {
-            // Als dit logt, staat de relatie in Supabase NIET goed
-            console.error("JOIN ERROR:", error.message);
-            const { data: simpleData } = await supabase.from('draft').select('*, renners(naam)');
+            console.error('JOIN ERROR:', error.message);
+
+            const { data: simpleData, error: simpleError } = await supabase
+                .from('draft')
+                .select('*, renners(naam)');
+
+            if (simpleError) throw simpleError;
+
             return res.json(simpleData);
         }
 
@@ -127,22 +173,22 @@ router.get('/drafts', async (req, res) => {
     }
 });
 
-// 2. Verwijder 1 specifieke draft
+// Verwijder 1 specifieke draft
 router.delete('/drafts/:id', async (req, res) => {
     try {
         const { id } = req.params;
         console.log(`Poging tot verwijderen van draft item ID: ${id}`);
 
         const { error } = await supabase
-            .from('draft') // Zorg dat dit 'draft' is
+            .from('draft')
             .delete()
             .eq('id', id);
 
         if (error) throw error;
 
-        res.json({ success: true, message: "Draft item verwijderd" });
+        res.json({ success: true, message: 'Draft item verwijderd' });
     } catch (err) {
-        console.error("Fout bij verwijderen:", err.message);
+        console.error('Fout bij verwijderen:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
