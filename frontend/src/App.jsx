@@ -1,5 +1,6 @@
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import UserMenu from './components/UserMenu';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import LoginPage from './pages/LoginPage';
 import ScoreboardPage from './pages/ScoreboardPage';
@@ -10,30 +11,84 @@ import RacesPage from './pages/RacesPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 
 function Layout() {
+    const location = useLocation();
+    const token = localStorage.getItem('token');
+    const isLoginPage = location.pathname === '/';
+
     return (
         <div className="app-shell">
-            <header className="topbar">
-                <div className="brand">🚴 Wielermanager</div>
+            {!isLoginPage && token && (
+                <header className="topbar">
+                    <div className="brand">🚴 Wielermanager</div>
 
-                <nav className="main-nav">
-                    <NavLink to="/scoreboard">Scorebord</NavLink>
-                    <NavLink to="/draft">Draft</NavLink>
-                    <NavLink to="/races">Races</NavLink>
-                    <NavLink to="/admin">Admin</NavLink>
-                </nav>
+                    <nav className="main-nav">
+                        <NavLink to="/scoreboard">Scorebord</NavLink>
+                        <NavLink to="/draft">Draft</NavLink>
+                        <NavLink to="/races">Races</NavLink>
+                        <NavLink to="/admin">Admin</NavLink>
+                    </nav>
 
-                <UserMenu />
-            </header>
+                    <UserMenu />
+                </header>
+            )}
 
             <main className="page-shell">
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
-                    <Route path="/scoreboard" element={<ScoreboardPage />} />
-                    <Route path="/draft" element={<DraftPage />} />
-                    <Route path="/rit/:id" element={<RitPage />} />
-                    <Route path="/admin" element={<AdminPage />} />
-                    <Route path="/races" element={<RacesPage />} />
-                    <Route path="/races/:slug" element={<RaceDetailPage />} />
+
+                    <Route
+                        path="/scoreboard"
+                        element={
+                            <ProtectedRoute>
+                                <ScoreboardPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/draft"
+                        element={
+                            <ProtectedRoute>
+                                <DraftPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/rit/:id"
+                        element={
+                            <ProtectedRoute>
+                                <RitPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/admin"
+                        element={
+                            <ProtectedRoute>
+                                <AdminPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/races"
+                        element={
+                            <ProtectedRoute>
+                                <RacesPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/races/:slug"
+                        element={
+                            <ProtectedRoute>
+                                <RaceDetailPage />
+                            </ProtectedRoute>
+                        }
+                    />
                 </Routes>
             </main>
         </div>
