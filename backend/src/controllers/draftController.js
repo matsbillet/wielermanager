@@ -74,5 +74,41 @@ const voerKeuzeUit = async (req, res) => {
     }
 };
 
-module.exports = { voerKeuzeUit };
+const getTeamsPerSessie = async (req, res) => {
+    const { sessieId } = req.params; // We halen de ID uit de URL, bijv. /api/draft/teams/1
+
+    try {
+        const { data, error } = await supabase
+            .from('draft')
+            .select(`
+                id,
+                ronde,
+                is_bank,
+                beurt_nummer,
+                renners (id, naam), 
+                spelers (id, naam)
+            `)
+            .eq('sessie_id', sessieId)
+            .order('beurt_nummer', { ascending: true });
+
+        if (error) throw error;
+
+        //Optioneel: Groepeer de data alvast in de backend per speler
+        const teams = data.reduce((acc, keuze) => {
+            const spelerNaam = keuze.spelers.naam;
+            if (!acc[spelerNaam]) acc[spelerNaam] = [];
+            acc[spelerNaam].push({
+                renner: keuze.renners.naam,
+                ronde: keuze.ronde,
+                isBank: keuze.is_bank
+            });
+            return acc;
+        }, {});
+
+        res.json(teams);
+    } catch (error) {
+        res.status(500).json({ error: 'Kon teams niet ophalen', details: error.message });
+    }
+};
+module.exports = { voerKeuzeUit, getTeamsPerSessie };
 
