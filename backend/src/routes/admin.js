@@ -81,28 +81,35 @@ router.delete('/renners/:id', async (req, res) => {
 // Verwijder ALLE drafts
 router.delete('/drafts-all', async (req, res) => {
     try {
+        console.log("🚀 Poging om de gehele draft-tabel leeg te maken...");
+
+        // We gebruiken .gt('id', 0) voor integers OF we filteren op een kolom die altijd bestaat
+        // De veiligste manier voor Supabase om ALLES te verwijderen:
         const { error } = await supabase
-            .from('drafts') // Controleer of je tabel exact 'drafts' heet
+            .from('draft')
             .delete()
-            .neq('id', 0);
+            .not('id', 'is', null); // "Verwijder alles waar ID niet leeg is" (dus alles)
 
         if (error) throw error;
-        res.json({ success: true, message: "Alle drafts zijn verwijderd." });
+
+        console.log("✅ Tabel 'draft' is nu leeg.");
+        res.json({ success: true, message: "Alle drafts zijn succesvol gewist." });
     } catch (err) {
+        console.error("❌ Fout bij drafts-all:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Verwijder ALLE renners
-router.delete('/renners-all', async (req, res) => {
+// Verwijder ALLE drafts (De oranje knop)
+router.delete('/drafts-all', async (req, res) => {
     try {
         const { error } = await supabase
-            .from('renners')
+            .from('draft')
             .delete()
-            .neq('id', 0); // Hack om te zeggen: verwijder alles waar ID niet 0 is (dus alles)
+            .neq('id', 0);
 
         if (error) throw error;
-        res.json({ success: true, message: "Alle renners zijn verwijderd." });
+        res.json({ success: true, message: "Alle drafts gewist" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -110,41 +117,47 @@ router.delete('/renners-all', async (req, res) => {
 
 //haal alle drafts op
 router.get('/drafts', async (req, res) => {
-    console.log("!!! De route /api/admin/drafts is aangeroepen !!!");
     try {
-        // We proberen het eerst HEEL simpel. Geen joins, geen filters.
         const { data, error } = await supabase
             .from('draft')
-            .select('*');
+            .select(`
+                id,
+                speler_id,
+                renner_id,
+                renners (
+                    naam
+                )
+            `);
 
         if (error) {
-            console.error("Supabase gaf een foutmelding:", error);
-            return res.status(400).json({ error: error.message, detail: error.details });
+            // Als dit logt, staat de relatie in Supabase NIET goed
+            console.error("JOIN ERROR:", error.message);
+            const { data: simpleData } = await supabase.from('draft').select('*, renners(naam)');
+            return res.json(simpleData);
         }
 
-        console.log(`Succes! ${data.length} drafts gevonden.`);
         res.json(data);
     } catch (err) {
-        console.error("CRITISCHE BACKEND FOUT:", err);
-        res.status(500).json({
-            error: "Interne server fout",
-            message: err.message,
-            stack: err.stack
-        });
+        res.status(500).json({ error: err.message });
     }
 });
 
 // 2. Verwijder 1 specifieke draft
 router.delete('/drafts/:id', async (req, res) => {
     try {
+        const { id } = req.params;
+        console.log(`Poging tot verwijderen van draft item ID: ${id}`);
+
         const { error } = await supabase
-            .from('drafts')
+            .from('draft') // Zorg dat dit 'draft' is
             .delete()
-            .eq('id', req.params.id);
+            .eq('id', id);
 
         if (error) throw error;
-        res.json({ success: true });
+
+        res.json({ success: true, message: "Draft item verwijderd" });
     } catch (err) {
+        console.error("Fout bij verwijderen:", err.message);
         res.status(500).json({ error: err.message });
     }
 });

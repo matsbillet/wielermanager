@@ -36,8 +36,12 @@ export default function AdminPage() {
         try {
             await axios.delete(`http://localhost:3000/api/admin/drafts/${id}`);
             fetchData();
+            alert("Verwijderd");
         } catch (err) {
-            alert("Verwijderen mislukt.");
+            console.error("Verwijder fout:", err);
+            alert("Kon niet verwijderen: " + (err.response?.data?.error || "Server fout"));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -290,7 +294,7 @@ export default function AdminPage() {
                                     <tr key={d.id} style={{ borderBottom: '1px solid #eee' }}>
                                         <td>{d.user_id || d.username || 'Onbekend'}</td>
                                         {/* We tonen de naam van de renner als die via een join is meegekomen */}
-                                        <td>{d.renners?.naam || `ID: ${d.renner_id}`}</td>
+                                        <td>{d.renners?.naam || `ID: ${d.renner_id}(naam niet gevonden)`}</td>
                                         <td>
                                             <button onClick={() => deleteDraft(d.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>🗑️</button>
                                         </td>
