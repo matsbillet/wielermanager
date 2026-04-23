@@ -7,10 +7,9 @@ export default function LoginPage() {
 
     const [isRegister, setIsRegister] = useState(false);
     const [naam, setNaam] = useState('');
-    const [email, setEmail] = useState('');
     const [wachtwoord, setWachtwoord] = useState('');
-    const [loading, setLoading] = useState(false);
     const [melding, setMelding] = useState('');
+    const [loading, setLoading] = useState(false);
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -18,31 +17,27 @@ export default function LoginPage() {
         setMelding('');
 
         try {
-            let response;
+            let res;
 
             if (isRegister) {
-                response = await registreerGebruiker({
+                res = await registreerGebruiker({
                     naam,
-                    email,
                     wachtwoord
                 });
             } else {
-                response = await loginGebruiker({
+                res = await loginGebruiker({
                     naam,
                     wachtwoord
                 });
             }
 
-            localStorage.setItem('token', response.data.token);
-            localStorage.setItem('gebruiker', JSON.stringify(response.data.gebruiker));
+            localStorage.setItem('token', res.data.token);
+            localStorage.setItem('gebruiker', JSON.stringify(res.data.gebruiker));
 
             navigate('/scoreboard');
+
         } catch (err) {
-            setMelding(
-                err.response?.data?.error ||
-                err.response?.data?.details ||
-                'Er ging iets mis.'
-            );
+            setMelding(err.response?.data?.error || 'Fout bij login');
         } finally {
             setLoading(false);
         }
@@ -51,37 +46,20 @@ export default function LoginPage() {
     return (
         <div className="auth-page">
             <div className="auth-card card">
-                <h1>{isRegister ? 'Account aanmaken' : 'Inloggen'}</h1>
-                <p className="auth-subtitle">
-                    {isRegister
-                        ? 'Maak een account aan om Wielermanager te gebruiken.'
-                        : 'Log in om naar je scoreboard te gaan.'}
-                </p>
+                <h1>{isRegister ? 'Account maken' : 'Inloggen'}</h1>
 
                 {melding && <div className="auth-error">{melding}</div>}
 
                 <form onSubmit={handleSubmit} className="auth-form">
+
                     <label>
-                        Naam
+                        Gebruikersnaam
                         <input
-                            type="text"
                             value={naam}
                             onChange={(e) => setNaam(e.target.value)}
                             required
                         />
                     </label>
-
-                    {isRegister && (
-                        <label>
-                            E-mail
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                            />
-                        </label>
-                    )}
 
                     <label>
                         Wachtwoord
@@ -93,13 +71,10 @@ export default function LoginPage() {
                         />
                     </label>
 
-                    <button className="pill-btn" type="submit" disabled={loading}>
-                        {loading
-                            ? 'Bezig...'
-                            : isRegister
-                                ? 'Account aanmaken'
-                                : 'Inloggen'}
+                    <button className="pill-btn" disabled={loading}>
+                        {loading ? 'Bezig...' : isRegister ? 'Registreren' : 'Inloggen'}
                     </button>
+
                 </form>
 
                 <button
@@ -108,11 +83,10 @@ export default function LoginPage() {
                         setIsRegister(!isRegister);
                         setMelding('');
                     }}
-                    type="button"
                 >
                     {isRegister
                         ? 'Heb je al een account? Log in'
-                        : 'Nog geen account? Maak er één aan'}
+                        : 'Nog geen account? Registreer'}
                 </button>
             </div>
         </div>

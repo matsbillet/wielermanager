@@ -5,40 +5,28 @@ const { supabase } = require('../db/supabase');
 
 const router = express.Router();
 
+// REGISTER
 router.post('/register', async (req, res) => {
     try {
-        const { naam, email, wachtwoord } = req.body;
+        const { naam, wachtwoord } = req.body;
 
-        if (!naam || !email || !wachtwoord) {
-            return res.status(400).json({ error: 'Naam, email en wachtwoord zijn verplicht.' });
+        if (!naam || !wachtwoord) {
+            return res.status(400).json({ error: 'Naam en wachtwoord zijn verplicht.' });
         }
 
-        if (wachtwoord.length < 6) {
-            return res.status(400).json({ error: 'Wachtwoord moet minstens 6 tekens hebben.' });
+        if (wachtwoord.length < 4) {
+            return res.status(400).json({ error: 'Wachtwoord moet minstens 4 tekens hebben.' });
         }
 
-        const { data: bestaandeNaam, error: naamError } = await supabase
+        // check unieke naam
+        const { data: bestaandeGebruiker } = await supabase
             .from('gebruikers')
             .select('id')
             .eq('naam', naam)
             .maybeSingle();
 
-        if (naamError) throw naamError;
-
-        if (bestaandeNaam) {
+        if (bestaandeGebruiker) {
             return res.status(400).json({ error: 'Deze naam is al in gebruik.' });
-        }
-
-        const { data: bestaandeEmail, error: emailError } = await supabase
-            .from('gebruikers')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle();
-
-        if (emailError) throw emailError;
-
-        if (bestaandeEmail) {
-            return res.status(400).json({ error: 'Dit e-mailadres is al in gebruik.' });
         }
 
         const wachtwoord_hash = await bcrypt.hash(wachtwoord, 10);
@@ -48,35 +36,33 @@ router.post('/register', async (req, res) => {
             .insert([
                 {
                     naam,
-                    email,
                     wachtwoord_hash
                 }
             ])
-            .select('id, naam, email')
+            .select('id, naam')
             .single();
 
         if (error) throw error;
 
         const token = jwt.sign(
-            { id: data.id, naam: data.naam, email: data.email },
+            { id: data.id, naam: data.naam },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
         res.status(201).json({
-            bericht: 'Account aangemaakt.',
+            bericht: 'Account aangemaakt',
             token,
             gebruiker: data
         });
+
     } catch (error) {
-        console.error('Fout bij registreren:', error);
-        res.status(500).json({
-            error: 'Registreren mislukt.',
-            details: error.message
-        });
+        console.error('Register error:', error);
+        res.status(500).json({ error: 'Registreren mislukt' });
     }
 });
 
+// LOGIN
 router.post('/login', async (req, res) => {
     try {
         const { naam, wachtwoord } = req.body;
@@ -85,45 +71,39 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Naam en wachtwoord zijn verplicht.' });
         }
 
-        const { data: gebruiker, error } = await supabase
+        const { data: gebruiker } = await supabase
             .from('gebruikers')
-            .select('id, naam, email, wachtwoord_hash')
+            .select('*')
             .eq('naam', naam)
             .maybeSingle();
 
-        if (error) throw error;
-
         if (!gebruiker) {
-            return res.status(401).json({ error: 'Ongeldige login.' });
+            return res.status(401).json({ error: 'Ongeldige login' });
         }
 
         const geldig = await bcrypt.compare(wachtwoord, gebruiker.wachtwoord_hash);
 
         if (!geldig) {
-            return res.status(401).json({ error: 'Ongeldige login.' });
+            return res.status(401).json({ error: 'Ongeldige login' });
         }
 
         const token = jwt.sign(
-            { id: gebruiker.id, naam: gebruiker.naam, email: gebruiker.email },
+            { id: gebruiker.id, naam: gebruiker.naam },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
 
         res.json({
-            bericht: 'Login geslaagd.',
             token,
             gebruiker: {
                 id: gebruiker.id,
-                naam: gebruiker.naam,
-                email: gebruiker.email
+                naam: gebruiker.naam
             }
         });
+
     } catch (error) {
-        console.error('Fout bij login:', error);
-        res.status(500).json({
-            error: 'Login mislukt.',
-            details: error.message
-        });
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login mislukt' });
     }
 });
 
