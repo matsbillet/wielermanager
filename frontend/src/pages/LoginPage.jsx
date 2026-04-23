@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginGebruiker, registreerGebruiker } from '../services/api';
+
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -10,6 +12,15 @@ export default function LoginPage() {
     const [wachtwoord, setWachtwoord] = useState('');
     const [melding, setMelding] = useState('');
     const [loading, setLoading] = useState(false);
+
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+
+        if (token) {
+            navigate('/scoreboard');
+        }
+    }, []);
 
     async function handleSubmit(e) {
         e.preventDefault();
