@@ -1,8 +1,6 @@
-import { useState } from 'react';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginGebruiker, registreerGebruiker } from '../services/api';
-
 
 export default function LoginPage() {
     const navigate = useNavigate();
@@ -13,14 +11,13 @@ export default function LoginPage() {
     const [melding, setMelding] = useState('');
     const [loading, setLoading] = useState(false);
 
-
     useEffect(() => {
         const token = localStorage.getItem('token');
 
         if (token) {
             navigate('/scoreboard');
         }
-    }, []);
+    }, [navigate]);
 
     async function handleSubmit(e) {
         e.preventDefault();
@@ -46,7 +43,6 @@ export default function LoginPage() {
             localStorage.setItem('gebruiker', JSON.stringify(res.data.gebruiker));
 
             navigate('/scoreboard');
-
         } catch (err) {
             setMelding(err.response?.data?.error || 'Fout bij login');
         } finally {
@@ -62,7 +58,6 @@ export default function LoginPage() {
                 {melding && <div className="auth-error">{melding}</div>}
 
                 <form onSubmit={handleSubmit} className="auth-form">
-
                     <label>
                         Gebruikersnaam
                         <input
@@ -85,7 +80,6 @@ export default function LoginPage() {
                     <button className="pill-btn" disabled={loading}>
                         {loading ? 'Bezig...' : isRegister ? 'Registreren' : 'Inloggen'}
                     </button>
-
                 </form>
 
                 <button
