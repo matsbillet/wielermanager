@@ -142,6 +142,8 @@ export default function AdminPage() {
                 </section>
             )}
 
+
+
             {/* TAB 2: RENNERS BEHEER */}
             {activeTab === 'renners' && (
                 <section className="panel card">
