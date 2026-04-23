@@ -12,7 +12,7 @@ import RacesPage from './pages/RacesPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 
 
-import logo from './img/Wieler_Manager2.png';
+import logo from './img/fietsimgneon.png';
 
 function Layout() {
     const location = useLocation();
@@ -24,7 +24,11 @@ function Layout() {
         <div className="app-shell">
             {!isLoginPage && token && (
                 <header className="topbar">
-                    <div className="brand">🚴 Wielermanager</div>
+
+                    <div className="brand">
+                        <img src={logo} alt="Wielermanager logo" className="logo" />
+                        <span className="brand-text">WIELER MANAGER</span>
+                    </div>
 
                     <nav className="main-nav">
                         <NavLink to="/scoreboard">Scorebord</NavLink>

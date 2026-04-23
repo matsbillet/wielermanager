@@ -65,13 +65,32 @@ textarea {
     flex-shrink: 0;
 }
 
+.brand-text {
+    color: #00F5D4;
+
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+
+    letter-spacing: 0.45rem;
+    line-height: 1.2;
+
+    /* 🔥 ZACHTERE glow (zoals je fiets) */
+    text-shadow:
+        0 0 6px rgba(0, 245, 212, 0.5),
+        0 0 12px rgba(0, 245, 212, 0.25);
+
+    /* ❗ belangrijk: geen harde witte glow */
+}
+
 .logo {
-    height: 80px;
+    height: 90px;
     width: auto;
     object-fit: contain;
     display: block;
     flex-shrink: 0;
 }
+
 
 .main-nav {
     display: flex;
