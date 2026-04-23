@@ -22,6 +22,13 @@ const voerKeuzeUit = async (req, res) => {
         // Optioneel: Validatie of de juiste speler de request stuurt
         // if (volgorde[spelerId] !== info.spelerNaam) { ... }
 
+        if (!info) {
+            return res.status(400).json({
+                error: 'Draft voltooid',
+                bericht: 'Iedereen heeft al 18 renners gekozen. De draft is afgelopen!'
+            });
+        }
+
         // 4. Voeg de keuze toe aan de database
         const { data, error: insertError } = await supabase
             .from('draft')
@@ -30,6 +37,7 @@ const voerKeuzeUit = async (req, res) => {
                     beurt_nummer: huidigeBeurt,
                     speler_id: spelerId,
                     renner_id: rennerId,
+                    ronde: info.ronde,
                     is_bank: info.isBank // Gebruikt de logica: ronde > 12
                 }
             ])
