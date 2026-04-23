@@ -10,7 +10,7 @@ import AdminPage from './pages/AdminPage';
 import RacesPage from './pages/RacesPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 
-import logo from './img/Wieler_Manager.png';
+import logo from './img/Wieler_Manager2.png';
 
 function Layout() {
     const location = useLocation();
