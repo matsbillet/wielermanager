@@ -5,6 +5,7 @@ export default function AdminPage() {
     const [activeTab, setActiveTab] = useState('scraper');
     const [ritten, setRitten] = useState([]);
     const [renners, setRenners] = useState([]);
+    const [drafts, setDrafts] = useState([]);
     const [loading, setLoading] = useState(false);
 
     // Formulieren state
@@ -23,6 +24,17 @@ export default function AdminPage() {
             setRenners(resRenners.data);
         } catch (err) {
             console.error("Fout bij ophalen data:", err);
+        }
+    };
+
+    // --- DELETE DRAFT (1 per 1) ---
+    const deleteDraft = async (id) => {
+        if (!window.confirm("Weet je zeker dat je deze specifieke draft wilt verwijderen?")) return;
+        try {
+            await axios.delete(`http://localhost:3000/api/admin/drafts/${id}`);
+            fetchData();
+        } catch (err) {
+            alert("Verwijderen mislukt.");
         }
     };
 
@@ -110,6 +122,7 @@ export default function AdminPage() {
                     <button className={`pill-btn ${activeTab === 'scraper' ? 'active' : ''}`} onClick={() => setActiveTab('scraper')}>🚀 Scraper</button>
                     <button className={`pill-btn ${activeTab === 'renners' ? 'active' : ''}`} onClick={() => setActiveTab('renners')}>🚴 Renners</button>
                     <button className={`pill-btn ${activeTab === 'ritten' ? 'active' : ''}`} onClick={() => setActiveTab('ritten')}>📅 Ritten</button>
+                    <button className={`pill-btn ${activeTab === 'drafts' ? 'active' : ''}`} onClick={() => setActiveTab('drafts')}>📝 Drafts</button>
                 </div>
             </div>
 
@@ -141,6 +154,8 @@ export default function AdminPage() {
                     </div>
                 </section>
             )}
+
+
 
             {/* TAB 2: RENNERS BEHEER */}
             {activeTab === 'renners' && (
@@ -239,6 +254,53 @@ export default function AdminPage() {
                     </table>
                 </section>
             )}
-        </div>
+
+            {/* TAB 4: DRAFTS BEHEER */}
+            {activeTab === 'drafts' && (
+                <section className="panel card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3>Actieve Drafts ({drafts.length})</h3>
+                        <button
+                            className="pill-btn"
+                            onClick={() => {
+                                if (window.confirm("Alle drafts verwijderen?")) {
+                                    axios.delete('http://localhost:3000/api/admin/drafts-all').then(() => fetchData());
+                                }
+                            }}
+                            style={{ backgroundColor: '#f44336', color: 'white' }}
+                        >
+                            🗑️ Alles Leegmaken
+                        </button>
+                    </div>
+
+                    <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                        <table style={{ width: '100%', textAlign: 'left' }}>
+                            <thead>
+                                <tr>
+                                    <th>Gebruiker</th>
+                                    <th>Renner</th>
+                                    <th>Actie</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {drafts.length > 0 ? drafts.map(d => (
+                                    <tr key={d.id} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td>{d.user_id || d.username || 'Onbekend'}</td>
+                                        {/* We tonen de naam van de renner als die via een join is meegekomen */}
+                                        <td>{d.renners?.naam || d.renner_id}</td>
+                                        <td>
+                                            <button onClick={() => deleteDraft(d.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>🗑️</button>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan="3">Geen drafts gevonden.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
+
+        </div >
     );
 }
