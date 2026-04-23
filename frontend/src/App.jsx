@@ -10,6 +10,8 @@ import AdminPage from './pages/AdminPage';
 import RacesPage from './pages/RacesPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 
+import logo from './img/Wieler_Manager.png';
+
 function Layout() {
     const location = useLocation();
     const token = localStorage.getItem('token');
@@ -19,7 +21,10 @@ function Layout() {
         <div className="app-shell">
             {!isLoginPage && token && (
                 <header className="topbar">
-                    <div className="brand">🚴 Wielermanager</div>
+                    <div className="brand">
+                        <img src={logo} alt="Wielermanager logo" className="logo" />
+                        <span>Wielermanager</span>
+                    </div>
 
                     <nav className="main-nav">
                         <NavLink to="/scoreboard">Scorebord</NavLink>
