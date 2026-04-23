@@ -100,21 +100,6 @@ router.delete('/drafts-all', async (req, res) => {
     }
 });
 
-// Verwijder ALLE drafts (De oranje knop)
-router.delete('/drafts-all', async (req, res) => {
-    try {
-        const { error } = await supabase
-            .from('draft')
-            .delete()
-            .neq('id', 0);
-
-        if (error) throw error;
-        res.json({ success: true, message: "Alle drafts gewist" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 //haal alle drafts op
 router.get('/drafts', async (req, res) => {
     try {

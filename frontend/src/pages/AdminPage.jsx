@@ -36,7 +36,6 @@ export default function AdminPage() {
         try {
             await axios.delete(`http://localhost:3000/api/admin/drafts/${id}`);
             fetchData();
-            alert("Verwijderd");
         } catch (err) {
             console.error("Verwijder fout:", err);
             alert("Kon niet verwijderen: " + (err.response?.data?.error || "Server fout"));
@@ -47,7 +46,7 @@ export default function AdminPage() {
 
     // --- DELETE ALL RENNERS ---
     const handleDeleteAllRenners = async () => {
-        if (!window.confirm("⚠️ WEET JE DIT ZEKER? Je verwijdert alle 191 renners uit de database!")) return;
+        if (!window.confirm("⚠️ WEET JE DIT ZEKER? Je verwijdert alle renners uit de database!")) return;
 
         setLoading(true);
         try {
@@ -62,6 +61,7 @@ export default function AdminPage() {
         }
     };
 
+    //verwijder alle drafts
     const handleDeleteAllDrafts = async () => {
         if (!window.confirm("⚠️ WEET JE DIT ZEKER? Dit verwijdert alle gekozen teams van alle gebruikers!")) return;
 
@@ -176,15 +176,6 @@ export default function AdminPage() {
                                 style={{ backgroundColor: '#2196F3', color: 'white' }}
                             >
                                 ➕ Importeer Startlijst (PCS)
-                            </button>
-
-                            {/* NIEUWE KNOP VOOR DRAFTS */}
-                            <button
-                                className="pill-btn"
-                                onClick={handleDeleteAllDrafts}
-                                style={{ backgroundColor: '#FF9800', color: 'white' }}
-                            >
-                                🔥 Drafts Leegmaken
                             </button>
 
                             <button
