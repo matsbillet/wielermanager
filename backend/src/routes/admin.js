@@ -108,22 +108,29 @@ router.delete('/renners-all', async (req, res) => {
     }
 });
 
-// 1. Haal alle drafts op (liefst met renner namen erbij)
+//haal alle drafts op
 router.get('/drafts', async (req, res) => {
+    console.log("!!! De route /api/admin/drafts is aangeroepen !!!");
     try {
+        // We proberen het eerst HEEL simpel. Geen joins, geen filters.
         const { data, error } = await supabase
-            .from('drafts')
-            .select(`
-                id,
-                user_id,
-                renner_id,
-                renners ( naam )
-            `); // Dit werkt als je een Foreign Key relatie hebt in Supabase
+            .from('draft')
+            .select('*');
 
-        if (error) throw error;
+        if (error) {
+            console.error("Supabase gaf een foutmelding:", error);
+            return res.status(400).json({ error: error.message, detail: error.details });
+        }
+
+        console.log(`Succes! ${data.length} drafts gevonden.`);
         res.json(data);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("CRITISCHE BACKEND FOUT:", err);
+        res.status(500).json({
+            error: "Interne server fout",
+            message: err.message,
+            stack: err.stack
+        });
     }
 });
 

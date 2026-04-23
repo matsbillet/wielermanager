@@ -20,8 +20,11 @@ export default function AdminPage() {
         try {
             const resRitten = await axios.get('http://localhost:3000/api/admin/ritten');
             const resRenners = await axios.get('http://localhost:3000/api/admin/renners');
+            const resDrafts = await axios.get('http://localhost:3000/api/admin/drafts');
+            console.log("Ontvangen drafts in frontend:", resDrafts.data);
             setRitten(resRitten.data);
             setRenners(resRenners.data);
+            setDrafts(resDrafts.data);
         } catch (err) {
             console.error("Fout bij ophalen data:", err);
         }
@@ -287,7 +290,7 @@ export default function AdminPage() {
                                     <tr key={d.id} style={{ borderBottom: '1px solid #eee' }}>
                                         <td>{d.user_id || d.username || 'Onbekend'}</td>
                                         {/* We tonen de naam van de renner als die via een join is meegekomen */}
-                                        <td>{d.renners?.naam || d.renner_id}</td>
+                                        <td>{d.renners?.naam || `ID: ${d.renner_id}`}</td>
                                         <td>
                                             <button onClick={() => deleteDraft(d.id)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>🗑️</button>
                                         </td>
