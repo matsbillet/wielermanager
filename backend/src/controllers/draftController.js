@@ -3,7 +3,7 @@ const { getSpelerVoorBeurt } = require('../utils/draftHelper');
 
 const voerKeuzeUit = async (req, res) => {
     const { spelerId, rennerId } = req.body;
-    const volgorde = ["Jente", "Piet", "Jan", "Roel"];
+
 
     try {
         // 1. Zoek de actieve sessie
@@ -21,6 +21,15 @@ const voerKeuzeUit = async (req, res) => {
 
         const sessieId = actieveSessie.id;
 
+        const { data: spelers, error: spelersError } = await supabase
+            .from('spelers')
+            .select('id, naam')
+            .order('id', { ascending: true }); // Zorg dat de volgorde consistent is
+
+        if (spelersError || !spelers) {
+            console.error("Spelers fout:", spelersError);
+            return res.status(500).json({ error: "Fout bij ophalen spelers." });
+        }
         // 2. Tel beurten voor deze specifieke sessie
         const { count, error: countError } = await supabase
             .from('draft')
@@ -32,7 +41,7 @@ const voerKeuzeUit = async (req, res) => {
         const huidigeBeurt = (count || 0) + 1;
 
         // Slangvolgorde: Oneven rondes 1->4, Even rondes 4->1
-        const info = getSpelerVoorBeurt(huidigeBeurt, volgorde);
+        const info = getSpelerVoorBeurt(huidigeBeurt, spelers);
 
         if (!info) {
             return res.status(400).json({ error: 'Draft voltooid' });
@@ -42,7 +51,7 @@ const voerKeuzeUit = async (req, res) => {
         // De parameters (p_...) moeten matchen met je SQL functie
         const { data, error: rpcError } = await supabase.rpc('voer_draft_keuze_uit', {
             p_sessie_id: sessieId,
-            p_speler_id: spelerId,
+            p_speler_id: info.spelerId,
             p_renner_id: rennerId,
             p_ronde: info.ronde, // De eerste 12 zijn vast, de laatste 6 zijn bank
             p_is_bank: info.isBank

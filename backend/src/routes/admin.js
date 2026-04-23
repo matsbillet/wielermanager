@@ -202,14 +202,14 @@ router.post('/scrape-rit', async (req, res) => {
         // 1. Haal rit info en de bijbehorende race URL op
         const { data: rit, error: ritErr } = await supabase
             .from('ritten')
-            .select('*, races(pcs_url)')
+            .select('*, wedstrijden(pcs_url)')
             .eq('id', ritId)
             .single();
 
-        if (ritErr || !rit.races?.pcs_url) throw new Error("Race URL niet gevonden voor deze rit.");
+        if (ritErr || !rit.wedstrijden?.pcs_url) throw new Error("Race URL niet gevonden voor deze rit.");
 
         // 2. Start de scraper
-        const uitslagData = await scraper.scrapeRitUitslag(rit.races.pcs_url, ritNummer);
+        const uitslagData = await scraper.scrapeRitUitslag(rit.wedstrijden.pcs_url, ritNummer);
 
         // 3. Verwerk de resultaten
         for (const item of uitslagData) {
