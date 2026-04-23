@@ -8,7 +8,9 @@ const router = express.Router();
 // REGISTER
 router.post('/register', async (req, res) => {
     try {
-        const { naam, wachtwoord } = req.body;
+        let { naam, wachtwoord } = req.body;
+
+        naam = naam?.toLowerCase().trim();
 
         if (!naam || !wachtwoord) {
             return res.status(400).json({ error: 'Naam en wachtwoord zijn verplicht.' });
@@ -21,7 +23,7 @@ router.post('/register', async (req, res) => {
         const { data: bestaandeGebruiker, error: checkError } = await supabase
             .from('gebruikers')
             .select('id')
-            .eq('naam', naam)
+            .ilike('naam', naam)
             .maybeSingle();
 
         if (checkError) throw checkError;
@@ -43,7 +45,17 @@ router.post('/register', async (req, res) => {
             .select('id, naam, is_admin')
             .single();
 
-        if (error) throw error;
+        if (error) {
+            if (
+                error.code === '23505' ||
+                error.message?.toLowerCase().includes('duplicate') ||
+                error.message?.toLowerCase().includes('unique')
+            ) {
+                return res.status(400).json({ error: 'Deze naam is al in gebruik.' });
+            }
+
+            throw error;
+        }
 
         const token = jwt.sign(
             { id: data.id, naam: data.naam, is_admin: data.is_admin },
@@ -63,6 +75,15 @@ router.post('/register', async (req, res) => {
 
     } catch (error) {
         console.error('Register error:', error);
+
+        if (
+            error.code === '23505' ||
+            error.message?.toLowerCase().includes('duplicate') ||
+            error.message?.toLowerCase().includes('unique')
+        ) {
+            return res.status(400).json({ error: 'Deze naam is al in gebruik.' });
+        }
+
         res.status(500).json({
             error: 'Registreren mislukt',
             details: error.message
@@ -73,7 +94,9 @@ router.post('/register', async (req, res) => {
 // LOGIN
 router.post('/login', async (req, res) => {
     try {
-        const { naam, wachtwoord } = req.body;
+        let { naam, wachtwoord } = req.body;
+
+        naam = naam?.toLowerCase().trim();
 
         if (!naam || !wachtwoord) {
             return res.status(400).json({ error: 'Naam en wachtwoord zijn verplicht.' });
