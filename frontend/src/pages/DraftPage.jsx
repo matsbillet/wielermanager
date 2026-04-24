@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getBeschikbareRenners, getSpelers, kiesRenner, getTeams } from '../services/api';
+import { getBeschikbareRenners, getSpelers, kiesRenner, getTeams, getActieveSpeler } from '../services/api';
 
 const MAX_RENNERS_PER_SPELER = 18;
 
@@ -11,7 +11,7 @@ export default function DraftPage() {
     const [melding, setMelding] = useState('');
 
     const [actieveSpelerIndex, setActieveSpelerIndex] = useState(0);
-    const [richting, setRichting] = useState(1); // 1 = vooruit, -1 = achteruit
+    // const [richting, setRichting] = useState(1); // 1 = vooruit, -1 = achteruit
     const [draftKlaar, setDraftKlaar] = useState(false);
     const [gekozenTeller, setGekozenTeller] = useState({});
     const [teams, setTeams] = useState({});
@@ -31,20 +31,23 @@ export default function DraftPage() {
                 setRiders(Array.isArray(rennersResponse.data) ? rennersResponse.data : []);
                 setSpelers(spelersData);
 
-                await laadTeams();
+                const teamsResponse = await getTeams(1);
+                const teamsData = teamsResponse.data || {};
+                setTeams(teamsData);
 
                 const tellerInit = {};
                 spelersData.forEach((speler) => {
-                    tellerInit[speler.id] = speler.aantalGekozen || 0;
+                    const spelerTeam = teamsData[speler.naam] || [];
+                    tellerInit[speler.id] = spelerTeam.length;
                 });
                 setGekozenTeller(tellerInit);
 
-                const eersteNietVolleIndex = spelersData.findIndex(
-                    (speler) => (tellerInit[speler.id] || 0) < MAX_RENNERS_PER_SPELER
-                );
-
-                if (eersteNietVolleIndex >= 0) {
-                    setActieveSpelerIndex(eersteNietVolleIndex);
+                const actieveSpelerResponse = await getActieveSpeler();
+                if (!actieveSpelerResponse.data.klaar) {
+                    const actieveIndex = spelersData.findIndex(
+                        (speler) => speler.id === actieveSpelerResponse.data.spelerId
+                    );
+                    if (actieveIndex >= 0) setActieveSpelerIndex(actieveIndex);
                 }
             } catch (err) {
                 console.error('Fout bij ophalen draft data:', err);
@@ -77,62 +80,124 @@ export default function DraftPage() {
         }
     }, [alleSpelersKlaar, draftKlaar]);
 
-    function bepaalVolgendeBeurt(huidigeIndex, huidigeRichting, teller) {
-        const aantalSpelers = spelers.length;
+    // function bepaalVolgendeBeurt(huidigeIndex, huidigeRichting, teller) {
+    //     const aantalSpelers = spelers.length;
 
-        if (aantalSpelers === 0) {
-            return { nextIndex: 0, nextRichting: 1 };
-        }
+    //     if (aantalSpelers === 0) {
+    //         return { nextIndex: 0, nextRichting: 1 };
+    //     }
 
-        if (aantalSpelers === 1) {
-            return { nextIndex: 0, nextRichting: 1 };
-        }
+    //     if (aantalSpelers === 1) {
+    //         return { nextIndex: 0, nextRichting: 1 };
+    //     }
 
-        let nextIndex = huidigeIndex;
-        let nextRichting = huidigeRichting;
+    //     let nextIndex = huidigeIndex;
+    //     let nextRichting = huidigeRichting;
 
-        if (huidigeRichting === 1) {
-            if (huidigeIndex === aantalSpelers - 1) {
-                nextRichting = -1;
-                nextIndex = huidigeIndex;
-            } else {
-                nextIndex = huidigeIndex + 1;
-            }
-        } else {
-            if (huidigeIndex === 0) {
-                nextRichting = 1;
-                nextIndex = huidigeIndex;
-            } else {
-                nextIndex = huidigeIndex - 1;
-            }
-        }
+    //     if (huidigeRichting === 1) {
+    //         if (huidigeIndex === aantalSpelers - 1) {
+    //             nextRichting = -1;
+    //             nextIndex = huidigeIndex;
+    //         } else {
+    //             nextIndex = huidigeIndex + 1;
+    //         }
+    //     } else {
+    //         if (huidigeIndex === 0) {
+    //             nextRichting = 1;
+    //             nextIndex = huidigeIndex;
+    //         } else {
+    //             nextIndex = huidigeIndex - 1;
+    //         }
+    //     }
 
-        let safety = 0;
+    //     let safety = 0;
 
-        while (
-            spelers.length > 0 &&
-            (teller[spelers[nextIndex].id] || 0) >= MAX_RENNERS_PER_SPELER &&
-            safety < 100
-        ) {
-            safety += 1;
+    //     while (
+    //         spelers.length > 0 &&
+    //         (teller[spelers[nextIndex].id] || 0) >= MAX_RENNERS_PER_SPELER &&
+    //         safety < 100
+    //     ) {
+    //         safety += 1;
 
-            if (nextRichting === 1) {
-                if (nextIndex === aantalSpelers - 1) {
-                    nextRichting = -1;
-                } else {
-                    nextIndex += 1;
-                }
-            } else {
-                if (nextIndex === 0) {
-                    nextRichting = 1;
-                } else {
-                    nextIndex -= 1;
-                }
-            }
-        }
+    //         if (nextRichting === 1) {
+    //             if (nextIndex === aantalSpelers - 1) {
+    //                 nextRichting = -1;
+    //             } else {
+    //                 nextIndex += 1;
+    //             }
+    //         } else {
+    //             if (nextIndex === 0) {
+    //                 nextRichting = 1;
+    //             } else {
+    //                 nextIndex -= 1;
+    //             }
+    //         }
+    //     }
 
-        return { nextIndex, nextRichting };
-    }
+    //     return { nextIndex, nextRichting };
+    // }
+
+    // async function handleKiesRenner(rennerId, naam) {
+    //     if (!actieveSpeler || draftKlaar) return;
+
+    //     try {
+    //         setLoading(true);
+    //         setMelding('');
+
+    //         await kiesRenner({
+    //             spelerId: actieveSpeler.id,
+    //             rennerId,
+    //             huidigeBeurt: beurtVoorActieveSpeler
+    //         });
+
+    //         await laadTeams();
+
+    //         setRiders((vorigeRiders) =>
+    //             vorigeRiders.filter((rider) => rider.id !== rennerId)
+    //         );
+
+    //         setGekozenTeller((vorigeTeller) => {
+    //             const nieuweTeller = {
+    //                 ...vorigeTeller,
+    //                 [actieveSpeler.id]: (vorigeTeller[actieveSpeler.id] || 0) + 1
+    //             };
+
+    //             const iedereenKlaar = spelers.every(
+    //                 (speler) =>
+    //                     (nieuweTeller[speler.id] || 0) >= MAX_RENNERS_PER_SPELER
+    //             );
+
+    //             if (iedereenKlaar) {
+    //                 setDraftKlaar(true);
+    //                 setMelding('Draft is gedaan, iedereen heeft 18 spelers gekozen.');
+    //                 return nieuweTeller;
+    //             }
+
+    //             const { nextIndex, nextRichting } = bepaalVolgendeBeurt(
+    //                 actieveSpelerIndex,
+    //                 richting,
+    //                 nieuweTeller
+    //             );
+
+    //             setActieveSpelerIndex(nextIndex);
+    //             setRichting(nextRichting);
+    //             setMelding(
+    //                 `${naam} gekozen door ${actieveSpeler.naam}. Volgende beurt: ${spelers[nextIndex]?.naam || 'onbekend'}.`
+    //             );
+
+    //             return nieuweTeller;
+    //         });
+    //     } catch (err) {
+    //         setMelding(
+    //             err.response?.data?.error ||
+    //             err.response?.data?.details ||
+    //             'Fout bij kiezen van renner.'
+    //         );
+    //         console.error(err);
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // }
 
     async function handleKiesRenner(rennerId, naam) {
         if (!actieveSpeler || draftKlaar) return;
@@ -147,43 +212,45 @@ export default function DraftPage() {
                 huidigeBeurt: beurtVoorActieveSpeler
             });
 
-            await laadTeams();
+            const [teamsResponse, actieveSpelerResponse] = await Promise.all([
+                getTeams(1),
+                getActieveSpeler()
+            ]);
+
+            const teamsData = teamsResponse.data || {};
+            setTeams(teamsData);
 
             setRiders((vorigeRiders) =>
                 vorigeRiders.filter((rider) => rider.id !== rennerId)
             );
 
-            setGekozenTeller((vorigeTeller) => {
-                const nieuweTeller = {
-                    ...vorigeTeller,
-                    [actieveSpeler.id]: (vorigeTeller[actieveSpeler.id] || 0) + 1
-                };
-
-                const iedereenKlaar = spelers.every(
-                    (speler) =>
-                        (nieuweTeller[speler.id] || 0) >= MAX_RENNERS_PER_SPELER
-                );
-
-                if (iedereenKlaar) {
-                    setDraftKlaar(true);
-                    setMelding('Draft is gedaan, iedereen heeft 18 spelers gekozen.');
-                    return nieuweTeller;
-                }
-
-                const { nextIndex, nextRichting } = bepaalVolgendeBeurt(
-                    actieveSpelerIndex,
-                    richting,
-                    nieuweTeller
-                );
-
-                setActieveSpelerIndex(nextIndex);
-                setRichting(nextRichting);
-                setMelding(
-                    `${naam} gekozen door ${actieveSpeler.naam}. Volgende beurt: ${spelers[nextIndex]?.naam || 'onbekend'}.`
-                );
-
-                return nieuweTeller;
+            const nieuweTeller = {};
+            spelers.forEach((speler) => {
+                const spelerTeam = teamsData[speler.naam] || [];
+                nieuweTeller[speler.id] = spelerTeam.length;
             });
+            setGekozenTeller(nieuweTeller);
+
+            const iedereenKlaar = spelers.every(
+                (speler) => (nieuweTeller[speler.id] || 0) >= MAX_RENNERS_PER_SPELER
+            );
+
+            if (iedereenKlaar) {
+                setDraftKlaar(true);
+                setMelding('Draft is gedaan, iedereen heeft 18 spelers gekozen.');
+                return;
+            }
+
+            if (!actieveSpelerResponse.data.klaar) {
+                const nextIndex = spelers.findIndex(
+                    (speler) => speler.id === actieveSpelerResponse.data.spelerId
+                );
+                if (nextIndex >= 0) {
+                    setActieveSpelerIndex(nextIndex);
+                    setMelding(`${naam} gekozen. Volgende beurt: ${spelers[nextIndex]?.naam || 'onbekend'}.`);
+                }
+            }
+
         } catch (err) {
             setMelding(
                 err.response?.data?.error ||
@@ -195,7 +262,6 @@ export default function DraftPage() {
             setLoading(false);
         }
     }
-
     const laadTeams = async () => {
         try {
             // We gebruiken hier sessieId 1 als voorbeeld (pas dit aan indien nodig)

@@ -110,5 +110,45 @@ const getTeamsPerSessie = async (req, res) => {
         res.status(500).json({ error: 'Kon teams niet ophalen', details: error.message });
     }
 };
-module.exports = { voerKeuzeUit, getTeamsPerSessie };
 
+const getActieveSpeler = async (req, res) => {
+    try {
+        const { data: actieveSessie, error: sessieError } = await supabase
+            .from('draft_sessies')
+            .select('id')
+            .eq('is_actief', true)
+            .single();
+
+        if (sessieError || !actieveSessie) {
+            return res.status(404).json({ error: 'Geen actieve sessie.' });
+        }
+
+        const { data: spelers, error: spelersError } = await supabase
+            .from('spelers')
+            .select('id, naam')
+            .order('id', { ascending: true });
+
+        if (spelersError) throw spelersError;
+
+        const { count, error: countError } = await supabase
+            .from('draft')
+            .select('*', { count: 'exact', head: true })
+            .eq('sessie_id', actieveSessie.id);
+
+        if (countError) throw countError;
+
+        const huidigeBeurt = (count || 0) + 1;
+        const info = getSpelerVoorBeurt(huidigeBeurt, spelers);
+
+        if (!info) {
+            return res.json({ klaar: true });
+        }
+
+        res.json({ spelerId: info.spelerId, klaar: false });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+module.exports = { voerKeuzeUit, getTeamsPerSessie, getActieveSpeler };
