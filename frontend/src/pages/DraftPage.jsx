@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getBeschikbareRenners, getSpelers, kiesRenner } from '../services/api';
+import { getBeschikbareRenners, getSpelers, kiesRenner, getTeams } from '../services/api';
 
 const MAX_RENNERS_PER_SPELER = 18;
 
@@ -14,6 +14,7 @@ export default function DraftPage() {
     const [richting, setRichting] = useState(1); // 1 = vooruit, -1 = achteruit
     const [draftKlaar, setDraftKlaar] = useState(false);
     const [gekozenTeller, setGekozenTeller] = useState({});
+    const [teams, setTeams] = useState({});
 
     useEffect(() => {
         async function laadData() {
@@ -29,6 +30,8 @@ export default function DraftPage() {
 
                 setRiders(Array.isArray(rennersResponse.data) ? rennersResponse.data : []);
                 setSpelers(spelersData);
+
+                await laadTeams();
 
                 const tellerInit = {};
                 spelersData.forEach((speler) => {
@@ -144,6 +147,8 @@ export default function DraftPage() {
                 huidigeBeurt: beurtVoorActieveSpeler
             });
 
+            await laadTeams();
+
             setRiders((vorigeRiders) =>
                 vorigeRiders.filter((rider) => rider.id !== rennerId)
             );
@@ -190,6 +195,16 @@ export default function DraftPage() {
             setLoading(false);
         }
     }
+
+    const laadTeams = async () => {
+    try {
+        // We gebruiken hier sessieId 1 als voorbeeld (pas dit aan indien nodig)
+        const response = await getTeams(1); //Momenteel hard coded
+        setTeams(response.data);
+    } catch (err) {
+        console.error('Fout bij laden van teams:', err);
+    }
+};
 
     if (ladenPagina) {
         return <div>Laden van draft data...</div>;
@@ -286,6 +301,56 @@ export default function DraftPage() {
                         </div>
                     </article>
                 ))}
+            </section>
+            {/* --- TEAM OVERZICHT SECTIE --- */}
+            <div className="section-head" style={{ marginTop: '3rem' }}>
+                <h2>Gekozen Teams</h2>
+            </div>
+
+            <section className="teams-grid" style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+                gap: '1.5rem', 
+                marginTop: '1rem',
+                marginBottom: '5rem' 
+            }}>
+                {spelers.map((speler) => {
+                    // Haal de renners voor deze specifieke speler uit de teams state
+                    const spelerTeam = teams[speler.naam] || [];
+                    
+                    return (
+                        <div key={speler.id} className="card team-card">
+                            <div className="panel-header" style={{ padding: '1rem', borderBottom: '1px solid #eee', fontWeight: 'bold', background: '#f9f9f9' }}>
+                                Team {speler.naam}
+                            </div>
+                            <div style={{ padding: '1rem' }}>
+                                {/* BASISOPSTELLING (Ronde 1-12) */}
+                                <div className="small-muted" style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: '#666' }}>Basis (R1-12)</div>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem 0' }}>
+                                    {spelerTeam.filter(r => !r.isBank).map((r, i) => (
+                                        <li key={i} style={{ padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: '0.9rem' }}>
+                                            <span className="yellow" style={{ marginRight: '8px' }}>R{r.ronde}</span> {r.renner}
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                {/* DE BANK (Ronde 13-18) */}
+                                <div className="small-muted" style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: '#666' }}>De Bank (R13-18)</div>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                    {spelerTeam.filter(r => r.isBank).map((r, i) => (
+                                        <li key={i} style={{ padding: '4px 0', color: '#888', fontSize: '0.85rem' }}>
+                                            <i>R{r.ronde}: {r.renner}</i>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                {spelerTeam.length === 0 && (
+                                    <div className="small-muted" style={{ marginTop: '0.5rem' }}>Nog geen renners gekozen.</div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </section>
         </div>
     );

@@ -58,5 +58,6 @@ export const deleteAllRenners = () => api.delete('/admin/renners-all');
 
 export const deleteAllDrafts = () => api.delete('/admin/drafts-all');
 export const deleteDraftById = (id) => api.delete(`/admin/drafts/${id}`);
+export const getTeams = (sessieId) => api.get(`/draft/teams/${sessieId}`);
 
 export default api;
