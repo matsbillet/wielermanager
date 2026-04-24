@@ -197,14 +197,14 @@ export default function DraftPage() {
     }
 
     const laadTeams = async () => {
-    try {
-        // We gebruiken hier sessieId 1 als voorbeeld (pas dit aan indien nodig)
-        const response = await getTeams(1); //Momenteel hard coded
-        setTeams(response.data);
-    } catch (err) {
-        console.error('Fout bij laden van teams:', err);
-    }
-};
+        try {
+            // We gebruiken hier sessieId 1 als voorbeeld (pas dit aan indien nodig)
+            const response = await getTeams(1); //Momenteel hard coded
+            setTeams(response.data);
+        } catch (err) {
+            console.error('Fout bij laden van teams:', err);
+        }
+    };
 
     if (ladenPagina) {
         return <div>Laden van draft data...</div>;
@@ -212,7 +212,7 @@ export default function DraftPage() {
 
     return (
         <div>
-            <section className="banner card draft-board">
+            {/* <section className="banner card draft-board">
                 <div className="banner-title">Draft Board</div>
                 <div className="banner-sub">Snake Draft - Pro Peloton League</div>
 
@@ -247,6 +247,106 @@ export default function DraftPage() {
                         );
                     })}
                 </div>
+            </section> */}
+
+            {/* TITEL VAN DE PAGINA */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '1rem', marginBottom: '1.25rem' }}>
+                <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Live Draft Board</h1>
+                <span style={{ fontSize: '0.75rem', color: '#6b6b67', fontFamily: 'monospace', letterSpacing: '0.02em' }}>Snake Draft — Pro Peloton League</span>
+            </div>
+
+            {/* GEÏNTEGREERD OVERZICHT: TEAMS + STATUS */}
+            <section style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '10px',
+                marginBottom: '3rem',
+                background: '#111210',
+                borderRadius: '12px',
+                padding: '16px'
+            }}>
+                {spelers.map((speler, index) => {
+                    const gekozen = gekozenTeller[speler.id] || 0;
+                    const isActief = !draftKlaar && index === actieveSpelerIndex;
+                    const isKlaar = gekozen >= MAX_RENNERS_PER_SPELER;
+                    const spelerTeam = teams[speler.naam] || [];
+                    const volgendeBeurtNummer = Math.min(gekozen + 1, MAX_RENNERS_PER_SPELER);
+                    const pct = Math.round((gekozen / MAX_RENNERS_PER_SPELER) * 100);
+
+                    return (
+                        <div key={speler.id} style={{
+                            background: '#181917',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            border: '0.5px solid #2a2a28',
+                            borderLeft: isActief ? '3px solid #00F5D4' : '0.5px solid #2a2a28',
+                            transition: 'border-color 0.3s ease'
+                        }}>
+                            {/* HEADER */}
+                            <div style={{ padding: '12px 14px 10px', borderBottom: '0.5px solid #222221' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{
+                                        fontSize: '1.1rem', fontWeight: 800, textTransform: 'uppercase',
+                                        letterSpacing: '0.06em',
+                                        color: isActief ? '#00F5D4' : '#f0ede6'
+                                    }}>
+                                        {speler.naam}
+                                    </span>
+                                    {isActief && (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.7rem', fontFamily: 'monospace', color: '#00F5D4', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                            <span style={{
+                                                width: '6px', height: '6px', borderRadius: '50%', background: '#00F5D4',
+                                                animation: 'livePulse 1.4s ease-in-out infinite'
+                                            }} />
+                                            Picking now
+                                        </span>
+                                    )}
+                                    {!isActief && !isKlaar && (
+                                        <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: '#44443f', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Waiting</span>
+                                    )}
+                                    {isKlaar && (
+                                        <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', color: '#23dc87', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Klaar</span>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                                    <span style={{ fontSize: '0.75rem', color: '#6b6b67', fontFamily: 'monospace' }}>{gekozen} / {MAX_RENNERS_PER_SPELER} renners</span>
+                                    {!draftKlaar && !isKlaar && (
+                                        <span style={{ fontSize: '0.7rem', color: '#00F5D4', fontFamily: 'monospace' }}>Next: R{volgendeBeurtNummer}</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* PROGRESS BAR */}
+                            <div style={{ height: '2px', background: '#222221', margin: '0 14px 10px' }}>
+                                <div style={{ height: '100%', width: `${pct}%`, background: '#00F5D4', borderRadius: '1px', transition: 'width 0.4s ease' }} />
+                            </div>
+
+                            {/* RIDER LIST */}
+                            <div style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: '#6b6b67', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 14px 4px' }}>Basis (R1–12)</div>
+                            <ul style={{ listStyle: 'none', padding: '0 14px', margin: '0 0 6px' }}>
+                                {spelerTeam.filter(r => !r.isBank).map((r, i) => (
+                                    <li key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '0.5px solid #1e1e1c' }}>
+                                        <span style={{ fontSize: '0.8rem', color: isActief ? '#00F5D4' : '#b8b5ae', fontWeight: 500, letterSpacing: '0.02em' }}>{r.renner}</span>
+                                        <span style={{ fontSize: '0.7rem', color: '#44443f', fontFamily: 'monospace' }}>R{r.ronde}</span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            <div style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: '#6b6b67', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '6px 14px 4px' }}>De bank (R13–18)</div>
+                            <ul style={{ listStyle: 'none', padding: '0 14px', margin: '0 0 12px' }}>
+                                {spelerTeam.filter(r => r.isBank).map((r, i) => (
+                                    <li key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '0.75rem', color: '#6b6b67', fontStyle: 'italic' }}>
+                                        <span>{r.renner}</span>
+                                        <span style={{ fontFamily: 'monospace' }}>R{r.ronde}</span>
+                                    </li>
+                                ))}
+                                {spelerTeam.filter(r => r.isBank).length === 0 && (
+                                    <li style={{ fontSize: '0.75rem', color: '#2a2a28', padding: '3px 0' }}>—</li>
+                                )}
+                            </ul>
+                        </div>
+                    );
+                })}
             </section>
 
             <section className="turn-banner">
@@ -307,17 +407,17 @@ export default function DraftPage() {
                 <h2>Gekozen Teams</h2>
             </div>
 
-            <section className="teams-grid" style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-                gap: '1.5rem', 
+            <section className="teams-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '1.5rem',
                 marginTop: '1rem',
-                marginBottom: '5rem' 
+                marginBottom: '5rem'
             }}>
                 {spelers.map((speler) => {
                     // Haal de renners voor deze specifieke speler uit de teams state
                     const spelerTeam = teams[speler.naam] || [];
-                    
+
                     return (
                         <div key={speler.id} className="card team-card">
                             <div className="panel-header" style={{ padding: '1rem', borderBottom: '1px solid #eee', fontWeight: 'bold', background: '#f9f9f9' }}>
