@@ -10,15 +10,23 @@
     --red: #ff5b66;
 }
 
-* {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
 }
 
 html {
     font-size: 16px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 body {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
     margin: 0;
     background: radial-gradient(circle at top left, rgba(255, 255, 255, .03), transparent 25%), var(--bg);
     color: var(--text);
@@ -45,6 +53,8 @@ textarea {
 }
 
 .topbar {
+    width: 100%;
+    max-width: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -53,6 +63,7 @@ textarea {
     background: #11131a;
     border-bottom: 1px solid rgba(255, 255, 255, .05);
     flex-wrap: wrap;
+    overflow: hidden;
 }
 
 .brand {
@@ -62,7 +73,8 @@ textarea {
     font-weight: 800;
     font-size: clamp(1.05rem, 2vw, 1.35rem);
     color: var(--text);
-    flex-shrink: 0;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .brand-text {
@@ -70,11 +82,12 @@ textarea {
     font-family: Inter, Segoe UI, Arial, sans-serif;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.45rem;
+    letter-spacing: clamp(0.12rem, 1vw, 0.45rem);
     line-height: 1.2;
     text-shadow:
         0 0 6px rgba(0, 245, 212, 0.5),
         0 0 12px rgba(0, 245, 212, 0.25);
+    overflow-wrap: anywhere;
 }
 
 .logo {
@@ -89,6 +102,7 @@ textarea {
     display: flex;
     gap: .75rem;
     flex-wrap: wrap;
+    min-width: 0;
 }
 
 .main-nav a {
@@ -108,8 +122,10 @@ textarea {
 
 .page-shell {
     width: min(1280px, 100%);
+    max-width: 100%;
     margin: 0 auto;
     padding: clamp(1rem, 2vw, 1.5rem);
+    overflow: hidden;
 }
 
 .card,
@@ -273,7 +289,6 @@ textarea {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
 }
 
 .badge {
@@ -406,6 +421,8 @@ textarea {
     font-weight: 800;
     background: #202431;
     flex-shrink: 0;
+    color: var(--yellow);
+    font-size: 1.1rem;
 }
 
 .rank.gold {
@@ -474,6 +491,7 @@ textarea {
 
 .table-wrap {
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
@@ -512,8 +530,12 @@ textarea {
 .admin-actions,
 .quick-links {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .admin-shortcuts a,
@@ -524,12 +546,15 @@ textarea {
 .quick-links button {
     width: 100%;
     min-width: 0;
+    max-width: 100%;
+    text-align: center;
 }
 
 .stage-form,
 .ritten-form,
 .admin-form,
-.renners-form {
+.renners-form,
+.input-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: .75rem;
@@ -547,18 +572,7 @@ textarea {
 .admin-form button,
 .renners-form input,
 .renners-form select,
-.renners-form button {
-    width: 100%;
-    min-width: 0;
-}
-
-.input-row {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .75rem;
-    align-items: end;
-}
-
+.renners-form button,
 .input-row input,
 .input-row select,
 .input-row button {
@@ -640,6 +654,7 @@ textarea {
     display: flex;
     align-items: center;
     gap: 1rem;
+    min-width: 0;
 }
 
 .user-name {
@@ -662,7 +677,6 @@ textarea {
     color: var(--yellow);
 }
 
-/* RACE CARDS */
 .race-card {
     padding: 0;
     overflow: hidden;
@@ -684,7 +698,6 @@ textarea {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
     transition: transform 0.4s ease;
 }
 
@@ -761,13 +774,14 @@ textarea {
 
 .scoreboard-grid {
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 360px minmax(0, 1fr);
     gap: 1.5rem;
 }
 
 .klassement-card,
 .ritpunten-card {
     padding: 1.5rem;
+    min-width: 0;
 }
 
 .klassement-list {
@@ -778,7 +792,7 @@ textarea {
 
 .klassement-row {
     display: grid;
-    grid-template-columns: 56px 1fr auto;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
     align-items: center;
     gap: 1rem;
     padding: 0.9rem 1rem;
@@ -787,16 +801,11 @@ textarea {
     border-radius: 14px;
 }
 
-.rank {
-    color: var(--yellow);
-    font-weight: 800;
-    font-size: 1.1rem;
-}
-
 .player-info {
     display: flex;
     align-items: center;
     gap: 0.65rem;
+    min-width: 0;
 }
 
 .player-dot {
@@ -805,6 +814,7 @@ textarea {
     border-radius: 999px;
     display: inline-block;
     margin-right: 0.5rem;
+    flex-shrink: 0;
 }
 
 .player-total {
@@ -813,7 +823,10 @@ textarea {
 }
 
 .ritpunten-table-wrapper {
+    width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .ritpunten-table {
@@ -842,32 +855,16 @@ textarea {
     background: rgba(255, 255, 255, 0.03);
 }
 
-@media (max-width: 900px) {
-    .scoreboard-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .scoreboard-summary {
-        align-items: flex-start;
-        width: 100%;
-    }
-
-    .scoreboard-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
 @media (max-width: 1100px) {
 
     .stats-grid,
     .team-grid,
     .riders-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .rit-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
 
@@ -906,10 +903,18 @@ textarea {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .admin-shortcuts,
-    .admin-actions,
-    .quick-links {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .scoreboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .scoreboard-summary {
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .scoreboard-grid {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -923,7 +928,7 @@ textarea {
     }
 
     .list-row {
-        grid-template-columns: 48px 1fr;
+        grid-template-columns: 48px minmax(0, 1fr);
     }
 
     .list-row> :last-child {
@@ -934,15 +939,23 @@ textarea {
 
 @media (max-width: 640px) {
     .page-shell {
-        padding: 1rem;
+        padding: 4rem 1rem 1rem;
+        overflow: hidden;
     }
 
     .topbar {
         align-items: flex-start;
+        padding: 1rem;
     }
 
     .brand {
         width: 100%;
+        max-width: 100%;
+    }
+
+    .brand-text {
+        font-size: 0.95rem;
+        letter-spacing: 0.22rem;
     }
 
     .logo {
@@ -951,6 +964,9 @@ textarea {
 
     .main-nav {
         width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .75rem;
     }
 
     .main-nav a {
@@ -970,23 +986,51 @@ textarea {
 
     .card,
     .panel {
-        padding: 1rem 1rem 1rem 1.25rem;
+        padding: 1rem;
     }
 
     .scraper-card,
     .admin-card {
-        padding: 1.25rem 1rem 1.25rem 1.4rem;
+        padding: 1.25rem;
     }
 
     .stage-form,
     .ritten-form,
     .admin-form,
     .renners-form,
-    .input-row,
+    .input-row {
+        grid-template-columns: 1fr;
+    }
+
     .admin-shortcuts,
     .admin-actions,
     .quick-links {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 120px));
+        justify-content: center;
+        gap: .9rem;
+        width: 100%;
+        max-width: 270px;
+        margin: 0 auto;
+    }
+
+    .admin-shortcuts a,
+    .admin-actions a,
+    .quick-links a,
+    .admin-shortcuts button,
+    .admin-actions button,
+    .quick-links button {
+        width: 100%;
+        min-height: 78px;
+        padding: .85rem .4rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: .9rem;
+        line-height: 1.15;
+        border-radius: 14px;
+        overflow: hidden;
     }
 
     .pill-btn {
@@ -1036,6 +1080,7 @@ textarea {
     .user-menu {
         width: 100%;
         justify-content: space-between;
+        gap: .75rem;
     }
 
     .race-card-image {
@@ -1045,11 +1090,41 @@ textarea {
     .race-card-body {
         padding: 1rem 1rem 1rem 1.25rem;
     }
+
+    .scoreboard-chart {
+        height: 280px;
+    }
+
+    .klassement-row {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .klassement-row .player-total {
+        grid-column: 1 / -1;
+        justify-self: end;
+    }
 }
 
 @media (max-width: 420px) {
     html {
         font-size: 15px;
+    }
+
+    .topbar {
+        padding: .85rem;
+    }
+
+    .page-shell {
+        padding: 4rem 1rem 1rem;
+    }
+
+    .brand-text {
+        font-size: .85rem;
+        letter-spacing: .16rem;
+    }
+
+    .logo {
+        height: 28px;
     }
 
     .banner-title {
@@ -1064,20 +1139,26 @@ textarea {
         height: 150px;
     }
 
-    .topbar {
-        padding: .85rem;
-    }
-
-    .page-shell {
-        padding: 1rem;
-    }
-
-    .logo {
-        height: 28px;
-    }
-
     .race-card-image {
         height: 160px;
+    }
+
+    .admin-shortcuts,
+    .admin-actions,
+    .quick-links {
+        grid-template-columns: repeat(2, minmax(0, 110px));
+        max-width: 250px;
+        gap: .8rem;
+    }
+}
+
+@media (max-width: 340px) {
+
+    .admin-shortcuts,
+    .admin-actions,
+    .quick-links {
+        grid-template-columns: 1fr;
+        max-width: 160px;
     }
 }
 
