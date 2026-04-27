@@ -28,7 +28,7 @@ export const getSpelers = () => api.get('/spelers');
 
 export const getWedstrijden = () => api.get('/wedstrijden');
 export const getWedstrijd = (slug) => api.get(`/wedstrijden/${slug}`);
-export const getRittenVanWedstrijd = (slug) => api.get(`/wedstrijden/${slug}/ritten`);
+export const getRittenVanWedstrijd = (slug) => api.get(`/ritten/wedstrijd/${slug}`);
 
 // Draft
 export const kiesRenner = async (data) => {

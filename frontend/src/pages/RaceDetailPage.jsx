@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getRittenVanWedstrijd } from '../services/api';
+import { getRit } from '../services/api';
 
 export default function RaceDetailPage() {
     const { slug } = useParams();
@@ -12,6 +13,7 @@ export default function RaceDetailPage() {
         async function laadRitten() {
             try {
                 const response = await getRittenVanWedstrijd(slug);
+                console.log("Data van server:", response.data); // <--- Check je F12 console!
                 setWedstrijdData(response.data);
             } catch (err) {
                 console.error('Fout bij ophalen ritten:', err);
