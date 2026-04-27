@@ -1,5 +1,5 @@
 const puppeteer = require('puppeteer');
-const supabase = require('../db/supabase');
+const { supabase } = require('../db/supabase');
 
 async function getBrowser() {
     return await puppeteer.launch({
@@ -71,4 +71,69 @@ async function scrapeRitUitslag(racePcsUrl, ritNummer) {
     }
 }
 
-module.exports = { importStartlist, scrapeRitUitslag };
+// backend/src/scraper/scraper.js
+
+async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
+    console.log(`🔎 Browser opstarten voor: ${racePcsUrl}`);
+    const browser = await getBrowser();
+    try {
+        const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+        // Stap 1: Navigatie
+        console.log("🌐 Pagina laden...");
+        await page.goto(racePcsUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        console.log("📄 Pagina geladen, elementen zoeken...");
+
+        // Stap 2: Data ophalen
+        const rittenData = await page.evaluate(() => {
+            const list = [];
+            // We zoeken alle links die naar een 'stage-' verwijzen
+            const links = Array.from(document.querySelectorAll('a[href*="stage-"]'));
+
+            links.forEach(link => {
+                const url = link.getAttribute('href');
+                const text = link.innerText.trim();
+                const nrMatch = url.match(/stage-(\d+)/);
+
+                if (nrMatch) {
+                    const nr = parseInt(nrMatch[1]);
+                    // Voorkom dubbele ritten in de lijst
+                    if (!list.find(r => r.rit_nummer === nr)) {
+                        list.push({ rit_nummer: nr, naam: text });
+                    }
+                }
+            });
+            return list;
+        });
+
+        console.log(`📊 Scraper vond ${rittenData.length} ritten.`);
+
+        // Stap 3: Opslaan
+        if (rittenData.length > 0) {
+            console.log("💾 Opslaan in database...");
+            for (const rit of rittenData) {
+                const { error } = await supabase.from('ritten').upsert({
+                    wedstrijd_id: wedstrijdId,
+                    rit_nummer: rit.rit_nummer,
+                    naam: rit.naam
+                }, { onConflict: ['wedstrijd_id', 'rit_nummer'] });
+
+                if (error) console.error(`❌ DB Fout voor rit ${rit.rit_nummer}:`, error.message);
+            }
+            console.log("✨ Alles opgeslagen!");
+        } else {
+            console.log("⚠️ Geen ritten gevonden op de pagina. Controleer de PCS URL.");
+        }
+
+        return { success: true, count: rittenData.length };
+    } catch (err) {
+        console.error("❌ SCRAPER CRASH:", err.message);
+        throw err;
+    } finally {
+        await browser.close();
+        console.log("🚪 Browser gesloten.");
+    }
+}
+
+module.exports = { importStartlist, scrapeRitUitslag, scrapeStagesForRace };
