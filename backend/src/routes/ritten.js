@@ -55,6 +55,33 @@ router.get('/wedstrijd/:slug', async (req, res) => {
     }
 });
 
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+    console.log(`🔍 Opvragen details voor rit ID: ${id}`);
 
+    try {
+        const { data, error } = await supabase
+            .from('ritten')
+            .select(`
+                *,
+                wedstrijden (
+                    naam,
+                    slug
+                )
+            `)
+            .eq('id', id)
+            .single();
+
+        if (error || !data) {
+            console.error("❌ Rit niet gevonden in DB:", error?.message);
+            return res.status(404).json({ error: "Rit niet gevonden" });
+        }
+
+        res.json(data);
+    } catch (err) {
+        console.error("❌ Server fout:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 module.exports = router;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getRittenVanWedstrijd } from '../services/api';
+import { getRit } from '../services/api';
 
 export default function RaceDetailPage() {
     const { slug } = useParams();
