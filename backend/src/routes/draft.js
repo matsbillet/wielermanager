@@ -8,6 +8,8 @@ const { supabase } = require('../db/supabase');
  * Wordt aangeroepen als een speler een renner selecteert.
  */
 router.post('/kies', draftController.voerKeuzeUit);
+router.get('/teams/:sessieId', draftController.getTeamsPerSessie);
+router.get('/actieve-speler', draftController.getActieveSpeler);
 
 /**
  * Route: GET /api/draft/test

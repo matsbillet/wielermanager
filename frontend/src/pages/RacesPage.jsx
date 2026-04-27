@@ -2,6 +2,22 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getWedstrijden } from '../services/api';
 
+/* 🔥 JUISTE imports */
+import giroImg from '../img/amandine-veyron-AH7hRkXMF0E-unsplash.jpg';
+import tourImg from '../img/chris-karidis-nnzkZNYWHaU-unsplash.jpg';
+import vueltaImg from '../img/dimitry-b-uDl5opHop7E-unsplash.jpg';
+
+const raceImages = {
+    'giro-ditalia': giroImg,
+    'giro-italia': giroImg,
+
+    'tour-de-france': tourImg,
+    'tourdefrance': tourImg,
+
+    'vuelta-a-espana': vueltaImg,
+    'vuelta-espana': vueltaImg
+};
+
 export default function RacesPage() {
     const [wedstrijden, setWedstrijden] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -23,7 +39,9 @@ export default function RacesPage() {
         laadWedstrijden();
     }, []);
 
-    if (loading) return <div>Laden van wedstrijden...</div>;
+    if (loading) {
+        return <div className="loading">Laden van wedstrijden...</div>;
+    }
 
     return (
         <div>
@@ -38,26 +56,28 @@ export default function RacesPage() {
             )}
 
             <section className="team-grid">
-                {wedstrijden.map((wedstrijd) => (
-                    <Link
-                        key={wedstrijd.id}
-                        to={`/races/${wedstrijd.slug}`}
-                        className="card"
-                        style={{
-                            padding: '1.5rem',
-                            textDecoration: 'none',
-                            color: 'inherit'
-                        }}
-                    >
-                        <h3 style={{ marginBottom: '0.5rem' }}>{wedstrijd.naam}</h3>
-                        <p style={{ marginBottom: '0.5rem', opacity: 0.8 }}>
-                            Jaar: {wedstrijd.jaar}
-                        </p>
-                        <p style={{ opacity: 0.8 }}>
-                            Aantal ritten: {wedstrijd.aantal_ritten}
-                        </p>
-                    </Link>
-                ))}
+                {wedstrijden.map((wedstrijd) => {
+                    const imageSrc =
+                        raceImages[wedstrijd.slug] || giroImg;
+
+                    return (
+                        <Link
+                            key={wedstrijd.id}
+                            to={`/races/${wedstrijd.slug}`}
+                            className="race-card card"
+                        >
+                            <div className="race-card-image">
+                                <img src={imageSrc} alt={wedstrijd.naam} />
+                            </div>
+
+                            <div className="race-card-body">
+                                <h3>{wedstrijd.naam}</h3>
+                                <p>Jaar: {wedstrijd.jaar}</p>
+                                <p>Aantal ritten: {wedstrijd.aantal_ritten}</p>
+                            </div>
+                        </Link>
+                    );
+                })}
             </section>
         </div>
     );
