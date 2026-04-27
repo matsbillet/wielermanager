@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
     LineChart,
     Line,
@@ -8,62 +9,36 @@ import {
     ResponsiveContainer,
     CartesianGrid
 } from 'recharts';
+import { getScoreboard } from '../services/api';
 
-const spelers = [
-    {
-        id: 1,
-        naam: 'Dylan',
-        kleur: '#00e5c7',
-        totaal: 265,
-        ritten: [
-            { rit: 1, punten: 45 },
-            { rit: 2, punten: 60 },
-            { rit: 3, punten: 35 },
-            { rit: 4, punten: 80 },
-            { rit: 5, punten: 45 }
-        ]
-    },
-    {
-        id: 2,
-        naam: 'Pancho',
-        kleur: '#ffc400',
-        totaal: 220,
-        ritten: [
-            { rit: 1, punten: 30 },
-            { rit: 2, punten: 70 },
-            { rit: 3, punten: 40 },
-            { rit: 4, punten: 50 },
-            { rit: 5, punten: 30 }
-        ]
-    },
-    {
-        id: 3,
-        naam: 'Roel',
-        kleur: '#ff4d4d',
-        totaal: 185,
-        ritten: [
-            { rit: 1, punten: 20 },
-            { rit: 2, punten: 55 },
-            { rit: 3, punten: 25 },
-            { rit: 4, punten: 40 },
-            { rit: 5, punten: 45 }
-        ]
-    }
+const kleuren = [
+    '#00e5c7',
+    '#ffc400',
+    '#ff4d4d',
+    '#7c4dff',
+    '#4caf50',
+    '#ff9800',
+    '#03a9f4',
+    '#e91e63'
 ];
 
 function maakGrafiekData(spelers) {
-    const maxRitten = Math.max(...spelers.map((speler) => speler.ritten.length));
+    if (!spelers.length) return [];
+
+    const maxRitten = Math.max(
+        ...spelers.map((speler) => speler.per_rit?.length || 0)
+    );
 
     return Array.from({ length: maxRitten }, (_, index) => {
         const ritNummer = index + 1;
         const punt = { rit: `Rit ${ritNummer}` };
 
         spelers.forEach((speler) => {
-            const totaalTotNu = speler.ritten
-                .filter((rit) => rit.rit <= ritNummer)
+            const totaalTotNu = speler.per_rit
+                .filter((rit) => rit.rit_nummer <= ritNummer)
                 .reduce((som, rit) => som + rit.punten, 0);
 
-            punt[speler.naam] = totaalTotNu;
+            punt[speler.speler] = totaalTotNu;
         });
 
         return punt;
@@ -71,16 +46,50 @@ function maakGrafiekData(spelers) {
 }
 
 export default function ScoreboardPage() {
+    const [spelers, setSpelers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [melding, setMelding] = useState('');
+
+    const wedstrijdId = 1;
+
+    useEffect(() => {
+        async function laadScoreboard() {
+            try {
+                const response = await getScoreboard(wedstrijdId);
+
+                const spelersMetKleur = response.data.map((speler, index) => ({
+                    ...speler,
+                    kleur: kleuren[index % kleuren.length]
+                }));
+
+                setSpelers(spelersMetKleur);
+            } catch (err) {
+                console.error('Fout bij ophalen scoreboard:', err);
+                setMelding('Kon scoreboard niet laden.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        laadScoreboard();
+    }, []);
+
+    if (loading) return <div>Laden van scoreboard...</div>;
+    if (melding) return <div>{melding}</div>;
+
     const grafiekData = maakGrafiekData(spelers);
     const klassement = [...spelers].sort((a, b) => b.totaal - a.totaal);
-    const aantalRitten = Math.max(...spelers.map((speler) => speler.ritten.length));
+    const aantalRitten = Math.max(
+        0,
+        ...spelers.map((speler) => speler.per_rit?.length || 0)
+    );
 
     return (
         <div className="scoreboard-page">
             <section className="scoreboard-header">
                 <div>
                     <h1>Scoreboard</h1>
-                    <p>Overzicht van alle spelers, ritpunten en totaalstand.</p>
+                    <p>Overzicht van alle spelers, ritpunten, truienpunten en totaalstand.</p>
                 </div>
 
                 <div className="scoreboard-summary">
@@ -104,9 +113,9 @@ export default function ScoreboardPage() {
                             <Legend />
                             {spelers.map((speler) => (
                                 <Line
-                                    key={speler.id}
+                                    key={speler.speler_id}
                                     type="monotone"
-                                    dataKey={speler.naam}
+                                    dataKey={speler.speler}
                                     stroke={speler.kleur}
                                     strokeWidth={3}
                                     dot={{ r: 4 }}
@@ -126,7 +135,7 @@ export default function ScoreboardPage() {
 
                     <div className="klassement-list">
                         {klassement.map((speler, index) => (
-                            <div key={speler.id} className="klassement-row">
+                            <div key={speler.speler_id} className="klassement-row">
                                 <div className="rank">#{index + 1}</div>
 
                                 <div className="player-info">
@@ -134,7 +143,7 @@ export default function ScoreboardPage() {
                                         className="player-dot"
                                         style={{ backgroundColor: speler.kleur }}
                                     />
-                                    <strong>{speler.naam}</strong>
+                                    <strong>{speler.speler}</strong>
                                 </div>
 
                                 <div className="player-total">
@@ -164,23 +173,28 @@ export default function ScoreboardPage() {
 
                             <tbody>
                                 {klassement.map((speler) => (
-                                    <tr key={speler.id}>
+                                    <tr key={speler.speler_id}>
                                         <td>
                                             <span
                                                 className="player-dot"
                                                 style={{ backgroundColor: speler.kleur }}
                                             />
-                                            {speler.naam}
+                                            {speler.speler}
                                         </td>
 
                                         {Array.from({ length: aantalRitten }, (_, i) => {
-                                            const rit = speler.ritten.find(
-                                                (r) => r.rit === i + 1
+                                            const rit = speler.per_rit.find(
+                                                (r) => r.rit_nummer === i + 1
                                             );
+
+                                            if (!rit) return <td key={i}>-</td>;
 
                                             return (
                                                 <td key={i}>
-                                                    {rit ? `${rit.punten}` : '-'}
+                                                    <strong>{rit.punten}</strong>
+                                                    <div className="score-detail">
+                                                        {rit.rit_punten} rit + {rit.truien_punten} trui
+                                                    </div>
                                                 </td>
                                             );
                                         })}
