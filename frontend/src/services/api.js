@@ -20,7 +20,8 @@ export const registreerGebruiker = (data) => api.post('/auth/register', data);
 export const getScoreboard = (wedstrijdId) => api.get(`/scores/${wedstrijdId}`);
 export const getRitten = () => api.get('/ritten');
 export const getRit = (id) => api.get(`/ritten/${id}`);
-export const triggerScrape = (ritId) => api.post(`/ritten/${ritId}/scrape`);
+// src/services/api.js
+export const triggerScrape = (id) => api.post(`/ritten/${id}/auto-scrape`);
 
 export const getRenners = () => api.get('/renners');
 export const getBeschikbareRenners = () => api.get('/renners/beschikbaar');

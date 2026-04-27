@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
 
         const mapped = data.map(speler => ({
             id: speler.id,
-            naam: speler.naam,
+            naam: speler.gebruikers?.naam || 'Onbekende gebruiker',
             aantalGekozen: speler.draft[0]?.count || 0
         }));
 

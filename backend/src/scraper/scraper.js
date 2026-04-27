@@ -3,7 +3,7 @@ const { supabase } = require('../db/supabase');
 
 async function getBrowser() {
     return await puppeteer.launch({
-        headless: false, // Zet op true als alles stabiel draait
+        headless: true, // Zet op true als alles stabiel draait
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
     });
 }
@@ -83,7 +83,14 @@ async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
         // Stap 1: Navigatie
         console.log("🌐 Pagina laden...");
         await page.goto(racePcsUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-        console.log("📄 Pagina geladen, elementen zoeken...");
+        console.log("📄 Pagina geladen. Wachten op tabel...");
+
+        try {
+            // PCS laadt resultaten vaak in een div met class .result-cont
+            await page.waitForSelector('.results-table', { timeout: 10000 });
+        } catch (e) {
+            console.log("⚠️ Tabel niet verschenen binnen 10 seconden.");
+        }
 
         // Stap 2: Data ophalen
         const rittenData = await page.evaluate(() => {
@@ -136,4 +143,64 @@ async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
     }
 }
 
-module.exports = { importStartlist, scrapeRitUitslag, scrapeStagesForRace };
+async function scrapeRitDetails(racePcsUrl, ritNummer) {
+    console.log(`🔎 SCRAPER GESTART voor Rit ${ritNummer}`);
+    const browser = await getBrowser();
+    try {
+        const page = await browser.newPage();
+        const baseUrl = racePcsUrl.endsWith('/') ? racePcsUrl.slice(0, -1) : racePcsUrl;
+        const stageUrl = `${baseUrl}/stage-${ritNummer}`;
+
+        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.goto(stageUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        await new Promise(r => setTimeout(r, 3000));
+
+        const data = await page.evaluate(() => {
+            const results = { uitslag: [], truien: {} };
+            const tables = Array.from(document.querySelectorAll('table'));
+
+            // 1. Uitslag tabel (zoals in je test)
+            const resultTable = tables.find(t => t.innerText.includes('Rider') && t.querySelectorAll('tr').length > 10);
+            if (resultTable) {
+                const rows = Array.from(resultTable.querySelectorAll('tbody tr')).slice(0, 25);
+                results.uitslag = rows.map(row => {
+                    const a = row.querySelector('a[href^="rider/"]');
+                    return {
+                        naam: a?.innerText.trim(),
+                        slug: a?.getAttribute('href')?.replace('rider/', '')
+                    };
+                }).filter(r => r.slug);
+            }
+
+            // 2. Truien tabel (zoals in je test)
+            const getLeaderSlugFromSmallTable = (headerText) => {
+                const targetTable = tables.find(t =>
+                    t.previousElementSibling?.innerText.includes(headerText) ||
+                    t.innerText.includes(headerText)
+                );
+                const firstRider = targetTable?.querySelector('a[href^="rider/"]');
+                // Belangrijk: we hebben de SLUG nodig voor de database koppeling later
+                return firstRider ? firstRider.getAttribute('href').replace('rider/', '') : null;
+            };
+
+            results.truien = {
+                algemeen: getLeaderSlugFromSmallTable('GC'),
+                punten: getLeaderSlugFromSmallTable('Points'),
+                berg: getLeaderSlugFromSmallTable('KOM'),
+                jongeren: getLeaderSlugFromSmallTable('Youth')
+            };
+
+            return results;
+        });
+
+        console.log("✅ Scraper resultaat:", data.truien);
+        return data;
+    } catch (err) {
+        console.error("❌ Scraper error:", err.message);
+        return null;
+    } finally {
+        await browser.close();
+    }
+}
+
+module.exports = { importStartlist, scrapeRitUitslag, scrapeStagesForRace, scrapeRitDetails };
