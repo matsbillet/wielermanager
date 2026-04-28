@@ -5,12 +5,15 @@ import {
     kiesRenner,
     getTeams,
     getActieveSpeler,
+    getSessieVoorCompetitie,
 } from "../services/api";
 import { useRealtimeDraft } from "../hooks/useRealtimeDraft";
+import { useParams } from "react-router-dom";
 
 const MAX_RENNERS_PER_SPELER = 18;
 
 export default function DraftPage() {
+    const { competitieId } = useParams();
     const [riders, setRiders] = useState([]);
     const [spelers, setSpelers] = useState([]);
     const [ladenPagina, setLadenPagina] = useState(true);
@@ -22,23 +25,27 @@ export default function DraftPage() {
     const [draftKlaar, setDraftKlaar] = useState(false);
     const [gekozenTeller, setGekozenTeller] = useState({});
     const [teams, setTeams] = useState({});
+    const [sessieId, setSessieId] = useState(null);
 
     useEffect(() => {
         async function laadData() {
             try {
+                const sessieResponse = await getSessieVoorCompetitie(competitieId);
+                const actieveSessieId = sessieResponse.data.id;
+                setSessieId(actieveSessieId);
+
                 const [rennersResponse, spelersResponse] = await Promise.all([
                     getBeschikbareRenners(),
-                    getSpelers(),
+                    getSpelers(competitieId),
                 ]);
 
-                const spelersData = Array.isArray(spelersResponse.data)
-                    ? spelersResponse.data
-                    : [];
+                const rennersData = rennersResponse.data || [];
+                const spelersData = spelersResponse.data || [];
 
-                setRiders(Array.isArray(rennersResponse.data) ? rennersResponse.data : []);
+                setRiders(rennersData);
                 setSpelers(spelersData);
 
-                const teamsResponse = await getTeams(1);
+                const teamsResponse = await getTeams(actieveSessieId);
                 const teamsData = teamsResponse.data || {};
                 setTeams(teamsData);
 
@@ -49,7 +56,7 @@ export default function DraftPage() {
                 });
                 setGekozenTeller(tellerInit);
 
-                const actieveSpelerResponse = await getActieveSpeler();
+                const actieveSpelerResponse = await getActieveSpeler(actieveSessieId);
 
                 if (!actieveSpelerResponse.data.klaar) {
                     const actieveIndex = spelersData.findIndex(
@@ -70,8 +77,8 @@ export default function DraftPage() {
             }
         }
 
-        laadData();
-    }, []);
+        if (competitieId) laadData();
+    }, [competitieId]);
 
     const actieveSpeler = spelers[actieveSpelerIndex] || null;
 
@@ -115,8 +122,8 @@ export default function DraftPage() {
     async function refreshDraftData() {
         try {
             const [teamsResponse, actieveSpelerResponse] = await Promise.all([
-                getTeams(1),
-                getActieveSpeler(),
+                getTeams(sessieId),
+                getActieveSpeler(sessieId),
             ]);
 
             const teamsData = teamsResponse.data || {};

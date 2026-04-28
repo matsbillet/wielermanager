@@ -58,16 +58,7 @@ router.post('/register', async (req, res) => {
             throw error;
         }
 
-        const { error: spelerError } = await supabase
-            .from('spelers')
-            .insert([
-                {
-                    gebruiker_id: data.id, // De ID van de zojuist gemaakte speler       // De naam van de gebruiker
-                    competitie_id: 1       // Standaard competitie ID
-                }
-            ]);
 
-        if (spelerError) console.error("Fout bij koppelen speler:", spelerError);
 
         const token = jwt.sign(
             { id: data.id, naam: data.naam, is_admin: data.is_admin },

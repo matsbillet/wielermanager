@@ -8,30 +8,40 @@ const voerKeuzeUit = async (req, res) => {
     try {
         // 1. Zoek de actieve sessie
         // GEBRUIK: 'Draft_sessies' en 'is_actief' (zoals in je screenshot)
+        const { data: speler } = await supabase
+            .from('spelers')
+            .select('competitie_id')
+            .eq('id', spelerId)
+            .single();
+
+        if (!speler) return res.status(404).json({ error: "Speler niet gevonden." });
+
+        // 2. Zoek de actieve sessie voor EXACT DEZE competitie
         const { data: actieveSessie, error: sessieError } = await supabase
             .from('draft_sessies')
             .select('id')
-            .eq('is_actief', true) // AANGEPAST: was 'actief'
+            .eq('competitie_id', speler.competitie_id)
+            .eq('is_actief', true)
             .single();
 
         if (sessieError || !actieveSessie) {
-            console.error("Sessie fout:", sessieError);
-            return res.status(404).json({ error: "Geen actieve draft-sessie gevonden." });
+            return res.status(404).json({ error: "Geen actieve draft-sessie voor deze competitie." });
         }
 
         const sessieId = actieveSessie.id;
 
+        // 3. Haal ALLEEN de spelers op uit DEZE competitie
         const { data: spelers, error: spelersError } = await supabase
             .from('spelers')
             .select('id, gebruikers ( naam )')
-            .order('id', { ascending: true }); // Zorg dat de volgorde consistent is
+            .eq('competitie_id', speler.competitie_id)
+            .order('id', { ascending: true });
 
         if (spelersError || !spelers) {
-            console.error("Spelers fout:", spelersError);
-            return res.status(500).json({ error: "Fout bij ophalen spelers." });
+            return res.status(500).json({ error: "Kon spelers niet ophalen." });
         }
 
-        const getransformeerdeSpelers = spelers?.map(s => ({
+        const getransformeerdeSpelers = spelers.map(s => ({
             id: s.id,
             naam: s.gebruikers?.naam
         }));
@@ -117,20 +127,25 @@ const getTeamsPerSessie = async (req, res) => {
 };
 
 const getActieveSpeler = async (req, res) => {
+    const { sessieId } = req.params; // We verwachten nu een ID vanuit de URL!
+
     try {
+        // Zoek de sessie en kijk bij welke competitie deze hoort
         const { data: actieveSessie, error: sessieError } = await supabase
             .from('draft_sessies')
-            .select('id')
-            .eq('is_actief', true)
+            .select('id, competitie_id')
+            .eq('id', sessieId)
             .single();
 
         if (sessieError || !actieveSessie) {
-            return res.status(404).json({ error: 'Geen actieve sessie.' });
+            return res.status(404).json({ error: 'Geen sessie gevonden.' });
         }
 
+        // Haal alleen de spelers van deze specifieke competitie op
         const { data: spelersRaw, error: spelersError } = await supabase
             .from('spelers')
             .select('id, gebruikers ( naam )')
+            .eq('competitie_id', actieveSessie.competitie_id)
             .order('id', { ascending: true });
 
         if (spelersError) throw spelersError;
@@ -150,15 +165,26 @@ const getActieveSpeler = async (req, res) => {
         const huidigeBeurt = (count || 0) + 1;
         const info = getSpelerVoorBeurt(huidigeBeurt, spelers);
 
-        if (!info) {
-            return res.json({ klaar: true });
-        }
-
-        res.json({ spelerId: info.spelerId, klaar: false });
-
+        res.json(info);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Kon actieve speler niet ophalen', details: error.message });
     }
 };
 
-module.exports = { voerKeuzeUit, getTeamsPerSessie, getActieveSpeler };
+const getSessieVoorCompetitie = async (req, res) => {
+    const { competitieId } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('draft_sessies')
+            .select('id, Naam, is_actief, wedstrijd_id')
+            .eq('competitie_id', competitieId)
+            .eq('is_actief', true)
+            .single();
+
+        if (error || !data) return res.status(404).json({ error: 'Geen actieve sessie gevonden voor deze competitie.' });
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: 'Fout bij ophalen sessie.' });
+    }
+};
+module.exports = { voerKeuzeUit, getTeamsPerSessie, getActieveSpeler, getSessieVoorCompetitie };

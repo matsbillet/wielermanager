@@ -11,6 +11,8 @@ import AdminPage from './pages/AdminPage';
 import RacesPage from './pages/RacesPage';
 import RaceDetailPage from './pages/RaceDetailPage';
 
+import CompetitiesPage from './pages/CompetitiePage';
+
 
 import logo from './img/fietsimgneon.png';
 
@@ -34,6 +36,7 @@ function Layout() {
                         <NavLink to="/scoreboard">Scorebord</NavLink>
                         <NavLink to="/draft">Draft</NavLink>
                         <NavLink to="/races">Koersen</NavLink>
+                        <NavLink to="/competities">Competities</NavLink>
                         {gebruiker?.is_admin && <NavLink to="/admin">Admin</NavLink>}
                     </nav>
 
@@ -54,8 +57,17 @@ function Layout() {
                         }
                     />
 
-                    <Route
+                    {/* <Route
                         path="/draft"
+                        element={
+                            <ProtectedRoute>
+                                <DraftPage />
+                            </ProtectedRoute>
+                        }
+                    /> */}
+
+                    <Route
+                        path="/draft/:competitieId"
                         element={
                             <ProtectedRoute>
                                 <DraftPage />
@@ -63,6 +75,14 @@ function Layout() {
                         }
                     />
 
+                    <Route
+                        path="/competities"
+                        element={
+                            <ProtectedRoute>
+                                <CompetitiesPage />
+                            </ProtectedRoute>
+                        }
+                    />
                     <Route
                         path="/rit/:id"
                         element={

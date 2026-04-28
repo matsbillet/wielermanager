@@ -2,15 +2,17 @@ const { supabase } = require('../db/supabase');
 
 // 1. Een nieuwe competitie aanmaken
 const maakCompetitie = async (req, res) => {
-    const { naam, beheerderId } = req.body;
+    // We verwachten nu ook een wedstrijdId vanuit de frontend!
+    const { naam, beheerderId, wedstrijdId } = req.body;
 
     try {
-        // Stap A: Maak de competitie aan in de 'Competities' tabel
+        // Stap A: Maak de competitie aan
         const { data: competitie, error: compError } = await supabase
             .from('Competities')
             .insert([{
                 Naam: naam,
-                beheerder_id: beheerderId
+                beheerder_id: beheerderId,
+                wedstrijd_id: wedstrijdId // Nu dynamisch!
             }])
             .select()
             .single();
@@ -27,16 +29,18 @@ const maakCompetitie = async (req, res) => {
 
         if (spelerError) throw spelerError;
 
+        // Stap C: Maak direct een actieve draft sessie aan voor deze competitie
         const { error: sessieError } = await supabase
             .from('draft_sessies')
             .insert([{
                 Naam: `Draft ${naam}`,
                 competitie_id: competitie.id,
                 is_actief: true,
-                wedstrijd_id: 2 // Pas dit aan naar de juiste standaard wedstrijd ID
+                wedstrijd_id: wedstrijdId // Zelfde wedstrijd als de competitie
             }]);
 
         if (sessieError) throw sessieError;
+
         res.json({
             status: 'Succes',
             bericht: `Competitie '${naam}' succesvol aangemaakt!`,
@@ -44,6 +48,7 @@ const maakCompetitie = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Fout bij aanmaken competitie:", error);
         res.status(500).json({ error: 'Kon competitie niet aanmaken', details: error.message });
     }
 };

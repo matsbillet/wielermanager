@@ -25,7 +25,7 @@ export const triggerScrape = (id) => api.post(`/ritten/${id}/auto-scrape`);
 
 export const getRenners = () => api.get('/renners');
 export const getBeschikbareRenners = () => api.get('/renners/beschikbaar');
-export const getSpelers = () => api.get('/spelers');
+export const getSpelers = (competitieId) => api.get(`/spelers/competitie/${competitieId}`);
 
 export const getWedstrijden = () => api.get('/wedstrijden');
 export const getWedstrijd = (slug) => api.get(`/wedstrijden/${slug}`);
@@ -60,6 +60,12 @@ export const deleteAllRenners = () => api.delete('/admin/renners-all');
 export const deleteAllDrafts = () => api.delete('/admin/drafts-all');
 export const deleteDraftById = (id) => api.delete(`/admin/drafts/${id}`);
 export const getTeams = (sessieId) => api.get(`/draft/teams/${sessieId}`);
-export const getActieveSpeler = () => api.get('/draft/actieve-speler');
+export const getActieveSpeler = (sessieId) => api.get(`/draft/actieve-speler/${sessieId}`);
+export const getSessieVoorCompetitie = (competitieId) => api.get(`/draft/sessie/${competitieId}`);
+
+// Competities
+export const maakCompetitie = (data) => api.post('/competitie/create', data);
+export const joinCompetitie = (data) => api.post('/competitie/join', data);
+export const getMijnCompetities = (userId) => api.get(`/competitie/mijn/${userId}`);
 
 export default api;
