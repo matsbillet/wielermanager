@@ -75,16 +75,28 @@ export default function DraftPage() {
 
     const actieveSpeler = spelers[actieveSpelerIndex] || null;
 
+    function normaliseer(text = "") {
+        return text
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/ø/g, "o")
+            .replace(/æ/g, "ae")
+            .replace(/œ/g, "oe")
+            .replace(/ß/g, "ss")
+            .replace(/đ/g, "d")
+            .replace(/ł/g, "l");
+    }
+
     const gefilterdeRenners = useMemo(() => {
-        const term = zoekTerm.trim().toLowerCase();
+        const term = normaliseer(zoekTerm.trim());
 
         if (!term) return riders;
 
         return riders.filter((rider) => {
-            const naam = rider.naam?.toLowerCase() || "";
-            const ploeg = rider.ploeg?.toLowerCase() || "";
+            const naam = normaliseer(rider.naam);
 
-            return naam.includes(term) || ploeg.includes(term);
+            return naam.includes(term);
         });
     }, [riders, zoekTerm]);
 
@@ -325,7 +337,7 @@ export default function DraftPage() {
                     type="search"
                     value={zoekTerm}
                     onChange={(event) => setZoekTerm(event.target.value)}
-                    placeholder="Zoek renner op naam of ploeg..."
+                    placeholder="Zoek renner op naam"
                 />
 
                 {zoekTerm && (
