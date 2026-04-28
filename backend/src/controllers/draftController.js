@@ -23,13 +23,18 @@ const voerKeuzeUit = async (req, res) => {
 
         const { data: spelers, error: spelersError } = await supabase
             .from('spelers')
-            .select('id, naam')
+            .select('id, gebruikers ( naam )')
             .order('id', { ascending: true }); // Zorg dat de volgorde consistent is
 
         if (spelersError || !spelers) {
             console.error("Spelers fout:", spelersError);
             return res.status(500).json({ error: "Fout bij ophalen spelers." });
         }
+
+        const getransformeerdeSpelers = spelers?.map(s => ({
+            id: s.id,
+            naam: s.gebruikers?.naam
+        }));
         // 2. Tel beurten voor deze specifieke sessie
         const { count, error: countError } = await supabase
             .from('draft')
@@ -41,7 +46,7 @@ const voerKeuzeUit = async (req, res) => {
         const huidigeBeurt = (count || 0) + 1;
 
         // Slangvolgorde: Oneven rondes 1->4, Even rondes 4->1
-        const info = getSpelerVoorBeurt(huidigeBeurt, spelers);
+        const info = getSpelerVoorBeurt(huidigeBeurt, getransformeerdeSpelers);
 
         if (!info) {
             return res.status(400).json({ error: 'Draft voltooid' });
@@ -86,7 +91,7 @@ const getTeamsPerSessie = async (req, res) => {
                 is_bank,
                 beurt_nummer,
                 renners (id, naam), 
-                spelers (id, naam)
+                spelers (id, gebruikers (naam))
             `)
             .eq('sessie_id', sessieId)
             .order('beurt_nummer', { ascending: true });
@@ -95,7 +100,7 @@ const getTeamsPerSessie = async (req, res) => {
 
         //Optioneel: Groepeer de data alvast in de backend per speler
         const teams = data.reduce((acc, keuze) => {
-            const spelerNaam = keuze.spelers.naam;
+            const spelerNaam = keuze.spelers.gebruikers.naam;
             if (!acc[spelerNaam]) acc[spelerNaam] = [];
             acc[spelerNaam].push({
                 renner: keuze.renners.naam,
@@ -123,12 +128,17 @@ const getActieveSpeler = async (req, res) => {
             return res.status(404).json({ error: 'Geen actieve sessie.' });
         }
 
-        const { data: spelers, error: spelersError } = await supabase
+        const { data: spelersRaw, error: spelersError } = await supabase
             .from('spelers')
-            .select('id, naam')
+            .select('id, gebruikers ( naam )')
             .order('id', { ascending: true });
 
         if (spelersError) throw spelersError;
+
+        const spelers = spelersRaw?.map(s => ({
+            id: s.id,
+            naam: s.gebruikers?.naam
+        }));
 
         const { count, error: countError } = await supabase
             .from('draft')
