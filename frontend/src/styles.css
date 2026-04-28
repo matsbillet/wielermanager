@@ -1668,3 +1668,74 @@ textarea:focus {
     height: 22px;
     object-fit: contain;
 }
+
+/* Admin Specifieke Flexbox */
+.admin-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+/* De dropdown Filter */
+.admin-select-custom {
+    padding: 0.6rem 1rem;
+    border-radius: 10px;
+    background: #11141b;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.admin-select-custom:focus {
+    border-color: var(--yellow);
+}
+
+/* Moderne Delete Button */
+.admin-delete-icon-btn {
+    background: rgba(255, 91, 102, 0.1);
+    border: 1px solid rgba(255, 91, 102, 0.2);
+    color: var(--red);
+    padding: 0.6rem;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.admin-delete-icon-btn:hover {
+    background: var(--red);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 91, 102, 0.25);
+}
+
+/* Status Pillen voor ritten */
+.status-pill {
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.3rem 0.7rem;
+    border-radius: 8px;
+}
+
+.status-pill.done {
+    color: var(--green);
+    background: rgba(35, 220, 135, 0.1);
+}
+
+.status-pill.open {
+    color: #ff9800;
+    background: rgba(255, 152, 0, 0.1);
+}
+
+/* Tabel aanpassingen */
+.list-row-admin {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 1rem 0;
+}
