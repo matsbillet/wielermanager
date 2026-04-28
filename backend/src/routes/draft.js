@@ -1,21 +1,12 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const draftController = require('../controllers/draftController');
-const { supabase } = require('../db/supabase');
+const draftController = require("../controllers/draftController");
 
-/**
- * Route: POST /api/draft/kies
- * Wordt aangeroepen als een speler een renner selecteert.
- */
-router.post('/kies', draftController.voerKeuzeUit);
-router.get('/teams/:sessieId', draftController.getTeamsPerSessie);
-router.get('/actieve-speler', draftController.getActieveSpeler);
+router.post("/kies", draftController.voerKeuzeUit);
+router.get("/teams/:sessieId", draftController.getTeamsPerSessie);
+router.get("/actieve-speler/:sessieId", draftController.getActieveSpeler);
 
-/**
- * Route: GET /api/draft/test
- * Handig om te checken of deze specifieke route-file werkt.
- */
-router.get('/test', (req, res) => {
+router.get("/test", (req, res) => {
     res.json({ bericht: "Draft route werkt naar behoren!" });
 });
 

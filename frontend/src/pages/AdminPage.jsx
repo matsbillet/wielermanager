@@ -114,13 +114,41 @@ export default function AdminPage() {
     };
 
     const handleImportStartlist = async () => {
-        const url = prompt('Plak de URL van de PCS Startlist (bijv. /race/tour-de-france/2026/startlist):');
+        if (!wedstrijden || wedstrijden.length === 0) {
+            alert('Geen wedstrijden gevonden. Maak eerst een wedstrijd aan.');
+            return;
+        }
+
+        const wedstrijdenLijst = wedstrijden
+            .map((wedstrijd) => `${wedstrijd.id}: ${wedstrijd.naam} ${wedstrijd.jaar}`)
+            .join('\n');
+
+        const wedstrijdId = prompt(
+            `Voor welke wedstrijd wil je de startlijst importeren?\n\n${wedstrijdenLijst}\n\nTyp het ID van de wedstrijd:`
+        );
+
+        if (!wedstrijdId) return;
+
+        const gekozenWedstrijd = wedstrijden.find(
+            (wedstrijd) => Number(wedstrijd.id) === Number(wedstrijdId)
+        );
+
+        if (!gekozenWedstrijd) {
+            alert('Ongeldig wedstrijd ID.');
+            return;
+        }
+
+        const url = prompt(
+            `Plak de PCS Startlist URL voor ${gekozenWedstrijd.naam} ${gekozenWedstrijd.jaar}:`
+        );
+
         if (!url) return;
 
         setLoading(true);
+
         try {
-            await importStartlist(url);
-            alert('Startlijst succesvol geïmporteerd!');
+            const res = await importStartlist(url, Number(wedstrijdId));
+            alert(res.data.message || 'Startlijst succesvol geïmporteerd!');
             await fetchData();
         } catch (err) {
             console.error(err);

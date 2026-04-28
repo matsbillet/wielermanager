@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
     getBeschikbareRenners,
     getSpelers,
@@ -10,7 +11,22 @@ import { useRealtimeDraft } from "../hooks/useRealtimeDraft";
 
 const MAX_RENNERS_PER_SPELER = 18;
 
+function normaliseer(text = "") {
+    return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/ø/g, "o")
+        .replace(/æ/g, "ae")
+        .replace(/œ/g, "oe")
+        .replace(/ß/g, "ss")
+        .replace(/đ/g, "d")
+        .replace(/ł/g, "l");
+}
+
 export default function DraftPage() {
+    const { draftSessieId } = useParams();
+
     const [riders, setRiders] = useState([]);
     const [spelers, setSpelers] = useState([]);
     const [ladenPagina, setLadenPagina] = useState(true);
@@ -23,70 +39,122 @@ export default function DraftPage() {
     const [gekozenTeller, setGekozenTeller] = useState({});
     const [teams, setTeams] = useState({});
 
-    useEffect(() => {
-        async function laadData() {
-            try {
-                const [rennersResponse, spelersResponse] = await Promise.all([
-                    getBeschikbareRenners(),
-                    getSpelers(),
+    async function laadDraftData() {
+        try {
+            setLadenPagina(true);
+            setMelding("");
+
+            const [rennersResponse, spelersResponse, teamsResponse, actieveSpelerResponse] =
+                await Promise.all([
+                    getBeschikbareRenners(draftSessieId),
+                    getSpelers(draftSessieId),
+                    getTeams(draftSessieId),
+                    getActieveSpeler(draftSessieId),
                 ]);
 
-                const spelersData = Array.isArray(spelersResponse.data)
-                    ? spelersResponse.data
-                    : [];
+            const rennersData = Array.isArray(rennersResponse.data)
+                ? rennersResponse.data
+                : [];
 
-                setRiders(Array.isArray(rennersResponse.data) ? rennersResponse.data : []);
-                setSpelers(spelersData);
+            const spelersData = Array.isArray(spelersResponse.data)
+                ? spelersResponse.data
+                : [];
 
-                const teamsResponse = await getTeams(1);
-                const teamsData = teamsResponse.data || {};
-                setTeams(teamsData);
+            const teamsData = teamsResponse.data || {};
 
-                const tellerInit = {};
-                spelersData.forEach((speler) => {
-                    const spelerTeam = teamsData[speler.naam] || [];
-                    tellerInit[speler.id] = spelerTeam.length;
-                });
-                setGekozenTeller(tellerInit);
+            setRiders(rennersData);
+            setSpelers(spelersData);
+            setTeams(teamsData);
 
-                const actieveSpelerResponse = await getActieveSpeler();
+            const tellerInit = {};
+            spelersData.forEach((speler) => {
+                const spelerTeam = teamsData[speler.naam] || [];
+                tellerInit[speler.id] = spelerTeam.length;
+            });
 
-                if (!actieveSpelerResponse.data.klaar) {
-                    const actieveIndex = spelersData.findIndex(
-                        (speler) => speler.id === actieveSpelerResponse.data.spelerId,
-                    );
+            setGekozenTeller(tellerInit);
 
-                    if (actieveIndex >= 0) {
-                        setActieveSpelerIndex(actieveIndex);
-                    }
-                } else {
-                    setDraftKlaar(true);
+            if (actieveSpelerResponse.data.klaar) {
+                setDraftKlaar(true);
+            } else {
+                setDraftKlaar(false);
+
+                const actieveIndex = spelersData.findIndex(
+                    (speler) => speler.id === actieveSpelerResponse.data.spelerId,
+                );
+
+                if (actieveIndex >= 0) {
+                    setActieveSpelerIndex(actieveIndex);
                 }
-            } catch (err) {
-                console.error("Fout bij ophalen draft data:", err);
-                setMelding("Kon draft data niet laden.");
-            } finally {
-                setLadenPagina(false);
             }
+        } catch (err) {
+            console.error("Fout bij ophalen draft data:", err);
+            setMelding(
+                err.response?.data?.error ||
+                err.response?.data?.details ||
+                "Kon draft data niet laden.",
+            );
+        } finally {
+            setLadenPagina(false);
         }
+    }
 
-        laadData();
-    }, []);
+    async function refreshDraftData() {
+        try {
+            const [rennersResponse, teamsResponse, actieveSpelerResponse] =
+                await Promise.all([
+                    getBeschikbareRenners(draftSessieId),
+                    getTeams(draftSessieId),
+                    getActieveSpeler(draftSessieId),
+                ]);
+
+            setRiders(Array.isArray(rennersResponse.data) ? rennersResponse.data : []);
+
+            const teamsData = teamsResponse.data || {};
+            setTeams(teamsData);
+
+            const nieuweTeller = {};
+            spelers.forEach((speler) => {
+                const spelerTeam = teamsData[speler.naam] || [];
+                nieuweTeller[speler.id] = spelerTeam.length;
+            });
+
+            setGekozenTeller(nieuweTeller);
+
+            if (actieveSpelerResponse.data.klaar) {
+                setDraftKlaar(true);
+            } else {
+                setDraftKlaar(false);
+
+                const nextIndex = spelers.findIndex(
+                    (speler) => speler.id === actieveSpelerResponse.data.spelerId,
+                );
+
+                if (nextIndex >= 0) {
+                    setActieveSpelerIndex(nextIndex);
+                }
+            }
+        } catch (err) {
+            console.error("Fout bij vernieuwen draft data:", err);
+        }
+    }
+
+    useEffect(() => {
+        laadDraftData();
+    }, [draftSessieId]);
+
+    useRealtimeDraft(
+        async () => {
+            setTimeout(() => {
+                refreshDraftData();
+            }, 500);
+        },
+        async () => {
+            refreshDraftData();
+        },
+    );
 
     const actieveSpeler = spelers[actieveSpelerIndex] || null;
-
-    function normaliseer(text = "") {
-        return text
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/ø/g, "o")
-            .replace(/æ/g, "ae")
-            .replace(/œ/g, "oe")
-            .replace(/ß/g, "ss")
-            .replace(/đ/g, "d")
-            .replace(/ł/g, "l");
-    }
 
     const gefilterdeRenners = useMemo(() => {
         const term = normaliseer(zoekTerm.trim());
@@ -95,7 +163,6 @@ export default function DraftPage() {
 
         return riders.filter((rider) => {
             const naam = normaliseer(rider.naam);
-
             return naam.includes(term);
         });
     }, [riders, zoekTerm]);
@@ -112,54 +179,10 @@ export default function DraftPage() {
         ? (gekozenTeller[actieveSpeler.id] || 0) + 1
         : 1;
 
-    async function refreshDraftData() {
-        try {
-            const [teamsResponse, actieveSpelerResponse] = await Promise.all([
-                getTeams(1),
-                getActieveSpeler(),
-            ]);
-
-            const teamsData = teamsResponse.data || {};
-            setTeams(teamsData);
-
-            const nieuweTeller = {};
-            spelers.forEach((speler) => {
-                const spelerTeam = teamsData[speler.naam] || [];
-                nieuweTeller[speler.id] = spelerTeam.length;
-            });
-            setGekozenTeller(nieuweTeller);
-
-            if (!actieveSpelerResponse.data.klaar) {
-                const nextIndex = spelers.findIndex(
-                    (speler) => speler.id === actieveSpelerResponse.data.spelerId,
-                );
-
-                if (nextIndex >= 0) {
-                    setActieveSpelerIndex(nextIndex);
-                }
-            } else {
-                setDraftKlaar(true);
-            }
-        } catch (err) {
-            console.error("Fout bij vernieuwen draft data:", err);
-        }
-    }
-
-    useRealtimeDraft(
-        async () => {
-            setTimeout(() => {
-                refreshDraftData();
-            }, 500);
-        },
-        async () => {
-            refreshDraftData();
-        },
-    );
-
     useEffect(() => {
         if (alleSpelersKlaar && !draftKlaar) {
             setDraftKlaar(true);
-            setMelding("Draft is gedaan, iedereen heeft 18 spelers gekozen.");
+            setMelding("Draft is gedaan, iedereen heeft 18 renners gekozen.");
         }
     }, [alleSpelersKlaar, draftKlaar]);
 
@@ -175,24 +198,22 @@ export default function DraftPage() {
             );
 
             await kiesRenner({
-                spelerId: actieveSpeler.id,
+                sessieId: Number(draftSessieId),
                 rennerId,
-                huidigeBeurt: beurtVoorActieveSpeler,
             });
 
             setMelding(`${naam} gekozen door ${actieveSpeler.naam}.`);
-        } catch (err) {
-            setRiders((vorigeRiders) => {
-                const rennerBestaatAl = vorigeRiders.some((rider) => rider.id === rennerId);
 
-                return rennerBestaatAl ? vorigeRiders : [...vorigeRiders, { id: rennerId, naam }];
-            });
+            await refreshDraftData();
+        } catch (err) {
+            await refreshDraftData();
 
             setMelding(
                 err.response?.data?.error ||
                 err.response?.data?.details ||
                 "Fout bij kiezen van renner.",
             );
+
             console.error(err);
         } finally {
             setLoading(false);
@@ -207,7 +228,7 @@ export default function DraftPage() {
         <div>
             <div className="draft-page-header">
                 <h1>Live Draft Board</h1>
-                <span>Snake Draft — Pro Peloton League</span>
+                <span>Draftsessie #{draftSessieId}</span>
             </div>
 
             <section className="draft-overview">
@@ -225,7 +246,8 @@ export default function DraftPage() {
                     return (
                         <div
                             key={speler.id}
-                            className={`draft-player-card ${isActief ? "draft-player-card-active" : ""}`}
+                            className={`draft-player-card ${isActief ? "draft-player-card-active" : ""
+                                }`}
                         >
                             <div className="draft-player-header">
                                 <div className="draft-player-title-row">
@@ -312,7 +334,7 @@ export default function DraftPage() {
                     </div>
                     <p>
                         {draftKlaar
-                            ? "Iedereen heeft 18 spelers gekozen."
+                            ? "Iedereen heeft 18 renners gekozen."
                             : `Beurt ${beurtVoorActieveSpeler} - Selecteer een renner voor ${actieveSpeler?.naam || "de actieve speler"
                             }`}
                     </p>
@@ -337,7 +359,7 @@ export default function DraftPage() {
                     type="search"
                     value={zoekTerm}
                     onChange={(event) => setZoekTerm(event.target.value)}
-                    placeholder="Zoek renner op naam"
+                    placeholder="Zoek renner op naam..."
                 />
 
                 {zoekTerm && (

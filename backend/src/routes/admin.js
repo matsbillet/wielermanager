@@ -92,15 +92,27 @@ router.get('/drafts', async (req, res) => {
 // Startlijst importeren
 router.post('/import-startlist', async (req, res) => {
     try {
-        const { url } = req.body;
-        const resultaat = await scraper.importStartlist(url);
+        const { url, wedstrijdId } = req.body;
+
+        if (!url || !wedstrijdId) {
+            return res.status(400).json({
+                error: 'url en wedstrijdId zijn verplicht.',
+            });
+        }
+
+        const resultaat = await scraper.importStartlist(url, wedstrijdId);
 
         if (resultaat.success) {
-            res.json({ message: `Succes! ${resultaat.count} renners toegevoegd.` });
+            res.json({
+                message: `Succes! ${resultaat.count} renners toegevoegd en gekoppeld aan wedstrijd ${resultaat.wedstrijdId}.`,
+                count: resultaat.count,
+                wedstrijdId: resultaat.wedstrijdId,
+            });
         } else {
             res.status(500).json({ error: resultaat.error });
         }
     } catch (err) {
+        console.error('Fout bij import-startlist:', err);
         res.status(500).json({ error: err.message });
     }
 });
