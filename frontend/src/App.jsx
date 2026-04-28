@@ -33,7 +33,6 @@ function Layout() {
                         <NavLink to="/scoreboard">Scorebord</NavLink>
                         <NavLink to="/draft/1">Draft</NavLink>
                         <NavLink to="/races">Koersen</NavLink>
-                        <NavLink to="/competities">Competities</NavLink>
                         {gebruiker?.is_admin && <NavLink to="/admin">Admin</NavLink>}
                     </nav>
 
@@ -63,14 +62,14 @@ function Layout() {
                         }
                     />
 
-                    <Route
+                    {/* <Route
                         path="/competities"
                         element={
                             <ProtectedRoute>
                                 <CompetitiesPage />
                             </ProtectedRoute>
                         }
-                    />
+                    /> */}
 
                     <Route
                         path="/rit/:id"
