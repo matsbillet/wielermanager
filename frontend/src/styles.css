@@ -1640,4 +1640,31 @@ textarea:focus {
     50% {
         opacity: 0.2;
     }
+
+}
+
+/* JERSEY DISPLAY */
+
+.jersey-leaders-panel {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.2rem;
+}
+
+.jersey-leader {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.4rem 0.7rem;
+    font-weight: 700;
+}
+
+.jersey-leader-img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
 }
