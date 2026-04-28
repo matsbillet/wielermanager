@@ -30,7 +30,7 @@ function Layout() {
                     </div>
 
                     <nav className="main-nav">
-                        <NavLink to="/scoreboard">Scorebord</NavLink>
+                        <NavLink to="/scoreboard/1">Scorebord</NavLink>
                         <NavLink to="/draft/1">Draft</NavLink>
                         <NavLink to="/races">Koersen</NavLink>
                         <NavLink to="/competities">Competities</NavLink>
@@ -44,6 +44,15 @@ function Layout() {
             <main className="page-shell">
                 <Routes>
                     <Route path="/" element={<LoginPage />} />
+
+                    <Route
+                        path="/scoreboard/:competitieId"
+                        element={
+                            <ProtectedRoute>
+                                <ScoreboardPage />
+                            </ProtectedRoute>
+                        }
+                    />
 
                     <Route
                         path="/scoreboard"

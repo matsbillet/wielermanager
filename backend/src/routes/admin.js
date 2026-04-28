@@ -136,14 +136,27 @@ router.post('/scrape-rit', async (req, res) => {
         const uitslagData = await scraper.scrapeRitUitslag(rit.wedstrijden.pcs_url, ritNummer);
 
         for (const item of uitslagData) {
-            const { data: renner, error: rennerErr } = await supabase
+            // probeer eerst op slug
+            let { data: renner } = await supabase
                 .from('renners')
-                .select('id')
+                .select('id, naam')
                 .eq('slug', item.slug)
-                .single();
+                .maybeSingle();
 
-            if (rennerErr || !renner) {
-                console.warn(`Renner met slug ${item.slug} niet gevonden.`);
+            // fallback: probeer op naam (BELANGRIJK)
+            if (!renner && item.naam) {
+                const { data: fallback } = await supabase
+                    .from('renners')
+                    .select('id, naam')
+                    .ilike('naam', `%${item.naam}%`)
+                    .limit(1)
+                    .maybeSingle();
+
+                renner = fallback;
+            }
+
+            if (!renner) {
+                console.warn(`❌ Geen match voor slug: ${item.slug}`);
                 continue;
             }
 
@@ -156,7 +169,8 @@ router.post('/scrape-rit', async (req, res) => {
                     rit_id: ritId,
                     renner_id: renner.id,
                     positie: item.positie,
-                    punten: punten
+                    punten: punten,
+                    rit_punten: punten
                 });
 
             if (upsertError) throw upsertError;

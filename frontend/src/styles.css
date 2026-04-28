@@ -1295,6 +1295,48 @@ textarea:focus {
     border-bottom: none;
 }
 
+.ritpunten-table-wrapper {
+    overflow-x: auto;
+}
+
+.ritpunten-table {
+    width: 100%;
+    min-width: 1100px;
+    border-collapse: collapse;
+}
+
+.ritpunten-table th,
+.ritpunten-table td {
+    padding: 14px 18px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.ritpunten-table th:first-child,
+.ritpunten-table td:first-child {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #141821;
+}
+
+.score-cell {
+    min-width: 72px;
+}
+
+.score-cell strong {
+    display: block;
+    font-size: 1rem;
+}
+
+.score-detail {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.72rem;
+    color: #8f98a8;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 1100px) {

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
     LineChart,
     Line,
@@ -7,26 +8,26 @@ import {
     Tooltip,
     Legend,
     ResponsiveContainer,
-    CartesianGrid
-} from 'recharts';
-import { getScoreboard } from '../services/api';
+    CartesianGrid,
+} from "recharts";
+import { getScoreboard } from "../services/api";
 
 const kleuren = [
-    '#00e5c7',
-    '#ffc400',
-    '#ff4d4d',
-    '#7c4dff',
-    '#4caf50',
-    '#ff9800',
-    '#03a9f4',
-    '#e91e63'
+    "#00e5c7",
+    "#ffc400",
+    "#ff4d4d",
+    "#7c4dff",
+    "#4caf50",
+    "#ff9800",
+    "#03a9f4",
+    "#e91e63",
 ];
 
 function maakGrafiekData(spelers) {
     if (!spelers.length) return [];
 
     const maxRitten = Math.max(
-        ...spelers.map((speler) => speler.per_rit?.length || 0)
+        ...spelers.map((speler) => speler.per_rit?.length || 0),
     );
 
     return Array.from({ length: maxRitten }, (_, index) => {
@@ -46,33 +47,40 @@ function maakGrafiekData(spelers) {
 }
 
 export default function ScoreboardPage() {
+    const { competitieId = "1" } = useParams();
+
     const [spelers, setSpelers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [melding, setMelding] = useState('');
-
-    const wedstrijdId = 1;
+    const [melding, setMelding] = useState("");
 
     useEffect(() => {
         async function laadScoreboard() {
             try {
-                const response = await getScoreboard(wedstrijdId);
+                setLoading(true);
+                setMelding("");
+
+                const response = await getScoreboard(competitieId);
 
                 const spelersMetKleur = response.data.map((speler, index) => ({
                     ...speler,
-                    kleur: kleuren[index % kleuren.length]
+                    kleur: kleuren[index % kleuren.length],
                 }));
 
                 setSpelers(spelersMetKleur);
             } catch (err) {
-                console.error('Fout bij ophalen scoreboard:', err);
-                setMelding('Kon scoreboard niet laden.');
+                console.error("Fout bij ophalen scoreboard:", err);
+                setMelding(
+                    err.response?.data?.error ||
+                    err.response?.data?.details ||
+                    "Kon scoreboard niet laden.",
+                );
             } finally {
                 setLoading(false);
             }
         }
 
         laadScoreboard();
-    }, []);
+    }, [competitieId]);
 
     if (loading) return <div>Laden van scoreboard...</div>;
     if (melding) return <div>{melding}</div>;
@@ -81,7 +89,7 @@ export default function ScoreboardPage() {
     const klassement = [...spelers].sort((a, b) => b.totaal - a.totaal);
     const aantalRitten = Math.max(
         0,
-        ...spelers.map((speler) => speler.per_rit?.length || 0)
+        ...spelers.map((speler) => speler.per_rit?.length || 0),
     );
 
     return (
@@ -146,9 +154,7 @@ export default function ScoreboardPage() {
                                     <strong>{speler.speler}</strong>
                                 </div>
 
-                                <div className="player-total">
-                                    {speler.totaal} pts
-                                </div>
+                                <div className="player-total">{speler.totaal} pts</div>
                             </div>
                         ))}
                     </div>
@@ -184,17 +190,17 @@ export default function ScoreboardPage() {
 
                                         {Array.from({ length: aantalRitten }, (_, i) => {
                                             const rit = speler.per_rit.find(
-                                                (r) => r.rit_nummer === i + 1
+                                                (r) => r.rit_nummer === i + 1,
                                             );
 
                                             if (!rit) return <td key={i}>-</td>;
 
                                             return (
-                                                <td key={i}>
+                                                <td key={i} className="score-cell">
                                                     <strong>{rit.punten}</strong>
-                                                    <div className="score-detail">
-                                                        {rit.rit_punten} rit + {rit.truien_punten} trui
-                                                    </div>
+                                                    <span className="score-detail">
+                                                        {rit.rit_punten} + {rit.truien_punten}
+                                                    </span>
                                                 </td>
                                             );
                                         })}
