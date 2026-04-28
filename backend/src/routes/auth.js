@@ -39,10 +39,11 @@ router.post('/register', async (req, res) => {
             .insert([
                 {
                     naam,
-                    wachtwoord_hash
+                    wachtwoord_hash,
+                    is_admin: false
                 }
             ])
-            .select('id, naam, is_admin')
+            .select()
             .single();
 
         if (error) {
@@ -56,6 +57,8 @@ router.post('/register', async (req, res) => {
 
             throw error;
         }
+
+
 
         const token = jwt.sign(
             { id: data.id, naam: data.naam, is_admin: data.is_admin },

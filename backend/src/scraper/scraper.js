@@ -9,36 +9,108 @@ async function getBrowser() {
 }
 
 // --- STARTLIJST SCRAPER ---
-async function importStartlist(url) {
+async function importStartlist(url, wedstrijdId) {
+    if (!url) {
+        throw new Error('PCS startlist URL ontbreekt.');
+    }
+
+    if (!wedstrijdId) {
+        throw new Error('wedstrijdId ontbreekt. Kies eerst voor welke koers je de startlijst importeert.');
+    }
+
+    console.log('Startlist import gestart');
+    console.log('URL:', url);
+    console.log('wedstrijdId:', wedstrijdId);
+
     const browser = await getBrowser();
+
     try {
         const page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+
+        await page.setUserAgent(
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        );
+
         await page.setViewport({ width: 1600, height: 1200 });
 
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-        await new Promise(r => setTimeout(r, 5000));
+        await new Promise((r) => setTimeout(r, 5000));
 
         const renners = await page.evaluate(() => {
             const list = [];
             const allRiderLinks = Array.from(document.querySelectorAll('a[href^="rider/"]'));
-            allRiderLinks.forEach(a => {
+
+            allRiderLinks.forEach((a) => {
                 const naam = a.innerText.trim();
                 const href = a.getAttribute('href');
-                if (naam && naam.length > 3 && !naam.toLowerCase().includes('statistics')) {
-                    let teamNode = a.closest('div, li, table')?.parentElement?.querySelector('b, h5, .team-name');
-                    const ploeg = teamNode?.innerText.trim() || 'Onbekend';
-                    list.push({ naam, ploeg: ploeg.split(' (')[0], slug: href.split('rider/')[1] });
+
+                if (naam && naam.length > 3 && href) {
+                    list.push({
+                        naam,
+                        ploeg: 'Onbekend',
+                        slug: href.replace('rider/', '').trim(),
+                    });
                 }
             });
+
             return list;
         });
 
-        const uniqueRenners = Array.from(new Map(renners.map(r => [r.slug, r])).values());
-        const { error } = await supabase.from('renners').upsert(uniqueRenners, { onConflict: 'slug' });
-        if (error) throw error;
+        const uniqueRenners = Array.from(
+            new Map(renners.map((renner) => [renner.slug, renner])).values()
+        );
 
-        return { success: true, count: uniqueRenners.length };
+        console.log(`Aantal gevonden unieke renners: ${uniqueRenners.length}`);
+
+        if (uniqueRenners.length === 0) {
+            throw new Error('Geen renners gevonden. Controleer of je echt een PCS startlist URL gebruikt.');
+        }
+
+        const { data: opgeslagenRenners, error: rennersError } = await supabase
+            .from('renners')
+            .upsert(uniqueRenners, { onConflict: 'slug' })
+            .select('id, naam, slug, ploeg');
+
+        if (rennersError) {
+            console.error('Fout bij upsert renners:', rennersError);
+            throw rennersError;
+        }
+
+        console.log(`Aantal opgeslagen renners: ${opgeslagenRenners.length}`);
+
+        const { error: deleteError } = await supabase
+            .from('wedstrijd_deelnemers')
+            .delete()
+            .eq('wedstrijd_id', Number(wedstrijdId));
+
+        if (deleteError) {
+            console.error('Fout bij verwijderen oude wedstrijd_deelnemers:', deleteError);
+            throw deleteError;
+        }
+
+        const deelnemersRows = opgeslagenRenners.map((renner) => ({
+            wedstrijd_id: Number(wedstrijdId),
+            renner_id: Number(renner.id),
+        }));
+
+        const { data: deelnemersData, error: deelnemersError } = await supabase
+            .from('wedstrijd_deelnemers')
+            .insert(deelnemersRows)
+            .select();
+
+        if (deelnemersError) {
+            console.error('Fout bij insert wedstrijd_deelnemers:', deelnemersError);
+            throw deelnemersError;
+        }
+
+        console.log(`Aantal gekoppelde wedstrijd_deelnemers: ${deelnemersData.length}`);
+
+        return {
+            success: true,
+            count: opgeslagenRenners.length,
+            gekoppeld: deelnemersData.length,
+            wedstrijdId: Number(wedstrijdId),
+        };
     } finally {
         await browser.close();
     }
