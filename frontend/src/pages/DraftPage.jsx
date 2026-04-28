@@ -6,6 +6,7 @@ import {
     kiesRenner,
     getTeams,
     getActieveSpeler,
+    getSessieVoorCompetitie,
 } from "../services/api";
 import { useRealtimeDraft } from "../hooks/useRealtimeDraft";
 
@@ -25,7 +26,7 @@ function normaliseer(text = "") {
 }
 
 export default function DraftPage() {
-    const { draftSessieId } = useParams();
+    const { competitieId } = useParams();
 
     const [riders, setRiders] = useState([]);
     const [spelers, setSpelers] = useState([]);
@@ -38,18 +39,23 @@ export default function DraftPage() {
     const [draftKlaar, setDraftKlaar] = useState(false);
     const [gekozenTeller, setGekozenTeller] = useState({});
     const [teams, setTeams] = useState({});
+    const [sessieId, setSessieId] = useState(null);
 
     async function laadDraftData() {
         try {
             setLadenPagina(true);
             setMelding("");
 
+            const sessieResponse = await getSessieVoorCompetitie(competitieId);
+            const actieveSessieId = sessieResponse.data.id;
+            setSessieId(actieveSessieId);
+
             const [rennersResponse, spelersResponse, teamsResponse, actieveSpelerResponse] =
                 await Promise.all([
-                    getBeschikbareRenners(draftSessieId),
-                    getSpelers(draftSessieId),
-                    getTeams(draftSessieId),
-                    getActieveSpeler(draftSessieId),
+                    getBeschikbareRenners(actieveSessieId),
+                    getSpelers(actieveSessieId),
+                    getTeams(actieveSessieId),
+                    getActieveSpeler(actieveSessieId),
                 ]);
 
             const rennersData = Array.isArray(rennersResponse.data)
@@ -100,12 +106,14 @@ export default function DraftPage() {
     }
 
     async function refreshDraftData() {
+        if (!sessieId) return;
+
         try {
             const [rennersResponse, teamsResponse, actieveSpelerResponse] =
                 await Promise.all([
-                    getBeschikbareRenners(draftSessieId),
-                    getTeams(draftSessieId),
-                    getActieveSpeler(draftSessieId),
+                    getBeschikbareRenners(sessieId),
+                    getTeams(sessieId),
+                    getActieveSpeler(sessieId),
                 ]);
 
             setRiders(Array.isArray(rennersResponse.data) ? rennersResponse.data : []);
@@ -140,8 +148,10 @@ export default function DraftPage() {
     }
 
     useEffect(() => {
-        laadDraftData();
-    }, [draftSessieId]);
+        if (competitieId) {
+            laadDraftData();
+        }
+    }, [competitieId]);
 
     useRealtimeDraft(
         async () => {
@@ -187,7 +197,7 @@ export default function DraftPage() {
     }, [alleSpelersKlaar, draftKlaar]);
 
     async function handleKiesRenner(rennerId, naam) {
-        if (!actieveSpeler || draftKlaar) return;
+        if (!actieveSpeler || draftKlaar || !sessieId) return;
 
         try {
             setLoading(true);
@@ -198,7 +208,7 @@ export default function DraftPage() {
             );
 
             await kiesRenner({
-                sessieId: Number(draftSessieId),
+                sessieId: Number(sessieId),
                 rennerId,
             });
 
@@ -228,7 +238,7 @@ export default function DraftPage() {
         <div>
             <div className="draft-page-header">
                 <h1>Live Draft Board</h1>
-                <span>Draftsessie #{draftSessieId}</span>
+                <span>Competitie #{competitieId}</span>
             </div>
 
             <section className="draft-overview">

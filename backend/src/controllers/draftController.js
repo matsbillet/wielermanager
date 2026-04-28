@@ -115,13 +115,13 @@ const getTeamsPerSessie = async (req, res) => {
         const { data, error } = await supabase
             .from("draft")
             .select(`
-        id,
-        ronde,
-        is_bank,
-        beurt_nummer,
-        renners(id, naam),
-        spelers(id, gebruikers(id, naam))
-      `)
+                id,
+                ronde,
+                is_bank,
+                beurt_nummer,
+                renners(id, naam),
+                spelers(id, gebruikers(id, naam))
+            `)
             .eq("sessie_id", sessieId)
             .order("beurt_nummer", { ascending: true });
 
@@ -193,8 +193,36 @@ const getActieveSpeler = async (req, res) => {
     }
 };
 
+const getSessieVoorCompetitie = async (req, res) => {
+    const { competitieId } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from("draft_sessies")
+            .select("id, Naam, is_actief, wedstrijd_id, competitie_id")
+            .eq("competitie_id", competitieId)
+            .eq("is_actief", true)
+            .single();
+
+        if (error || !data) {
+            return res.status(404).json({
+                error: "Geen actieve sessie gevonden voor deze competitie.",
+            });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error("Fout bij ophalen sessie voor competitie:", error);
+        res.status(500).json({
+            error: "Fout bij ophalen sessie.",
+            details: error.message,
+        });
+    }
+};
+
 module.exports = {
     voerKeuzeUit,
     getTeamsPerSessie,
     getActieveSpeler,
+    getSessieVoorCompetitie,
 };

@@ -26,6 +26,8 @@ const transferRoutes = require('./routes/transfer');
 const wedstrijdenRoutes = require('./routes/wedstrijden');
 const rittenRoutes = require('./routes/ritten');
 const scoresRoutes = require('./routes/scores');
+const competitieRoutes = require('./routes/competitie');
+
 
 
 app.use('/api/auth', authRoutes);
@@ -37,6 +39,7 @@ app.use('/api/transfer', transferRoutes);
 app.use('/api/wedstrijden', wedstrijdenRoutes);
 app.use('/api/ritten', rittenRoutes);
 app.use('/api/scores', scoresRoutes);
+app.use('/api/competitie', competitieRoutes);
 
 
 app.get('/', (req, res) => {
