@@ -8,6 +8,8 @@
     --yellow: #00F5D4;
     --green: #23dc87;
     --red: #ff5b66;
+    --dark: #11131a;
+    --accent-glow: rgba(0, 245, 212, 0.35);
 }
 
 *,
@@ -52,6 +54,13 @@ textarea {
     min-width: 0;
 }
 
+button,
+a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* TOPBAR */
+
 .topbar {
     width: 100%;
     max-width: 100%;
@@ -78,8 +87,7 @@ textarea {
 }
 
 .brand-text {
-    color: #00F5D4;
-    font-family: Inter, Segoe UI, Arial, sans-serif;
+    color: var(--yellow);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: clamp(0.12rem, 1vw, 0.45rem);
@@ -98,6 +106,8 @@ textarea {
     flex-shrink: 0;
 }
 
+/* NAVIGATIE */
+
 .main-nav {
     display: flex;
     gap: .75rem;
@@ -106,19 +116,75 @@ textarea {
 }
 
 .main-nav a {
+    position: relative;
+    isolation: isolate;
     text-decoration: none;
     color: var(--muted);
     padding: .7rem 1rem;
     border-radius: 12px;
-    font-weight: 600;
+    font-weight: 700;
     white-space: nowrap;
-    transition: .2s ease;
+    overflow: hidden;
+    transition:
+        color .25s ease,
+        background-color .25s ease,
+        transform .25s ease,
+        box-shadow .25s ease;
+}
+
+.main-nav a::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(135deg, rgba(0, 245, 212, .16), rgba(0, 245, 212, .04));
+    opacity: 0;
+    transition: opacity .25s ease;
+}
+
+.main-nav a::after {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    right: 1rem;
+    bottom: .35rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--yellow);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .25s ease;
+}
+
+.main-nav a:hover,
+.main-nav a:focus-visible {
+    color: var(--yellow);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0, 245, 212, .16);
+}
+
+.main-nav a:hover::before,
+.main-nav a:focus-visible::before {
+    opacity: 1;
+}
+
+.main-nav a:hover::after,
+.main-nav a:focus-visible::after {
+    transform: scaleX(1);
 }
 
 .main-nav a.active {
     background: var(--yellow);
     color: #111;
+    box-shadow: 0 0 22px rgba(0, 245, 212, .28);
 }
+
+.main-nav a.active::after {
+    background: #111;
+    transform: scaleX(1);
+}
+
+/* LAYOUT */
 
 .page-shell {
     width: min(1280px, 100%);
@@ -146,6 +212,8 @@ textarea {
     color: var(--muted);
 }
 
+/* STATS */
+
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -158,7 +226,7 @@ textarea {
 }
 
 .stat-card.highlight {
-    background: linear-gradient(180deg, #f2c300, #efbe00);
+    background: linear-gradient(180deg, #00F5D4, #00d8bd);
     color: #111;
 }
 
@@ -195,14 +263,21 @@ textarea {
     color: var(--red);
 }
 
+.yellow {
+    color: var(--yellow);
+}
+
+/* BANNER */
+
 .banner {
     padding: 1.75rem;
     border: 1px solid var(--yellow);
     margin-bottom: 1.5rem;
     position: relative;
-    background: linear-gradient(90deg, #101520 0%, #12141c 55%, #1a1009 100%);
+    background: linear-gradient(90deg, #101520 0%, #12141c 55%, rgba(0, 245, 212, .12) 100%);
     overflow: hidden;
     border-radius: 18px;
+    box-shadow: 0 0 28px rgba(0, 245, 212, .08);
 }
 
 .banner-title {
@@ -227,6 +302,7 @@ textarea {
     border-radius: 999px;
     padding: .8rem 1.1rem;
     font-weight: 800;
+    box-shadow: 0 0 18px rgba(0, 245, 212, .35);
 }
 
 .progress-track {
@@ -241,6 +317,8 @@ textarea {
     width: 57%;
     background: var(--yellow);
 }
+
+/* SECTIONS */
 
 .section-head {
     display: flex;
@@ -259,8 +337,16 @@ textarea {
 .section-link {
     color: var(--yellow);
     text-decoration: none;
-    font-weight: 700;
+    font-weight: 800;
+    transition: opacity .2s ease, transform .2s ease;
 }
+
+.section-link:hover {
+    opacity: .85;
+    transform: translateX(3px);
+}
+
+/* GRIDS */
 
 .team-grid,
 .riders-grid {
@@ -269,9 +355,18 @@ textarea {
     gap: 1rem;
 }
 
+/* RIDERS */
+
 .rider-card {
     overflow: hidden;
     min-width: 0;
+    transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+
+.rider-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0, 245, 212, .55);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, .3), 0 0 22px rgba(0, 245, 212, .12);
 }
 
 .rider-image {
@@ -354,9 +449,7 @@ textarea {
     align-items: center;
 }
 
-.yellow {
-    color: var(--yellow);
-}
+/* CHART / RITTEN */
 
 .chart-panel {
     padding: 1.2rem;
@@ -378,16 +471,33 @@ textarea {
     text-decoration: none;
     border-radius: 14px;
     text-align: center;
-    font-weight: 700;
+    font-weight: 800;
     min-height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition:
+        color .25s ease,
+        border-color .25s ease,
+        background-color .25s ease,
+        transform .25s ease,
+        box-shadow .25s ease;
+}
+
+.rit-link:hover,
+.rit-link:focus-visible {
+    color: var(--yellow);
+    border-color: var(--yellow);
+    background: rgba(0, 245, 212, .08);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0, 245, 212, .16);
 }
 
 .rit-link.pending {
     color: var(--muted);
 }
+
+/* LISTS */
 
 .list-panel {
     overflow: hidden;
@@ -439,6 +549,8 @@ textarea {
     background: #ce7d2b;
 }
 
+/* BUTTONS */
+
 .pill-btn {
     background: var(--yellow);
     color: #111;
@@ -449,7 +561,57 @@ textarea {
     cursor: pointer;
     width: fit-content;
     max-width: 100%;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+        transform .25s ease,
+        box-shadow .25s ease,
+        filter .25s ease,
+        background-color .25s ease;
 }
+
+.pill-btn:hover,
+.pill-btn:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 26px rgba(0, 245, 212, .32);
+    filter: brightness(1.05);
+}
+
+.pill-btn:active {
+    transform: translateY(0);
+}
+
+/* TAB MENU */
+
+.tab-menu {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.tab-menu .pill-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.tab-menu .pill-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, .18);
+    transform: translateX(-120%);
+    transition: transform .35s ease;
+}
+
+.tab-menu .pill-btn:hover::after,
+.tab-menu .pill-btn:focus-visible::after {
+    transform: translateX(120%);
+}
+
+/* ADMIN / DRAFT */
 
 .admin-list,
 .draft-order {
@@ -489,6 +651,8 @@ textarea {
     font-size: .95rem;
 }
 
+/* TABLES */
+
 .table-wrap {
     width: 100%;
     max-width: 100%;
@@ -513,6 +677,12 @@ textarea {
     color: var(--muted);
     font-weight: 600;
 }
+
+.table tbody tr:hover {
+    background: rgba(0, 245, 212, .045);
+}
+
+/* FORMS / ADMIN */
 
 .scraper-card,
 .admin-card {
@@ -580,9 +750,30 @@ textarea {
     min-width: 0;
 }
 
+input,
+select,
+textarea {
+    border: 1px solid var(--border);
+    background: #0f1218;
+    color: var(--text);
+    border-radius: 12px;
+    padding: .85rem 1rem;
+    outline: none;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--yellow);
+    box-shadow: 0 0 0 3px rgba(0, 245, 212, .14);
+}
+
 .add-btn {
     white-space: nowrap;
 }
+
+/* AUTH */
 
 .auth-page {
     min-height: calc(100vh - 120px);
@@ -621,15 +812,6 @@ textarea {
     font-weight: 600;
 }
 
-.auth-form input {
-    padding: 0.85rem 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: #0f1218;
-    color: var(--text);
-    font-size: 1rem;
-}
-
 .auth-error {
     margin-bottom: 1rem;
     padding: 0.9rem 1rem;
@@ -644,11 +826,17 @@ textarea {
     background: transparent;
     border: 0;
     color: var(--yellow);
-    font-weight: 700;
+    font-weight: 800;
     cursor: pointer;
     text-align: left;
     padding: 0;
 }
+
+.auth-switch:hover {
+    text-decoration: underline;
+}
+
+/* USER MENU */
 
 .user-menu {
     display: flex;
@@ -675,7 +863,10 @@ textarea {
 .logout-btn:hover {
     border-color: var(--yellow);
     color: var(--yellow);
+    box-shadow: 0 0 14px rgba(0, 245, 212, .16);
 }
+
+/* RACE CARDS */
 
 .race-card {
     padding: 0;
@@ -684,6 +875,13 @@ textarea {
     color: inherit;
     display: block;
     border-radius: 18px;
+    transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+
+.race-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(0, 245, 212, .5);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, .32), 0 0 22px rgba(0, 245, 212, .14);
 }
 
 .race-card-image {
@@ -721,6 +919,8 @@ textarea {
 .race-card-body p:last-child {
     margin-bottom: 0;
 }
+
+/* SCOREBOARD */
 
 .scoreboard-page {
     display: flex;
@@ -799,6 +999,13 @@ textarea {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 14px;
+    transition: border-color .2s ease, background-color .2s ease, transform .2s ease;
+}
+
+.klassement-row:hover {
+    border-color: rgba(0, 245, 212, .45);
+    background: rgba(0, 245, 212, .055);
+    transform: translateY(-2px);
 }
 
 .player-info {
@@ -852,8 +1059,10 @@ textarea {
 }
 
 .ritpunten-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(0, 245, 212, 0.045);
 }
+
+/* RESPONSIVE */
 
 @media (max-width: 1100px) {
 
@@ -974,6 +1183,11 @@ textarea {
         text-align: center;
     }
 
+    .main-nav a::after {
+        left: 25%;
+        right: 25%;
+    }
+
     .stat-card,
     .chart-panel,
     .rider-body,
@@ -1036,6 +1250,23 @@ textarea {
     .pill-btn {
         width: 100%;
         text-align: center;
+    }
+
+    .tab-menu {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+        width: 100%;
+    }
+
+    .tab-menu .pill-btn {
+        width: 100%;
+        min-height: 56px;
+        padding: 0.85rem 0.5rem;
+        text-align: center;
+        justify-content: center;
+        white-space: normal;
+        line-height: 1.2;
     }
 
     .rider-meta {
@@ -1105,25 +1336,6 @@ textarea {
     }
 }
 
-@media (max-width: 640px) {
-    .tab-menu {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.75rem;
-        width: 100%;
-    }
-
-    .tab-menu .pill-btn {
-        width: 100%;
-        min-height: 56px;
-        padding: 0.85rem 0.5rem;
-        text-align: center;
-        justify-content: center;
-        white-space: normal;
-        line-height: 1.2;
-    }
-}
-
 @media (max-width: 420px) {
     html {
         font-size: 15px;
@@ -1180,6 +1392,8 @@ textarea {
         max-width: 160px;
     }
 }
+
+/* ANIMATIES */
 
 @keyframes livePulse {
 
