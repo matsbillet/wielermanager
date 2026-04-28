@@ -16,9 +16,9 @@ export default function DraftPage() {
     const [ladenPagina, setLadenPagina] = useState(true);
     const [loading, setLoading] = useState(false);
     const [melding, setMelding] = useState("");
+    const [zoekTerm, setZoekTerm] = useState("");
 
     const [actieveSpelerIndex, setActieveSpelerIndex] = useState(0);
-    // const [richting, setRichting] = useState(1); // 1 = vooruit, -1 = achteruit
     const [draftKlaar, setDraftKlaar] = useState(false);
     const [gekozenTeller, setGekozenTeller] = useState({});
     const [teams, setTeams] = useState({});
@@ -31,13 +31,11 @@ export default function DraftPage() {
                     getSpelers(),
                 ]);
 
-                const rennersData = rennersResponse.data || [];
-                // De backend stuurt de spelers al met de juiste .naam eigenschap
-                const spelersData = spelersResponse.data || [];
+                const spelersData = Array.isArray(spelersResponse.data)
+                    ? spelersResponse.data
+                    : [];
 
-                setRiders(rennersData);
-
-                // We kunnen dit direct opslaan zonder te map()-pen
+                setRiders(Array.isArray(rennersResponse.data) ? rennersResponse.data : []);
                 setSpelers(spelersData);
 
                 const teamsResponse = await getTeams(1);
@@ -52,11 +50,17 @@ export default function DraftPage() {
                 setGekozenTeller(tellerInit);
 
                 const actieveSpelerResponse = await getActieveSpeler();
+
                 if (!actieveSpelerResponse.data.klaar) {
                     const actieveIndex = spelersData.findIndex(
                         (speler) => speler.id === actieveSpelerResponse.data.spelerId,
                     );
-                    if (actieveIndex >= 0) setActieveSpelerIndex(actieveIndex);
+
+                    if (actieveIndex >= 0) {
+                        setActieveSpelerIndex(actieveIndex);
+                    }
+                } else {
+                    setDraftKlaar(true);
                 }
             } catch (err) {
                 console.error("Fout bij ophalen draft data:", err);
@@ -69,64 +73,24 @@ export default function DraftPage() {
         laadData();
     }, []);
 
-
-
-    // Functie om teams en actieve speler te vernieuwen bij real-time updates
-    const refreshDraftData = async () => {
-        try {
-            const [teamsResponse, actieveSpelerResponse] = await Promise.all([
-                getTeams(1),
-                getActieveSpeler(),
-            ]);
-
-            const teamsData = teamsResponse.data || {};
-            setTeams(teamsData);
-
-            // Update de teller voor elke speler
-            const nieuweTeller = {};
-            spelers.forEach((speler) => {
-                const spelerTeam = teamsData[speler.naam] || [];
-                nieuweTeller[speler.id] = spelerTeam.length;
-            });
-            setGekozenTeller(nieuweTeller);
-
-            // Update actieve speler
-            if (!actieveSpelerResponse.data.klaar) {
-                const nextIndex = spelers.findIndex(
-                    (speler) => speler.id === actieveSpelerResponse.data.spelerId,
-                );
-                if (nextIndex >= 0) {
-                    setActieveSpelerIndex(nextIndex);
-                }
-            } else {
-                setDraftKlaar(true);
-            }
-        } catch (err) {
-            console.error("Fout bij vernieuwen draft data:", err);
-        }
-    };
-
-    // Real-time subscriptions via Supabase
-    useRealtimeDraft(
-        // onDraftChange: wanneer iemand een renner kiest
-        async (payload) => {
-            console.log("Draft change detected, refreshing...");
-            // Vertraging toevoegen zodat de backend de wijziging heeft verwerkt
-            setTimeout(() => {
-                refreshDraftData();
-            }, 500);
-        },
-        // onActivePlayerChange: wanneer de sessie verandert
-        async (payload) => {
-            console.log("Session change detected, refreshing...");
-            refreshDraftData();
-        },
-    );
-
     const actieveSpeler = spelers[actieveSpelerIndex] || null;
+
+    const gefilterdeRenners = useMemo(() => {
+        const term = zoekTerm.trim().toLowerCase();
+
+        if (!term) return riders;
+
+        return riders.filter((rider) => {
+            const naam = rider.naam?.toLowerCase() || "";
+            const ploeg = rider.ploeg?.toLowerCase() || "";
+
+            return naam.includes(term) || ploeg.includes(term);
+        });
+    }, [riders, zoekTerm]);
 
     const alleSpelersKlaar = useMemo(() => {
         if (spelers.length === 0) return false;
+
         return spelers.every(
             (speler) => (gekozenTeller[speler.id] || 0) >= MAX_RENNERS_PER_SPELER,
         );
@@ -136,131 +100,56 @@ export default function DraftPage() {
         ? (gekozenTeller[actieveSpeler.id] || 0) + 1
         : 1;
 
+    async function refreshDraftData() {
+        try {
+            const [teamsResponse, actieveSpelerResponse] = await Promise.all([
+                getTeams(1),
+                getActieveSpeler(),
+            ]);
+
+            const teamsData = teamsResponse.data || {};
+            setTeams(teamsData);
+
+            const nieuweTeller = {};
+            spelers.forEach((speler) => {
+                const spelerTeam = teamsData[speler.naam] || [];
+                nieuweTeller[speler.id] = spelerTeam.length;
+            });
+            setGekozenTeller(nieuweTeller);
+
+            if (!actieveSpelerResponse.data.klaar) {
+                const nextIndex = spelers.findIndex(
+                    (speler) => speler.id === actieveSpelerResponse.data.spelerId,
+                );
+
+                if (nextIndex >= 0) {
+                    setActieveSpelerIndex(nextIndex);
+                }
+            } else {
+                setDraftKlaar(true);
+            }
+        } catch (err) {
+            console.error("Fout bij vernieuwen draft data:", err);
+        }
+    }
+
+    useRealtimeDraft(
+        async () => {
+            setTimeout(() => {
+                refreshDraftData();
+            }, 500);
+        },
+        async () => {
+            refreshDraftData();
+        },
+    );
+
     useEffect(() => {
         if (alleSpelersKlaar && !draftKlaar) {
             setDraftKlaar(true);
             setMelding("Draft is gedaan, iedereen heeft 18 spelers gekozen.");
         }
     }, [alleSpelersKlaar, draftKlaar]);
-
-    // function bepaalVolgendeBeurt(huidigeIndex, huidigeRichting, teller) {
-    //     const aantalSpelers = spelers.length;
-
-    //     if (aantalSpelers === 0) {
-    //         return { nextIndex: 0, nextRichting: 1 };
-    //     }
-
-    //     if (aantalSpelers === 1) {
-    //         return { nextIndex: 0, nextRichting: 1 };
-    //     }
-
-    //     let nextIndex = huidigeIndex;
-    //     let nextRichting = huidigeRichting;
-
-    //     if (huidigeRichting === 1) {
-    //         if (huidigeIndex === aantalSpelers - 1) {
-    //             nextRichting = -1;
-    //             nextIndex = huidigeIndex;
-    //         } else {
-    //             nextIndex = huidigeIndex + 1;
-    //         }
-    //     } else {
-    //         if (huidigeIndex === 0) {
-    //             nextRichting = 1;
-    //             nextIndex = huidigeIndex;
-    //         } else {
-    //             nextIndex = huidigeIndex - 1;
-    //         }
-    //     }
-
-    //     let safety = 0;
-
-    //     while (
-    //         spelers.length > 0 &&
-    //         (teller[spelers[nextIndex].id] || 0) >= MAX_RENNERS_PER_SPELER &&
-    //         safety < 100
-    //     ) {
-    //         safety += 1;
-
-    //         if (nextRichting === 1) {
-    //             if (nextIndex === aantalSpelers - 1) {
-    //                 nextRichting = -1;
-    //             } else {
-    //                 nextIndex += 1;
-    //             }
-    //         } else {
-    //             if (nextIndex === 0) {
-    //                 nextRichting = 1;
-    //             } else {
-    //                 nextIndex -= 1;
-    //             }
-    //         }
-    //     }
-
-    //     return { nextIndex, nextRichting };
-    // }
-
-    // async function handleKiesRenner(rennerId, naam) {
-    //     if (!actieveSpeler || draftKlaar) return;
-
-    //     try {
-    //         setLoading(true);
-    //         setMelding('');
-
-    //         await kiesRenner({
-    //             spelerId: actieveSpeler.id,
-    //             rennerId,
-    //             huidigeBeurt: beurtVoorActieveSpeler
-    //         });
-
-    //         await laadTeams();
-
-    //         setRiders((vorigeRiders) =>
-    //             vorigeRiders.filter((rider) => rider.id !== rennerId)
-    //         );
-
-    //         setGekozenTeller((vorigeTeller) => {
-    //             const nieuweTeller = {
-    //                 ...vorigeTeller,
-    //                 [actieveSpeler.id]: (vorigeTeller[actieveSpeler.id] || 0) + 1
-    //             };
-
-    //             const iedereenKlaar = spelers.every(
-    //                 (speler) =>
-    //                     (nieuweTeller[speler.id] || 0) >= MAX_RENNERS_PER_SPELER
-    //             );
-
-    //             if (iedereenKlaar) {
-    //                 setDraftKlaar(true);
-    //                 setMelding('Draft is gedaan, iedereen heeft 18 spelers gekozen.');
-    //                 return nieuweTeller;
-    //             }
-
-    //             const { nextIndex, nextRichting } = bepaalVolgendeBeurt(
-    //                 actieveSpelerIndex,
-    //                 richting,
-    //                 nieuweTeller
-    //             );
-
-    //             setActieveSpelerIndex(nextIndex);
-    //             setRichting(nextRichting);
-    //             setMelding(
-    //                 `${naam} gekozen door ${actieveSpeler.naam}. Volgende beurt: ${spelers[nextIndex]?.naam || 'onbekend'}.`
-    //             );
-
-    //             return nieuweTeller;
-    //         });
-    //     } catch (err) {
-    //         setMelding(
-    //             err.response?.data?.error ||
-    //             err.response?.data?.details ||
-    //             'Fout bij kiezen van renner.'
-    //         );
-    //         console.error(err);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // }
 
     async function handleKiesRenner(rennerId, naam) {
         if (!actieveSpeler || draftKlaar) return;
@@ -269,32 +158,22 @@ export default function DraftPage() {
             setLoading(true);
             setMelding("");
 
-            // Verwijder lokaal de renner uit de beschikbare lijst
             setRiders((vorigeRiders) =>
                 vorigeRiders.filter((rider) => rider.id !== rennerId),
             );
 
-            // Stuur de keuze naar de backend
             await kiesRenner({
                 spelerId: actieveSpeler.id,
                 rennerId,
                 huidigeBeurt: beurtVoorActieveSpeler,
             });
 
-            // Optimistic update: voeg een melding toe
-            setMelding(
-                `${naam} gekozen door ${actieveSpeler.naam}. Wacht op updates...`,
-            );
-
-            // De real-time subscription zal automatisch de data vernieuwen
-            // dus we hoeven hier geen extra refresh te doen
+            setMelding(`${naam} gekozen door ${actieveSpeler.naam}.`);
         } catch (err) {
-            // Bij een fout: voeg de renner terug in
             setRiders((vorigeRiders) => {
-                const shouldAdd = !vorigeRiders.some((r) => r.id === rennerId);
-                return shouldAdd
-                    ? [...vorigeRiders, { id: rennerId, naam }]
-                    : vorigeRiders;
+                const rennerBestaatAl = vorigeRiders.some((rider) => rider.id === rennerId);
+
+                return rennerBestaatAl ? vorigeRiders : [...vorigeRiders, { id: rennerId, naam }];
             });
 
             setMelding(
@@ -307,94 +186,19 @@ export default function DraftPage() {
             setLoading(false);
         }
     }
+
     if (ladenPagina) {
         return <div>Laden van draft data...</div>;
     }
 
     return (
         <div>
-            {/* <section className="banner card draft-board">
-                <div className="banner-title">Draft Board</div>
-                <div className="banner-sub">Snake Draft - Pro Peloton League</div>
-
-                <div className="draft-order">
-                    {spelers.map((speler, index) => {
-                        const gekozen = gekozenTeller[speler.id] || 0;
-                        const isActief = !draftKlaar && index === actieveSpelerIndex;
-                        const volgendeBeurtNummer = Math.min(gekozen + 1, MAX_RENNERS_PER_SPELER);
-
-                        return (
-                            <div key={speler.id} className="draft-slot panel">
-                                <div>
-                                    <strong>{speler.naam}</strong>
-                                    <div className="small-muted">
-                                        {gekozen}/{MAX_RENNERS_PER_SPELER} gekozen
-                                    </div>
-                                    {!draftKlaar && gekozen < MAX_RENNERS_PER_SPELER && (
-                                        <div className="small-muted">
-                                            Volgende beurt: {volgendeBeurtNummer}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <span className={isActief ? 'yellow' : 'small-muted'}>
-                                    {draftKlaar
-                                        ? 'Klaar'
-                                        : isActief
-                                            ? `Picking now (beurt ${beurtVoorActieveSpeler})`
-                                            : 'Waiting'}
-                                </span>
-                            </div>
-                        );
-                    })}
-                </div>
-            </section> */}
-
-            {/* TITEL VAN DE PAGINA */}
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    marginTop: "1rem",
-                    marginBottom: "1.25rem",
-                }}
-            >
-                <h1
-                    style={{
-                        margin: 0,
-                        fontSize: "1.4rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                    }}
-                >
-                    Live Draft Board
-                </h1>
-                <span
-                    style={{
-                        fontSize: "0.75rem",
-                        color: "#6b6b67",
-                        fontFamily: "monospace",
-                        letterSpacing: "0.02em",
-                    }}
-                >
-                    Snake Draft — Pro Peloton League
-                </span>
+            <div className="draft-page-header">
+                <h1>Live Draft Board</h1>
+                <span>Snake Draft — Pro Peloton League</span>
             </div>
 
-            {/* GEÏNTEGREERD OVERZICHT: TEAMS + STATUS */}
-            <section
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "10px",
-                    marginBottom: "3rem",
-                    background: "#111210",
-                    borderRadius: "12px",
-                    padding: "16px",
-                }}
-            >
+            <section className="draft-overview">
                 {spelers.map((speler, index) => {
                     const gekozen = gekozenTeller[speler.id] || 0;
                     const isActief = !draftKlaar && index === actieveSpelerIndex;
@@ -409,248 +213,77 @@ export default function DraftPage() {
                     return (
                         <div
                             key={speler.id}
-                            style={{
-                                background: "#181917",
-                                borderRadius: "8px",
-                                overflow: "hidden",
-                                border: "0.5px solid #2a2a28",
-                                borderLeft: isActief
-                                    ? "3px solid #00F5D4"
-                                    : "0.5px solid #2a2a28",
-                                transition: "border-color 0.3s ease",
-                            }}
+                            className={`draft-player-card ${isActief ? "draft-player-card-active" : ""}`}
                         >
-                            {/* HEADER */}
-                            <div
-                                style={{
-                                    padding: "12px 14px 10px",
-                                    borderBottom: "0.5px solid #222221",
-                                }}
-                            >
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: "1.1rem",
-                                            fontWeight: 800,
-                                            textTransform: "uppercase",
-                                            letterSpacing: "0.06em",
-                                            color: isActief ? "#00F5D4" : "#f0ede6",
-                                        }}
-                                    >
-                                        {speler.naam}
-                                    </span>
+                            <div className="draft-player-header">
+                                <div className="draft-player-title-row">
+                                    <span className="draft-player-name">{speler.naam}</span>
+
                                     {isActief && (
-                                        <span
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "5px",
-                                                fontSize: "0.7rem",
-                                                fontFamily: "monospace",
-                                                color: "#00F5D4",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.08em",
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    width: "6px",
-                                                    height: "6px",
-                                                    borderRadius: "50%",
-                                                    background: "#00F5D4",
-                                                    animation: "livePulse 1.4s ease-in-out infinite",
-                                                }}
-                                            />
+                                        <span className="draft-status draft-status-active">
+                                            <span className="draft-status-dot" />
                                             Picking now
                                         </span>
                                     )}
+
                                     {!isActief && !isKlaar && (
-                                        <span
-                                            style={{
-                                                fontSize: "0.7rem",
-                                                fontFamily: "monospace",
-                                                color: "#44443f",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.08em",
-                                            }}
-                                        >
+                                        <span className="draft-status draft-status-waiting">
                                             Waiting
                                         </span>
                                     )}
+
                                     {isKlaar && (
-                                        <span
-                                            style={{
-                                                fontSize: "0.7rem",
-                                                fontFamily: "monospace",
-                                                color: "#23dc87",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.08em",
-                                            }}
-                                        >
+                                        <span className="draft-status draft-status-done">
                                             Klaar
                                         </span>
                                     )}
                                 </div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        marginTop: "4px",
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: "0.75rem",
-                                            color: "#6b6b67",
-                                            fontFamily: "monospace",
-                                        }}
-                                    >
+
+                                <div className="draft-player-info-row">
+                                    <span>
                                         {gekozen} / {MAX_RENNERS_PER_SPELER} renners
                                     </span>
+
                                     {!draftKlaar && !isKlaar && (
-                                        <span
-                                            style={{
-                                                fontSize: "0.7rem",
-                                                color: "#00F5D4",
-                                                fontFamily: "monospace",
-                                            }}
-                                        >
-                                            Next: R{volgendeBeurtNummer}
-                                        </span>
+                                        <span>Next: R{volgendeBeurtNummer}</span>
                                     )}
                                 </div>
                             </div>
 
-                            {/* PROGRESS BAR */}
-                            <div
-                                style={{
-                                    height: "2px",
-                                    background: "#222221",
-                                    margin: "0 14px 10px",
-                                }}
-                            >
+                            <div className="draft-progress-bar">
                                 <div
-                                    style={{
-                                        height: "100%",
-                                        width: `${pct}%`,
-                                        background: "#00F5D4",
-                                        borderRadius: "1px",
-                                        transition: "width 0.4s ease",
-                                    }}
+                                    className="draft-progress-fill"
+                                    style={{ width: `${pct}%` }}
                                 />
                             </div>
 
-                            {/* RIDER LIST */}
-                            <div
-                                style={{
-                                    fontSize: "0.72rem",
-                                    fontFamily: "monospace",
-                                    color: "#6b6b67",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.1em",
-                                    padding: "0 14px 4px",
-                                }}
-                            >
-                                Basis (R1–12)
-                            </div>
-                            <ul
-                                style={{
-                                    listStyle: "none",
-                                    padding: "0 14px",
-                                    margin: "0 0 6px",
-                                }}
-                            >
+                            <div className="draft-team-section-title">Basis (R1–12)</div>
+
+                            <ul className="draft-team-list">
                                 {spelerTeam
-                                    .filter((r) => !r.isBank)
-                                    .map((r, i) => (
-                                        <li
-                                            key={i}
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                padding: "5px 0",
-                                                borderBottom: "0.5px solid #1e1e1c",
-                                            }}
-                                        >
-                                            <span
-                                                style={{
-                                                    fontSize: "0.8rem",
-                                                    color: isActief ? "#00F5D4" : "#b8b5ae",
-                                                    fontWeight: 500,
-                                                    letterSpacing: "0.02em",
-                                                }}
-                                            >
-                                                {r.renner}
-                                            </span>
-                                            <span
-                                                style={{
-                                                    fontSize: "0.7rem",
-                                                    color: "#44443f",
-                                                    fontFamily: "monospace",
-                                                }}
-                                            >
-                                                R{r.ronde}
-                                            </span>
+                                    .filter((renner) => !renner.isBank)
+                                    .map((renner, i) => (
+                                        <li key={i} className="draft-team-list-item">
+                                            <span>{renner.renner}</span>
+                                            <span>R{renner.ronde}</span>
                                         </li>
                                     ))}
                             </ul>
 
-                            <div
-                                style={{
-                                    fontSize: "0.72rem",
-                                    fontFamily: "monospace",
-                                    color: "#6b6b67",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.1em",
-                                    padding: "6px 14px 4px",
-                                }}
-                            >
-                                De bank (R13–18)
-                            </div>
-                            <ul
-                                style={{
-                                    listStyle: "none",
-                                    padding: "0 14px",
-                                    margin: "0 0 12px",
-                                }}
-                            >
+                            <div className="draft-team-section-title">De bank (R13–18)</div>
+
+                            <ul className="draft-team-list draft-bank-list">
                                 {spelerTeam
-                                    .filter((r) => r.isBank)
-                                    .map((r, i) => (
-                                        <li
-                                            key={i}
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                padding: "3px 0",
-                                                fontSize: "0.75rem",
-                                                color: "#6b6b67",
-                                                fontStyle: "italic",
-                                            }}
-                                        >
-                                            <span>{r.renner}</span>
-                                            <span style={{ fontFamily: "monospace" }}>
-                                                R{r.ronde}
-                                            </span>
+                                    .filter((renner) => renner.isBank)
+                                    .map((renner, i) => (
+                                        <li key={i} className="draft-team-list-item">
+                                            <span>{renner.renner}</span>
+                                            <span>R{renner.ronde}</span>
                                         </li>
                                     ))}
-                                {spelerTeam.filter((r) => r.isBank).length === 0 && (
-                                    <li
-                                        style={{
-                                            fontSize: "0.75rem",
-                                            color: "#2a2a28",
-                                            padding: "3px 0",
-                                        }}
-                                    >
-                                        —
-                                    </li>
+
+                                {spelerTeam.filter((renner) => renner.isBank).length === 0 && (
+                                    <li className="draft-empty-bank">—</li>
                                 )}
                             </ul>
                         </div>
@@ -668,7 +301,8 @@ export default function DraftPage() {
                     <p>
                         {draftKlaar
                             ? "Iedereen heeft 18 spelers gekozen."
-                            : `Beurt ${beurtVoorActieveSpeler} - Selecteer een renner voor ${actieveSpeler?.naam || "de actieve speler"}`}
+                            : `Beurt ${beurtVoorActieveSpeler} - Selecteer een renner voor ${actieveSpeler?.naam || "de actieve speler"
+                            }`}
                     </p>
                 </div>
 
@@ -677,28 +311,48 @@ export default function DraftPage() {
                 </button>
             </section>
 
-            {melding && (
-                <div style={{ marginBottom: "1rem", fontWeight: "bold" }}>
-                    {melding}
+            {melding && <div className="draft-message">{melding}</div>}
+
+            <div className="section-head">
+                <h2>
+                    Available Riders ({gefilterdeRenners.length}/{riders.length})
+                </h2>
+            </div>
+
+            <div className="draft-search-row">
+                <input
+                    className="draft-search-input"
+                    type="search"
+                    value={zoekTerm}
+                    onChange={(event) => setZoekTerm(event.target.value)}
+                    placeholder="Zoek renner op naam of ploeg..."
+                />
+
+                {zoekTerm && (
+                    <button className="pill-btn" onClick={() => setZoekTerm("")}>
+                        Wis
+                    </button>
+                )}
+            </div>
+
+            {gefilterdeRenners.length === 0 && (
+                <div className="draft-no-results">
+                    Geen beschikbare renners gevonden voor “{zoekTerm}”.
                 </div>
             )}
 
-            <div className="section-head">
-                <h2>Available Riders ({riders.length})</h2>
-            </div>
-
             <section className="riders-grid">
-                {riders.map((rider) => (
+                {gefilterdeRenners.map((rider) => (
                     <article key={rider.id} className="rider-card card">
                         <div className="rider-image">🚴</div>
 
                         <div className="rider-body">
                             <div className="rider-topline">
                                 <div className="rider-name">{rider.naam}</div>
-                                <div className="rider-country">-</div>
+                                <div className="rider-country">{rider.ploeg || "-"}</div>
                             </div>
 
-                            <div style={{ marginTop: "1rem" }}>
+                            <div className="rider-action-row">
                                 <button
                                     className="pill-btn"
                                     onClick={() => handleKiesRenner(rider.id, rider.naam)}
@@ -711,110 +365,47 @@ export default function DraftPage() {
                     </article>
                 ))}
             </section>
-            {/* --- TEAM OVERZICHT SECTIE --- */}
-            <div className="section-head" style={{ marginTop: "3rem" }}>
+
+            <div className="section-head teams-section-head">
                 <h2>Gekozen Teams</h2>
             </div>
 
-            <section
-                className="teams-grid"
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                    gap: "1.5rem",
-                    marginTop: "1rem",
-                    marginBottom: "5rem",
-                }}
-            >
+            <section className="teams-grid">
                 {spelers.map((speler) => {
-                    // Haal de renners voor deze specifieke speler uit de teams state
                     const spelerTeam = teams[speler.naam] || [];
 
                     return (
                         <div key={speler.id} className="card team-card">
-                            <div
-                                className="panel-header"
-                                style={{
-                                    padding: "1rem",
-                                    borderBottom: "1px solid #eee",
-                                    fontWeight: "bold",
-                                    background: "#f9f9f9",
-                                }}
-                            >
-                                Team {speler.naam}
-                            </div>
-                            <div style={{ padding: "1rem" }}>
-                                {/* BASISOPSTELLING (Ronde 1-12) */}
-                                <div
-                                    className="small-muted"
-                                    style={{
-                                        marginBottom: "0.5rem",
-                                        fontWeight: "bold",
-                                        color: "#666",
-                                    }}
-                                >
-                                    Basis (R1-12)
-                                </div>
-                                <ul
-                                    style={{
-                                        listStyle: "none",
-                                        padding: 0,
-                                        margin: "0 0 1rem 0",
-                                    }}
-                                >
+                            <div className="team-card-header">Team {speler.naam}</div>
+
+                            <div className="team-card-body">
+                                <div className="team-section-title">Basis (R1-12)</div>
+
+                                <ul className="team-list">
                                     {spelerTeam
-                                        .filter((r) => !r.isBank)
-                                        .map((r, i) => (
-                                            <li
-                                                key={i}
-                                                style={{
-                                                    padding: "4px 0",
-                                                    borderBottom: "1px solid #f0f0f0",
-                                                    fontSize: "0.9rem",
-                                                }}
-                                            >
-                                                <span className="yellow" style={{ marginRight: "8px" }}>
-                                                    R{r.ronde}
-                                                </span>{" "}
-                                                {r.renner}
+                                        .filter((renner) => !renner.isBank)
+                                        .map((renner, i) => (
+                                            <li key={i} className="team-list-item">
+                                                <span className="yellow">R{renner.ronde}</span>
+                                                {renner.renner}
                                             </li>
                                         ))}
                                 </ul>
 
-                                {/* DE BANK (Ronde 13-18) */}
-                                <div
-                                    className="small-muted"
-                                    style={{
-                                        marginBottom: "0.5rem",
-                                        fontWeight: "bold",
-                                        color: "#666",
-                                    }}
-                                >
-                                    De Bank (R13-18)
-                                </div>
-                                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                <div className="team-section-title">De Bank (R13-18)</div>
+
+                                <ul className="team-list">
                                     {spelerTeam
-                                        .filter((r) => r.isBank)
-                                        .map((r, i) => (
-                                            <li
-                                                key={i}
-                                                style={{
-                                                    padding: "4px 0",
-                                                    color: "#888",
-                                                    fontSize: "0.85rem",
-                                                }}
-                                            >
-                                                <i>
-                                                    R{r.ronde}: {r.renner}
-                                                </i>
+                                        .filter((renner) => renner.isBank)
+                                        .map((renner, i) => (
+                                            <li key={i} className="team-list-item team-list-item-bank">
+                                                R{renner.ronde}: {renner.renner}
                                             </li>
                                         ))}
                                 </ul>
 
                                 {spelerTeam.length === 0 && (
-                                    <div className="small-muted" style={{ marginTop: "0.5rem" }}>
-                                        Nog geen renners gekozen.
-                                    </div>
+                                    <div className="small-muted">Nog geen renners gekozen.</div>
                                 )}
                             </div>
                         </div>
