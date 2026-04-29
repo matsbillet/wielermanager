@@ -11,6 +11,7 @@ import {
     CartesianGrid,
 } from "recharts";
 import { getScoreboard } from "../services/api";
+import CountdownTimer from "../components/CountdownTimer";
 
 const kleuren = [
     "#00e5c7",
@@ -97,6 +98,7 @@ export default function ScoreboardPage() {
             <section className="scoreboard-header">
                 <div>
                     <h1>Scoreboard</h1>
+                    <CountdownTimer />
                     <p>Overzicht van alle spelers, ritpunten, truienpunten en totaalstand.</p>
                 </div>
 
