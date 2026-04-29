@@ -13,6 +13,7 @@ import RaceDetailPage from "./pages/RaceDetailPage";
 import CompetitiesPage from "./pages/CompetitiePage";
 import TeamsPage from "./pages/TeamsPage";
 import TeamDetailPage from "./pages/TeamDetailPage";
+import DashboardPage from './pages/DashboardPage';
 
 import logo from "./img/fietsimgneon.png";
 
@@ -32,6 +33,7 @@ function Layout() {
                     </div>
 
                     <nav className="main-nav">
+                        <NavLink to="/dashboard">Dashboard</NavLink>
                         <NavLink to="/scoreboard/1">Scorebord</NavLink>
                         <NavLink to="/draft/1">Draft</NavLink>
                         <NavLink to="/teams/1">Teams</NavLink>
@@ -136,6 +138,12 @@ function Layout() {
                             </ProtectedRoute>
                         }
                     />
+
+                    <Route path="/dashboard" element={
+                        <ProtectedRoute>
+                            <DashboardPage />
+                        </ProtectedRoute>
+                    } />
                 </Routes>
             </main>
         </div>
