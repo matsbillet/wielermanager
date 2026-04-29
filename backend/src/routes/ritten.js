@@ -19,7 +19,46 @@ let activeScrapes = new Set();
 router.get('/volgende', rittenController.getVolgendeRit);
 
 // Route voor het ophalen van ritten per wedstrijd (slug)
-router.get('/wedstrijd/:slug', rittenController.getRittenPerWedstrijd);
+router.get('/wedstrijd/:slug', async (req, res) => {
+    const { slug } = req.params;
+    try {
+        console.log(`📡 API verzoek voor wedstrijd slug: ${slug}`);
+
+        // 1. Haal de wedstrijd op
+        const { data: wedstrijd, error: wErr } = await supabase
+            .from('wedstrijden')
+            .select('*')
+            .eq('slug', slug)
+            .maybeSingle(); // maybeSingle voorkomt crash als slug niet bestaat
+
+        if (wErr) throw wErr;
+
+        if (!wedstrijd) {
+            console.error(`❌ Wedstrijd niet gevonden voor slug: ${slug}`);
+            return res.status(404).json({ error: "Wedstrijd niet gevonden" });
+        }
+
+        // 2. Haal de ritten op
+        const { data: ritten, error: rErr } = await supabase
+            .from('ritten')
+            .select('*')
+            .eq('wedstrijd_id', wedstrijd.id)
+            .order('rit_nummer', { ascending: true });
+
+        if (rErr) throw rErr;
+
+        // 3. Stuur exact de structuur die RaceDetailPage verwacht
+        console.log(`✅ Data verzonden voor ${wedstrijd.naam} (${ritten.length} ritten)`);
+        res.json({
+            wedstrijd: wedstrijd,
+            ritten: ritten || []
+        });
+
+    } catch (err) {
+        console.error("❌ Server Error in /wedstrijd/:slug:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 
 /**
