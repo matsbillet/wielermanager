@@ -15,7 +15,7 @@ export default function LoginPage() {
         const token = localStorage.getItem('token');
 
         if (token) {
-            navigate('/scoreboard');
+            navigate('/dashboard');
         }
     }, [navigate]);
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
             localStorage.setItem('token', res.data.token);
             localStorage.setItem('gebruiker', JSON.stringify(res.data.gebruiker));
 
-            navigate('/scoreboard');
+            navigate('/dashboard');
         } catch (err) {
             setMelding(err.response?.data?.error || 'Fout bij login');
         } finally {
