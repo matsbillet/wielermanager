@@ -32,6 +32,53 @@ async function getSpelersVoorSessie(sessieId) {
     }));
 }
 
+async function getVolgendeDraftSlot(sessieId, spelers) {
+    const maxBeurten = spelers.length * 18;
+
+    const { data, error } = await supabase
+        .from("draft")
+        .select("id, beurt_nummer, speler_id, ronde, is_bank, renner_id")
+        .eq("sessie_id", sessieId)
+        .order("beurt_nummer", { ascending: true });
+
+    if (error) throw error;
+
+    const draftRijen = data || [];
+
+    const legeRij = draftRijen.find((rij) => rij.renner_id === null);
+
+    if (legeRij) {
+        return {
+            bestaatAl: true,
+            draftId: legeRij.id,
+            beurtNummer: legeRij.beurt_nummer,
+            spelerId: legeRij.speler_id,
+            ronde: legeRij.ronde,
+            isBank: legeRij.is_bank,
+        };
+    }
+
+    const gebruikteBeurten = new Set(
+        draftRijen.map((rij) => Number(rij.beurt_nummer))
+    );
+
+    for (let beurt = 1; beurt <= maxBeurten; beurt++) {
+        if (!gebruikteBeurten.has(beurt)) {
+            const info = getSpelerVoorBeurt(beurt, spelers);
+
+            return {
+                bestaatAl: false,
+                beurtNummer: beurt,
+                spelerId: info.spelerId,
+                ronde: info.ronde,
+                isBank: info.isBank,
+            };
+        }
+    }
+
+    return null;
+}
+
 const voerKeuzeUit = async (req, res) => {
     const { sessieId, rennerId } = req.body;
 
@@ -50,19 +97,15 @@ const voerKeuzeUit = async (req, res) => {
             });
         }
 
-        const { count, error: countError } = await supabase
-            .from("draft")
-            .select("*", { count: "exact", head: true })
-            .eq("sessie_id", sessieId);
+        const slot = await getVolgendeDraftSlot(sessieId, spelers);
 
-        if (countError) throw countError;
-
-        const huidigeBeurt = (count || 0) + 1;
-        const info = getSpelerVoorBeurt(huidigeBeurt, spelers);
-
-        if (!info) {
+        if (!slot) {
             return res.status(400).json({ error: "Draft voltooid." });
         }
+
+        const speler = spelers.find(
+            (speler) => Number(speler.id) === Number(slot.spelerId)
+        );
 
         const { data: bestaandeKeuze, error: checkError } = await supabase
             .from("draft")
@@ -79,24 +122,43 @@ const voerKeuzeUit = async (req, res) => {
             });
         }
 
-        const { data, error: insertError } = await supabase
-            .from("draft")
-            .insert({
-                sessie_id: Number(sessieId),
-                speler_id: info.spelerId,
-                renner_id: Number(rennerId),
-                beurt_nummer: huidigeBeurt,
-                ronde: info.ronde,
-                is_bank: info.isBank,
-            })
-            .select()
-            .single();
+        let data;
 
-        if (insertError) throw insertError;
+        if (slot.bestaatAl) {
+            const { data: updateData, error: updateError } = await supabase
+                .from("draft")
+                .update({
+                    renner_id: Number(rennerId),
+                })
+                .eq("id", slot.draftId)
+                .select()
+                .single();
+
+            if (updateError) throw updateError;
+
+            data = updateData;
+        } else {
+            const { data: insertData, error: insertError } = await supabase
+                .from("draft")
+                .insert({
+                    sessie_id: Number(sessieId),
+                    speler_id: slot.spelerId,
+                    renner_id: Number(rennerId),
+                    beurt_nummer: slot.beurtNummer,
+                    ronde: slot.ronde,
+                    is_bank: slot.isBank,
+                })
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+
+            data = insertData;
+        }
 
         res.json({
             status: "Succes",
-            bericht: `${info.spelerNaam} heeft gekozen.`,
+            bericht: `${speler?.naam || "Speler"} heeft gekozen.`,
             keuze: data,
         });
     } catch (error) {
@@ -119,6 +181,7 @@ const getTeamsPerSessie = async (req, res) => {
                 ronde,
                 is_bank,
                 beurt_nummer,
+                renner_id,
                 renners(id, naam),
                 spelers(id, gebruikers(id, naam))
             `)
@@ -132,13 +195,13 @@ const getTeamsPerSessie = async (req, res) => {
 
             if (!acc[spelerNaam]) acc[spelerNaam] = [];
 
-            acc[spelerNaam].push({
-                draftId: keuze.id,
-                rennerId: keuze.renners?.id,
-                renner: keuze.renners?.naam || "Onbekende renner",
-                ronde: keuze.ronde,
-                isBank: keuze.is_bank,
-            });
+            if (keuze.renner_id !== null) {
+                acc[spelerNaam].push({
+                    renner: keuze.renners?.naam || "Onbekende renner",
+                    ronde: keuze.ronde,
+                    isBank: keuze.is_bank,
+                });
+            }
 
             return acc;
         }, {});
@@ -165,25 +228,21 @@ const getActieveSpeler = async (req, res) => {
             });
         }
 
-        const { count, error: countError } = await supabase
-            .from("draft")
-            .select("*", { count: "exact", head: true })
-            .eq("sessie_id", sessieId);
+        const slot = await getVolgendeDraftSlot(sessieId, spelers);
 
-        if (countError) throw countError;
-
-        const huidigeBeurt = (count || 0) + 1;
-        const info = getSpelerVoorBeurt(huidigeBeurt, spelers);
-
-        if (!info) {
+        if (!slot) {
             return res.json({ klaar: true });
         }
 
+        const speler = spelers.find(
+            (speler) => Number(speler.id) === Number(slot.spelerId)
+        );
+
         res.json({
-            spelerId: info.spelerId,
-            spelerNaam: info.spelerNaam,
-            ronde: info.ronde,
-            isBank: info.isBank,
+            spelerId: slot.spelerId,
+            spelerNaam: speler?.naam || "Onbekende speler",
+            ronde: slot.ronde,
+            isBank: slot.isBank,
             klaar: false,
         });
     } catch (error) {

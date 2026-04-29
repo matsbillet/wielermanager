@@ -282,16 +282,18 @@ router.delete('/drafts-all', async (req, res) => {
 router.delete('/drafts/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        console.log(`Poging tot verwijderen van draft item ID: ${id}`);
 
         const { error } = await supabase
             .from('draft')
-            .delete()
+            .update({ renner_id: null })
             .eq('id', id);
 
         if (error) throw error;
 
-        res.json({ success: true, message: 'Draft item verwijderd' });
+        res.json({
+            success: true,
+            message: 'Draftslot leeggemaakt.',
+        });
     } catch (err) {
         console.error('Fout bij verwijderen:', err.message);
         res.status(500).json({ error: err.message });

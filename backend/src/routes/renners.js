@@ -46,7 +46,11 @@ router.get("/beschikbaar/:sessieId", async (req, res) => {
 
         if (gekozenError) throw gekozenError;
 
-        const gekozenIds = new Set((gekozen || []).map((keuze) => Number(keuze.renner_id)));
+        const gekozenIds = new Set(
+            (gekozen || [])
+                .filter((keuze) => keuze.renner_id !== null)
+                .map((keuze) => Number(keuze.renner_id))
+        );
 
         const beschikbareRenners = (deelnemers || [])
             .map((deelnemer) => deelnemer.renners)
