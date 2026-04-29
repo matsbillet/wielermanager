@@ -11,6 +11,8 @@ import AdminPage from "./pages/AdminPage";
 import RacesPage from "./pages/RacesPage";
 import RaceDetailPage from "./pages/RaceDetailPage";
 import CompetitiesPage from "./pages/CompetitiePage";
+import TeamsPage from "./pages/TeamsPage";
+import TeamDetailPage from "./pages/TeamDetailPage";
 
 import logo from "./img/fietsimgneon.png";
 
@@ -32,6 +34,7 @@ function Layout() {
                     <nav className="main-nav">
                         <NavLink to="/scoreboard/1">Scorebord</NavLink>
                         <NavLink to="/draft/1">Draft</NavLink>
+                        <NavLink to="/teams/1">Teams</NavLink>
                         <NavLink to="/races">Koersen</NavLink>
                         {gebruiker?.is_admin && <NavLink to="/admin">Admin</NavLink>}
                     </nav>
@@ -112,6 +115,24 @@ function Layout() {
                         element={
                             <ProtectedRoute>
                                 <RaceDetailPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/teams/:competitieId"
+                        element={
+                            <ProtectedRoute>
+                                <TeamsPage />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    <Route
+                        path="/teams/:competitieId/:sessieId/:spelerId"
+                        element={
+                            <ProtectedRoute>
+                                <TeamDetailPage />
                             </ProtectedRoute>
                         }
                     />

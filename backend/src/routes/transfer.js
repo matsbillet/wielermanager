@@ -1,9 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { voerWisselUit } = require("../controllers/transferController");
 
-// De route voor een wissel (Basis <-> Bank)
-// We gebruiken POST omdat we data naar de database sturen
-router.post("/transfer", voerWisselUit);
+const {
+    vervangVoorStart,
+    blessureWissel
+} = require("../controllers/transferController");
+
+router.post("/voor-start", vervangVoorStart);
+router.post("/blessure", blessureWissel);
 
 module.exports = router;

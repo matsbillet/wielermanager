@@ -133,6 +133,8 @@ const getTeamsPerSessie = async (req, res) => {
             if (!acc[spelerNaam]) acc[spelerNaam] = [];
 
             acc[spelerNaam].push({
+                draftId: keuze.id,
+                rennerId: keuze.renners?.id,
                 renner: keuze.renners?.naam || "Onbekende renner",
                 ronde: keuze.ronde,
                 isBank: keuze.is_bank,
@@ -220,9 +222,49 @@ const getSessieVoorCompetitie = async (req, res) => {
     }
 };
 
+const getTeamVanSpeler = async (req, res) => {
+    const { sessieId, spelerId } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from("draft")
+            .select(`
+                id,
+                ronde,
+                is_bank,
+                beurt_nummer,
+                renner_id,
+                renners(id, naam, ploeg)
+            `)
+            .eq("sessie_id", sessieId)
+            .eq("speler_id", spelerId)
+            .order("is_bank", { ascending: true })
+            .order("ronde", { ascending: true });
+
+        if (error) throw error;
+
+        const team = data.map((keuze) => ({
+            draftId: keuze.id,
+            rennerId: keuze.renner_id,
+            naam: keuze.renners?.naam || "Onbekende renner",
+            ploeg: keuze.renners?.ploeg || "",
+            ronde: keuze.ronde,
+            isBank: keuze.is_bank,
+        }));
+
+        res.json(team);
+    } catch (error) {
+        res.status(500).json({
+            error: "Kon team van speler niet ophalen",
+            details: error.message,
+        });
+    }
+};
+
 module.exports = {
     voerKeuzeUit,
     getTeamsPerSessie,
     getActieveSpeler,
     getSessieVoorCompetitie,
+    getTeamVanSpeler,
 };

@@ -4,6 +4,7 @@ const draftController = require("../controllers/draftController");
 
 router.post("/kies", draftController.voerKeuzeUit);
 router.get("/teams/:sessieId", draftController.getTeamsPerSessie);
+router.get("/team/:sessieId/:spelerId", draftController.getTeamVanSpeler);
 router.get("/actieve-speler/:sessieId", draftController.getActieveSpeler);
 router.get("/sessie/:competitieId", draftController.getSessieVoorCompetitie);
 

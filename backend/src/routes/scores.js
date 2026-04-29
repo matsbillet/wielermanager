@@ -21,8 +21,19 @@ async function maakScoreboardVoorSessie(sessie) {
 
     const { data: draft, error: draftError } = await supabase
         .from("draft")
-        .select("speler_id, renner_id")
+        .select("speler_id, renner_id, is_bank")
         .eq("sessie_id", sessie.id);
+
+    if (draftError) throw draftError;
+
+    const { data: teamStatusData, error: teamStatusError } = await supabase
+        .from("team_status")
+        .select("speler_id, wedstrijd_id, renner_id, actief_vanaf_rit, actief_tot_rit, status")
+        .eq("wedstrijd_id", sessie.wedstrijd_id);
+
+    if (teamStatusError) throw teamStatusError;
+
+    const teamStatus = teamStatusData || [];
 
     if (draftError) throw draftError;
 
@@ -45,15 +56,42 @@ async function maakScoreboardVoorSessie(sessie) {
         const spelerId = spelerEntry.id;
         const spelerNaam = spelerEntry.gebruikers?.naam || "Onbekend";
 
-        const rennerIdsVanSpeler = draft
-            .filter((keuze) => Number(keuze.speler_id) === Number(spelerId))
-            .map((keuze) => Number(keuze.renner_id));
+        function isRennerActiefVoorRit(spelerId, rennerId, ritNummer) {
+            const statussen = teamStatus.filter(
+                (status) =>
+                    Number(status.speler_id) === Number(spelerId) &&
+                    Number(status.renner_id) === Number(rennerId) &&
+                    status.status === "actief" &&
+                    Number(status.actief_vanaf_rit) <= Number(ritNummer) &&
+                    (
+                        status.actief_tot_rit === null ||
+                        Number(status.actief_tot_rit) >= Number(ritNummer)
+                    )
+            );
+
+            if (statussen.length > 0) return true;
+
+            const heeftStatusHistoriek = teamStatus.some(
+                (status) => Number(status.speler_id) === Number(spelerId)
+            );
+
+            if (!heeftStatusHistoriek) {
+                return draft.some(
+                    (keuze) =>
+                        Number(keuze.speler_id) === Number(spelerId) &&
+                        Number(keuze.renner_id) === Number(rennerId) &&
+                        keuze.is_bank === false
+                );
+            }
+
+            return false;
+        }
 
         const per_rit = ritten.map((rit) => {
             const resultatenVanRit = ritresultaten.filter(
                 (resultaat) =>
                     Number(resultaat.rit_id) === Number(rit.id) &&
-                    rennerIdsVanSpeler.includes(Number(resultaat.renner_id)),
+                    isRennerActiefVoorRit(spelerId, resultaat.renner_id, rit.rit_nummer)
             );
 
             const rit_punten = resultatenVanRit.reduce((som, resultaat) => {
