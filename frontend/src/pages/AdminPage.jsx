@@ -14,6 +14,20 @@ import {
     scrapeRit
 } from '../services/api';
 
+function normaliseer(text = "") {
+    if (!text) return "";
+    return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/ø/g, "o")
+        .replace(/æ/g, "ae")
+        .replace(/œ/g, "oe")
+        .replace(/ß/g, "ss")
+        .replace(/đ/g, "d")
+        .replace(/ł/g, "l");
+}
+
 export default function AdminPage() {
     const [activeTab, setActiveTab] = useState('scraper');
     const [ritten, setRitten] = useState([]);
@@ -26,6 +40,17 @@ export default function AdminPage() {
     const [selectedWedstrijd, setSelectedWedstrijd] = useState('');
 
     const [newRit, setNewRit] = useState({ rit_nummer: '', naam: '', datum: '' });
+
+    const [zoekTerm, setZoekTerm] = useState("");
+
+    const gefilterdeRenners = useMemo(() => {
+        if (!zoekTerm) return renners;
+        const term = normaliseer(zoekTerm);
+        return renners.filter((r) =>
+            normaliseer(r.naam).includes(term) ||
+            (r.team && normaliseer(r.team).includes(term)) // Controleert ook op teamnaam!
+        );
+    }, [renners, zoekTerm]);
 
     useEffect(() => {
         fetchData();
@@ -167,6 +192,23 @@ export default function AdminPage() {
             setLoading(false);
         }
     };
+    async function verwijderAlleRenners() {
+        const bevestiging = window.confirm("Weet je ZEKER dat je alle renners wilt verwijderen? Dit kan niet ongedaan worden gemaakt!");
+
+        if (!bevestiging) return;
+
+        try {
+            setLoading(true);
+            await deleteAllRenners(); // Dit is de API call die je bovenaan al had geïmporteerd
+            alert("Alle renners zijn succesvol verwijderd!");
+            fetchData(); // Herlaad de tabel
+        } catch (err) {
+            console.error("Fout bij verwijderen:", err);
+            alert("Er is iets misgegaan bij het verwijderen van de renners.");
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
         <div className="page-shell admin-page">
@@ -227,111 +269,45 @@ export default function AdminPage() {
             )}
 
             {activeTab === 'renners' && (
-                <section className="card">
+                <section className="panel card">
                     <div className="admin-header-flex" style={{ marginBottom: '20px' }}>
-                        <h3>Renners ({renners.length})</h3>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button className="pill-btn" onClick={handleImportStartlist}>Importeer Startlijst</button>
-                            <button className="pill-btn" onClick={handleDeleteAllRenners} style={{ background: 'var(--red)', color: 'white' }}>🗑️ Reset Alles</button>
+                        <h3>Alle Renners ({gefilterdeRenners.length}/{renners.length})</h3>
+
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <input
+                                type="text"
+                                className="draft-search-input"
+                                placeholder="Zoek renner of team..."
+                                value={zoekTerm}
+                                onChange={(e) => setZoekTerm(e.target.value)}
+                                style={{ margin: 0, maxWidth: "250px" }}
+                            />
+                            {/* Knop styling gelijkgetrokken met Drafts tab */}
+                            <button className="pill-btn" onClick={verwijderAlleRenners} style={{ background: 'var(--red)', color: 'white' }}>
+                                🗑️ Alles Leegmaken
+                            </button>
                         </div>
                     </div>
 
-                    <div className="table-wrap">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Renner</th>
-                                    <th style={{ textAlign: 'right' }}>Actie</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {renners.map((r) => (
-                                    <tr key={r.id}>
-                                        <td>
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <span style={{ fontWeight: '800', fontSize: '1.1rem' }}>{r.naam}</span>
-                                                <span className="small-muted">@{r.slug}</span>
-                                            </div>
-                                        </td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            <button
-                                                className="admin-delete-icon-btn"
-                                                onClick={() => deleteItem('renners', r.id)}
-                                            >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
-                                                </svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            )}
-
-            {activeTab === 'ritten' && (
-                <section className="panel card">
-                    <h3>Etappes Beheren</h3>
-                    <div className="input-row" style={{ marginBottom: '20px' }}>
-                        <input type="number" placeholder="Rit nr" value={newRit.rit_nummer} onChange={(e) => setNewRit({ ...newRit, rit_nummer: e.target.value })} />
-                        <input type="text" placeholder="Naam" value={newRit.naam} onChange={(e) => setNewRit({ ...newRit, naam: e.target.value })} />
-                        <input type="date" value={newRit.datum} onChange={(e) => setNewRit({ ...newRit, datum: e.target.value })} />
-                        <button className="pill-btn" onClick={handleAddRit}>Toevoegen</button>
-                    </div>
-
-                    <div className="table-wrap">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Nr</th>
-                                    <th>Naam</th>
-                                    <th>Datum</th>
-                                    <th style={{ textAlign: 'right' }}>Actie</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {ritten.map((rit) => (
-                                    <tr key={rit.id}>
-                                        <td>{rit.rit_nummer}</td>
-                                        <td>{rit.naam}</td>
-                                        <td>{rit.datum}</td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            <button className="admin-delete-icon-btn" onClick={() => deleteItem('ritten', rit.id)}>
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            )}
-
-            {activeTab === 'drafts' && (
-                <section className="panel card">
-                    <div className="admin-header-flex" style={{ marginBottom: '20px' }}>
-                        <h3>Actieve Drafts ({drafts.length})</h3>
-                        <button className="pill-btn" onClick={handleDeleteAllDrafts} style={{ background: 'var(--red)', color: 'white' }}>🗑️ Alles Leegmaken</button>
-                    </div>
                     <div className="table-wrap" style={{ maxHeight: '500px' }}>
                         <table className="table">
                             <thead>
                                 <tr>
-                                    <th>Gebruiker</th>
-                                    <th>Renner</th>
+                                    <th>Naam</th>
+                                    <th>Team</th>
+                                    <th>Prijs</th>
                                     <th style={{ textAlign: 'right' }}>Actie</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {drafts.map((d) => (
-                                    <tr key={d.id}>
-                                        <td>{d.speler_id || d.username || 'Onbekend'}</td>
-                                        <td>{d.renners?.naam || `ID: ${d.renner_id}`}</td>
+                                {gefilterdeRenners.map((r) => (
+                                    <tr key={r.id}>
+                                        <td>{r.naam}</td>
+                                        <td>{r.team}</td>
+                                        <td>{r.prijs}</td>
                                         <td style={{ textAlign: 'right' }}>
-                                            <button className="admin-delete-icon-btn" onClick={() => deleteDraft(d.id)}>
+                                            {/* Zorg dat deleteItem goed wordt aangeroepen */}
+                                            <button className="admin-delete-icon-btn" onClick={() => deleteItem('renners', r.id)}>
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
                                             </button>
                                         </td>
@@ -339,9 +315,91 @@ export default function AdminPage() {
                                 ))}
                             </tbody>
                         </table>
+
+                        {gefilterdeRenners.length === 0 && renners.length > 0 && (
+                            <div style={{ padding: '1rem', textAlign: 'center', color: '#666' }}>
+                                Geen renners gevonden voor "{zoekTerm}"
+                            </div>
+                        )}
                     </div>
                 </section>
             )}
-        </div>
+
+            {
+                activeTab === 'ritten' && (
+                    <section className="panel card">
+                        <h3>Etappes Beheren</h3>
+                        <div className="input-row" style={{ marginBottom: '20px' }}>
+                            <input type="number" placeholder="Rit nr" value={newRit.rit_nummer} onChange={(e) => setNewRit({ ...newRit, rit_nummer: e.target.value })} />
+                            <input type="text" placeholder="Naam" value={newRit.naam} onChange={(e) => setNewRit({ ...newRit, naam: e.target.value })} />
+                            <input type="date" value={newRit.datum} onChange={(e) => setNewRit({ ...newRit, datum: e.target.value })} />
+                            <button className="pill-btn" onClick={handleAddRit}>Toevoegen</button>
+                        </div>
+
+                        <div className="table-wrap">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Nr</th>
+                                        <th>Naam</th>
+                                        <th>Datum</th>
+                                        <th style={{ textAlign: 'right' }}>Actie</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {ritten.map((rit) => (
+                                        <tr key={rit.id}>
+                                            <td>{rit.rit_nummer}</td>
+                                            <td>{rit.naam}</td>
+                                            <td>{rit.datum}</td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                <button className="admin-delete-icon-btn" onClick={() => deleteItem('ritten', rit.id)}>
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                )
+            }
+
+            {
+                activeTab === 'drafts' && (
+                    <section className="panel card">
+                        <div className="admin-header-flex" style={{ marginBottom: '20px' }}>
+                            <h3>Actieve Drafts ({drafts.length})</h3>
+                            <button className="pill-btn" onClick={handleDeleteAllDrafts} style={{ background: 'var(--red)', color: 'white' }}>🗑️ Alles Leegmaken</button>
+                        </div>
+                        <div className="table-wrap" style={{ maxHeight: '500px' }}>
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Gebruiker</th>
+                                        <th>Renner</th>
+                                        <th style={{ textAlign: 'right' }}>Actie</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {drafts.map((d) => (
+                                        <tr key={d.id}>
+                                            <td>{d.speler_id || d.username || 'Onbekend'}</td>
+                                            <td>{d.renners?.naam || `ID: ${d.renner_id}`}</td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                <button className="admin-delete-icon-btn" onClick={() => deleteDraft(d.id)}>
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                )
+            }
+        </div >
     );
 }
