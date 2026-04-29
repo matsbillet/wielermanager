@@ -34,7 +34,7 @@ router.post('/register', async (req, res) => {
 
         const wachtwoord_hash = await bcrypt.hash(wachtwoord, 10);
 
-        const { data, error } = await supabase
+        const { data: nieuweGebruiker, error } = await supabase
             .from('gebruikers')
             .insert([
                 {
@@ -58,10 +58,19 @@ router.post('/register', async (req, res) => {
             throw error;
         }
 
+        const { error: spelerError } = await supabase
+            .from('spelers')
+            .insert([{
+                gebruiker_id: nieuweGebruiker.id,
+                competitie_id: 1 // Standaard competitie (bijv. "Algemeen")
+            }]);
 
+        if (spelerError) {
+            throw spelerError;
+        }
 
         const token = jwt.sign(
-            { id: data.id, naam: data.naam, is_admin: data.is_admin },
+            { id: nieuweGebruiker.id, naam: nieuweGebruiker.naam, is_admin: nieuweGebruiker.is_admin },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -70,9 +79,9 @@ router.post('/register', async (req, res) => {
             bericht: 'Account aangemaakt',
             token,
             gebruiker: {
-                id: data.id,
-                naam: data.naam,
-                is_admin: data.is_admin
+                id: nieuweGebruiker.id,
+                naam: nieuweGebruiker.naam,
+                is_admin: nieuweGebruiker.is_admin
             }
         });
 
