@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { supabase } = require('../db/supabase');
 const { scrapeFullRaceInfo } = require('../scraper/scraper'); // Zorg dat dit pad klopt
+const scraper = require('../scraper/scraper');
+// Let op: controleer of dit het juiste pad is naar je scraper bestand vanuit routes/wedstrijden.js!
 
 // --- NIEUW: INITIALISEER EEN NIEUWE WEDSTRIJD ---
 // Deze route zorgt dat je via 1 URL een hele tour inlaadt
@@ -146,6 +148,52 @@ router.get('/:slug/ritten', async (req, res) => {
         res.json({ wedstrijd, ritten });
     } catch (error) {
         res.status(500).json({ error: 'Kon ritten niet ophalen' });
+    }
+});
+// In je routes/wedstrijden.js of ritten.js
+router.post('/:id/sync-startlijst', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // 1. Haal de wedstrijd-URL op uit de DB
+        const { data: wedstrijd, error } = await supabase
+            .from('wedstrijden')
+            .select('pcs_url, id')
+            .eq('id', id)
+            .single();
+
+        if (error || !wedstrijd) return res.status(404).json({ error: "Wedstrijd niet gevonden" });
+
+        console.log(`🔄 Sync startlijst gestart voor: ${wedstrijd.pcs_url}`);
+
+        // 2. Gebruik de bestaande scraper om de info + deelnemers op te halen
+        const raceData = await scraper.scrapeFullRaceInfo(wedstrijd.pcs_url);
+
+        if (!raceData.deelnemers || raceData.deelnemers.length === 0) {
+            return res.status(400).json({ error: "Geen deelnemers gevonden op PCS. Is de startlijst al bekend?" });
+        }
+
+        // 3. Renners opslaan in de 'renners' tabel (indien nieuw)
+        for (const renner of raceData.deelnemers) {
+            await supabase.from('renners').upsert({
+                naam: renner.naam,
+                slug: renner.slug,
+                // ploeg: renner.ploeg // Optioneel als je dit toch wilt opslaan
+            }, { onConflict: 'slug' });
+        }
+
+        // 4. (Optioneel) Koppeling maken met de competitie/sessie
+        // Hier kun je logica toevoegen om deze renners direct aan de draft-pool toe te voegen
+
+        res.json({
+            success: true,
+            message: `${raceData.deelnemers.length} renners gesynchroniseerd!`,
+            count: raceData.deelnemers.length
+        });
+
+    } catch (err) {
+        console.error("❌ Sync fout:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 

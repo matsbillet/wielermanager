@@ -273,6 +273,73 @@ router.post('/scrape/:id', async (req, res) => {
     }
 });
 
+router.post('/:id/sync-startlijst', async (req, res) => {
+    const { id } = req.params;
+    console.log(`[Backend] Sync verzoek voor wedstrijd ID: ${id}`);
+
+    try {
+        // 1. Haal de wedstrijd op
+        const { data: wedstrijd, error: wErr } = await supabase
+            .from('wedstrijden')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (wErr || !wedstrijd) {
+            console.error("❌ Wedstrijd niet gevonden in DB");
+            return res.status(404).json({ error: "Wedstrijd niet gevonden" });
+        }
+
+        // 2. Controleer de scraper functie
+        // BELANGRIJK: Check of deze functie echt zo heet in je scraper.js!
+        if (!scraper.scrapeFullRaceInfo) {
+            console.error("❌ Fout: scraper.scrapeFullRaceInfo bestaat niet!");
+            return res.status(500).json({ error: "Server configuratiefout: Scraper functie ontbreekt." });
+        }
+
+        console.log(`[Backend] Scraper starten voor URL: ${wedstrijd.pcs_url}`);
+
+        // PCS URLs voor startlijsten eindigen vaak op /startlist of /gc
+        // We proberen de basis URL die in je DB staat
+        const raceData = await scraper.scrapeFullRaceInfo(wedstrijd.pcs_url);
+
+        // 3. Controleer of de scraper data heeft teruggegeven
+        if (!raceData || !raceData.deelnemers) {
+            console.error("❌ Scraper gaf geen deelnemers terug. Ontvangen object:", raceData);
+            return res.status(400).json({ error: "PCS gaf geen renners terug. Controleer de URL." });
+        }
+
+        console.log(`[Backend] ${raceData.deelnemers.length} renners gevonden. Opslaan in DB...`);
+
+        // 4. Upsert de renners
+        // We mappen de data zodat we zeker weten dat we de juiste velden sturen
+        const rennersData = raceData.deelnemers.map(r => ({
+            naam: r.naam,
+            slug: r.slug
+        }));
+
+        const { error: upErr } = await supabase
+            .from('renners')
+            .upsert(rennersData, { onConflict: 'slug' });
+
+        if (upErr) {
+            console.error("❌ Supabase Upsert Fout:", upErr.message);
+            throw upErr;
+        }
+
+        console.log("✅ Sync voltooid!");
+        res.json({
+            success: true,
+            message: `${raceData.deelnemers.length} renners succesvol gesynchroniseerd!`
+        });
+
+    } catch (err) {
+        // Dit logt de ECHTE fout in je terminal!
+        console.error("🔥 KRITIEKE SYNC FOUT:", err);
+        res.status(500).json({ error: "Interne serverfout: " + err.message });
+    }
+});
+
 // Route voor details van één specifieke rit inclusief resultaten
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
