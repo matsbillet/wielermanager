@@ -388,7 +388,7 @@ export default function DraftPage() {
             <section className="riders-grid">
                 {gefilterdeRenners.map((rider) => (
                     <article key={rider.id} className="rider-card card">
-                        <div className="rider-image">🚴</div>
+
 
                         <div className="rider-body">
                             <div className="rider-topline">
