@@ -35,18 +35,108 @@ router.post('/scrape/:id', async (req, res) => {
         return res.status(429).json({ error: "Scrape is al bezig voor deze rit." });
     }
 
-    activeScrapes.add(id);
-
     try {
-        const { data: rit, error: ritErr } = await supabase
-            .from('ritten').select('*').eq('id', id).single();
+        activeScrapes.add(id);
 
-        if (ritErr || !rit) throw new Error("Rit niet gevonden");
 
-        console.log(`[Backend] Scrape starten voor: ${rit.naam} (${rit.pcs_url})`);
-        const resultaat = await scraper.scrapeStageData(rit.pcs_url);
+        const { data: rit, error: rErr } = await supabase
+            .from('ritten')
+            .select('*, wedstrijden(id, naam, pcs_url, slug, aantal_ritten, jaar)') // Voeg 'id' en 'jaar' expliciet toe
+            .eq('id', id)
+            .single();
 
-        // Update de rit-status en truidragers in de database
+        if (rErr || !rit) return res.status(404).json({ error: "Rit niet gevonden" });
+
+        const resultaat = await scraper.scrapeRitDetails(rit.wedstrijden.pcs_url, rit.rit_nummer);
+
+        if (!resultaat || !resultaat.uitslag || resultaat.uitslag.length === 0) {
+            console.log("📭 Geen resultaten gevonden op PCS.");
+            return res.status(400).json({ message: "Geen uitslag gevonden op PCS." });
+        }
+
+        console.log(`💾 Bezig met opslaan van ${resultaat.uitslag.length} resultaten...`);
+
+
+        // C. Verwerk Top 25 Uitslag & Punten
+        console.log(`🧪 Start verwerking van ${resultaat.uitslag.length} renners...`);
+
+        for (let i = 0; i < resultaat.uitslag.length; i++) {
+            const rennerInfo = resultaat.uitslag[i];
+
+            // Gebruik .maybeSingle() in plaats van .single() om crashes te voorkomen
+            const { data: renner, error: rennerErr } = await supabase
+                .from('renners')
+                .select('id')
+                .eq('slug', rennerInfo.slug)
+                .maybeSingle();
+
+            if (rennerErr) {
+                console.error(`❌ Fout bij zoeken naar renner ${rennerInfo.slug}:`, rennerErr.message);
+                continue;
+            }
+
+            // E. Update de rit als 'gescrapet' en sla de namen van de leiders op
+            const { error: updateError } = await supabase
+                .from('ritten')
+                .update({
+                    leider_algemeen: resultaat.truien.algemeen || null,
+                    leider_punten: resultaat.truien.punten || null,
+                    leider_berg: resultaat.truien.berg || null,
+                    leider_jongeren: resultaat.truien.jongeren || null,
+                    gescrapet: true
+                })
+                .eq('id', id);
+
+            if (updateError) console.error("Fout bij updaten ritten-tabel:", updateError.message);
+
+            if (renner) {
+                console.log(`🔗 Renner gevonden: ${rennerInfo.slug} (ID: ${renner.id}). Opslaan resultaat...`);
+                const { error: upsertErr } = await supabase.from('ritresultaten').upsert({
+                    rit_id: id,
+                    renner_id: renner.id,
+                    positie: i + 1,
+                    punten: PUNTEN_SCHEMA[i] || 0,
+                    trui_punten: 0
+                }, { onConflict: ['rit_id', 'renner_id'] });
+
+                if (upsertErr) {
+                    console.error(`❌ Upsert mislukt voor renner ${renner.id}:`, upsertErr.message);
+                }
+            } else {
+                // DIT IS HET CRUCIALE PUNT: Wat als de slug niet wordt gevonden?
+                console.warn(`⚠️ Renner NIET gevonden in DB: ${rennerInfo.slug}. Controleer of deze renner bestaat in de 'renners' tabel!`);
+            }
+        }
+
+        // D. Verwerk Trui Bonus
+        const truiSlugs = [
+            { slug: resultaat.truien.algemeen },
+            { slug: resultaat.truien.punten },
+            { slug: resultaat.truien.berg },
+            { slug: resultaat.truien.jongeren }
+        ];
+
+        for (const trui of truiSlugs) {
+            if (!trui.slug) continue;
+
+            const { data: renner } = await supabase.from('renners').select('id').eq('slug', trui.slug).single();
+            if (renner) {
+                const { data: bestaand } = await supabase.from('ritresultaten')
+                    .select('id, trui_punten').eq('rit_id', id).eq('renner_id', renner.id).single();
+
+                if (bestaand) {
+                    await supabase.from('ritresultaten')
+                        .update({ trui_punten: (bestaand.trui_punten || 0) + TRUI_PUNTEN })
+                        .eq('id', bestaand.id);
+                } else {
+                    await supabase.from('ritresultaten').insert({
+                        rit_id: id, renner_id: renner.id, positie: null, punten: 0, trui_punten: TRUI_PUNTEN
+                    });
+                }
+            }
+        }
+
+        // E. Update de rit als 'gescrapet'
         await supabase.from('ritten').update({
             leider_algemeen: resultaat.truien.geel,
             leider_punten: resultaat.truien.groen,
@@ -55,7 +145,86 @@ router.post('/scrape/:id', async (req, res) => {
             gescrapet: true
         }).eq('id', id);
 
-        res.json({ success: true, message: "Uitslag succesvol verwerkt!" });
+        // --- GEUPDATE: AUTOMATISCH VOLGEND JAAR AANMAKEN EN RITTEN SCRAPEN ---
+        if (rit && rit.rit_nummer === rit.wedstrijden.aantal_ritten) {
+            console.log(`🏁 Laatste rit van ${rit.wedstrijden.naam} voltooid. Check voor volgend jaar...`);
+
+            const huidigJaar = rit.wedstrijden.jaar;
+            const volgendJaar = huidigJaar + 1;
+            const volgendJaarStr = volgendJaar.toString();
+
+            // SLIMME VERVANGING: Zoek naar ELK 4-cijferig getal en vervang het door het nieuwe jaar.
+            // Dit voorkomt dubbele jaartallen zoals /2024/2026.
+            const replaceYear = (str) => {
+                if (/\d{4}/.test(str)) {
+                    return str.replace(/\d{4}/g, volgendJaarStr);
+                }
+                return null;
+            };
+
+            const nieuweSlug = replaceYear(rit.wedstrijden.slug) || `${rit.wedstrijden.slug}-${volgendJaarStr}`;
+            const nieuweUrl = replaceYear(rit.wedstrijden.pcs_url) ||
+                (rit.wedstrijden.pcs_url.endsWith('/') ? `${rit.wedstrijden.pcs_url}${volgendJaarStr}` : `${rit.wedstrijden.pcs_url}/${volgendJaarStr}`);
+            const nieuweNaam = replaceYear(rit.wedstrijden.naam) || `${rit.wedstrijden.naam} ${volgendJaarStr}`;
+
+            // 1. Check of de wedstrijd voor volgend jaar al bestaat
+            const { data: bestaandeWedstrijd } = await supabase
+                .from('wedstrijden')
+                .select('id')
+                .eq('slug', nieuweSlug)
+                .maybeSingle();
+
+            let doelWedstrijdId;
+
+            if (!bestaandeWedstrijd) {
+                console.log(`🆕 Nieuwe wedstrijd aanmaken: ${nieuweNaam} (${nieuweSlug})`);
+
+                // 2. Insert de nieuwe wedstrijd
+                const { data: nieuweW, error: insErr } = await supabase
+                    .from('wedstrijden')
+                    .insert({
+                        naam: nieuweNaam,
+                        slug: nieuweSlug,
+                        jaar: volgendJaar,
+                        pcs_url: nieuweUrl,
+                        aantal_ritten: rit.wedstrijden.aantal_ritten
+                    })
+                    .select()
+                    .single();
+
+                if (insErr) {
+                    console.error("❌ Fout bij aanmaken volgend jaar:", insErr.message);
+                } else if (nieuweW) {
+                    console.log(`✨ ${nieuweW.naam} succesvol aangemaakt (ID: ${nieuweW.id}).`);
+                    doelWedstrijdId = nieuweW.id;
+                }
+            } else {
+                console.log(`ℹ️ Wedstrijd voor ${volgendJaar} bestaat al (ID: ${bestaandeWedstrijd.id}).`);
+                doelWedstrijdId = bestaandeWedstrijd.id;
+            }
+
+            // 3. Ritten check & sync
+            if (doelWedstrijdId) {
+                const { count: rittenCount } = await supabase
+                    .from('ritten')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('wedstrijd_id', doelWedstrijdId);
+
+                if (rittenCount === 0) {
+                    console.log(`🔎 Geen ritten gevonden voor ID ${doelWedstrijdId}. Scraper starten voor: ${nieuweUrl}`);
+                    try {
+                        const rittenResult = await scraper.scrapeStagesForRace(nieuweUrl, doelWedstrijdId);
+                        console.log(`✅ Automatisch ${rittenResult.count} ritten toegevoegd voor ${volgendJaar}.`);
+                    } catch (scrapeErr) {
+                        console.error("⚠️ Scrapen van ritten mislukt:", scrapeErr.message);
+                    }
+                } else {
+                    console.log(`✅ Er staan al ${rittenCount} ritten in de database voor wedstrijd ID ${doelWedstrijdId}.`);
+                }
+            }
+        }
+        // Verstuur de response nadat alle checks (inclusief eventuele nieuwe race) klaar zijn
+        return res.json({ success: true, message: "Uitslag verwerkt en eventuele nieuwe race gecheckt!" });
 
     } catch (err) {
         console.error("❌ Fout bij scrapen:", err);
