@@ -30,11 +30,13 @@ router.post('/initialize', async (req, res) => {
                 naam: info.naam,
                 pcs_url: pcsUrl,
                 aantal_ritten: info.aantal_ritten,
-                jaar: jaar || new Date().getFullYear(),
+                jaar: jaar || info.jaar || new Date().getFullYear(),
                 slug: wedstrijdSlug,
-                start_datum: info.dateText // Slaat de ruwe datumtekst op
+                start_datum: info.start_datum,
+                eind_datum: info.eind_datum,
             }, { onConflict: 'pcs_url' })
-            .select().single();
+            .select()
+            .single();
 
         if (wErr) throw wErr;
 
@@ -43,7 +45,8 @@ router.post('/initialize', async (req, res) => {
         const rittenRows = info.ritten.map(r => ({
             wedstrijd_id: wedstrijd.id,
             rit_nummer: r.rit_nummer,
-            naam: r.naam
+            naam: r.naam,
+            starttijd: r.starttijd,
         }));
 
         const { error: rittenErr } = await supabase

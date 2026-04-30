@@ -8,7 +8,7 @@ async function getBrowser() {
     });
 }
 
-function parsePcsDate(dateText, fallbackYear) {
+function parsePcsDateToIso(dateText, fallbackYear) {
     if (!dateText) return null;
 
     const maanden = {
@@ -31,7 +31,7 @@ function parsePcsDate(dateText, fallbackYear) {
         .replace(/\s+/g, ' ')
         .trim();
 
-    const match = clean.match(/(\d{1,2})\s+([a-z]{3})\s+(\d{4})?/);
+    const match = clean.match(/(\d{1,2})\s+([a-z]{3})(?:\s+(\d{4}))?/);
 
     if (!match) return null;
 
@@ -44,6 +44,22 @@ function parsePcsDate(dateText, fallbackYear) {
     return `${jaar}-${String(maand).padStart(2, '0')}-${String(dag).padStart(2, '0')}`;
 }
 
+function parseTime(timeText) {
+    if (!timeText) return null;
+
+    const match = timeText.match(/(\d{1,2}):(\d{2})/);
+    if (!match) return null;
+
+    return `${String(match[1]).padStart(2, '0')}:${match[2]}:00+02:00`;
+}
+
+function combineDateAndTime(dateIso, timeText) {
+    if (!dateIso) return null;
+
+    const timeIso = parseTime(timeText) || "12:00:00+02:00";
+    return `${dateIso}T${timeIso}`;
+}
+
 function parsePcsDateRange(text, fallbackYear) {
     if (!text) {
         return {
@@ -52,14 +68,11 @@ function parsePcsDateRange(text, fallbackYear) {
         };
     }
 
-    const clean = text
-        .replace(/\s+/g, ' ')
-        .trim();
-
+    const clean = text.replace(/\s+/g, ' ').trim();
     const parts = clean.split(/\s*-\s*/);
 
     if (parts.length === 1) {
-        const datum = parsePcsDate(parts[0], fallbackYear);
+        const datum = parsePcsDateToIso(parts[0], fallbackYear);
         return {
             start_datum: datum,
             eind_datum: datum,
@@ -69,28 +82,46 @@ function parsePcsDateRange(text, fallbackYear) {
     const startRaw = parts[0];
     const endRaw = parts[1];
 
-    const endDatum = parsePcsDate(endRaw, fallbackYear);
+    const eind_datum = parsePcsDateToIso(endRaw, fallbackYear);
 
-    let startDatum = parsePcsDate(startRaw, fallbackYear);
+    let start_datum = parsePcsDateToIso(startRaw, fallbackYear);
 
-    if (!startDatum && endRaw) {
+    if (!start_datum && endRaw) {
         const endMatch = endRaw.toLowerCase().match(/([a-z]{3})\s+(\d{4})/);
+
         if (endMatch) {
-            startDatum = parsePcsDate(`${startRaw} ${endMatch[1]} ${endMatch[2]}`, fallbackYear);
+            start_datum = parsePcsDateToIso(
+                `${startRaw} ${endMatch[1]} ${endMatch[2]}`,
+                fallbackYear
+            );
         }
     }
 
     return {
-        start_datum: startDatum,
-        eind_datum: endDatum,
+        start_datum,
+        eind_datum,
     };
 }
 
+function haalJaarUitUrlOfTekst(url, tekst) {
+    const match =
+        url.match(/\/(20\d{2})(?:\/|$)/) ||
+        tekst.match(/\b(20\d{2})\b/);
+
+    return match ? Number(match[1]) : new Date().getFullYear();
+}
+
+function bouwStageUrl(baseUrl, ritNummer) {
+    const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    return `${cleanBase}/stage-${ritNummer}`;
+}
+
 /**
- * 1. HAAL RITTEN OP
+ * 1. HAAL RITTEN + DATUMS OP
  */
 async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
     console.log(`🔎 Ritten ophalen voor: ${racePcsUrl}`);
+
     const browser = await getBrowser();
 
     try {
@@ -106,36 +137,38 @@ async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
         });
 
         const raceInfo = await page.evaluate(() => {
-            const tekst = document.body.innerText;
+            const bodyText = document.body.innerText;
 
             const dateMatch =
-                tekst.match(/Date:\s*([^\n]+)/i) ||
-                tekst.match(/Race date:\s*([^\n]+)/i);
+                bodyText.match(/Date:\s*([^\n]+)/i) ||
+                bodyText.match(/Race date:\s*([^\n]+)/i);
 
-            const links = Array.from(document.querySelectorAll('a[href*="stage-"]'));
+            const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
 
-            const ritten = [];
+            const rittenMap = new Map();
 
-            links.forEach((link) => {
-                const url = link.getAttribute('href');
-                const text = link.innerText.trim();
-                const nrMatch = url.match(/stage-(\d+)/);
+            stageLinks.forEach((link) => {
+                const href = link.getAttribute('href') || "";
+                const nrMatch = href.match(/stage-(\d+)/);
+                if (!nrMatch) return;
 
-                if (nrMatch) {
-                    const nr = parseInt(nrMatch[1]);
+                const rit_nummer = Number(nrMatch[1]);
+                const row = link.closest('tr');
+                const rowText = row?.innerText || link.parentElement?.innerText || link.innerText || "";
 
-                    if (!ritten.find((r) => r.rit_nummer === nr)) {
-                        ritten.push({
-                            rit_nummer: nr,
-                            naam: text,
-                        });
-                    }
+                if (!rittenMap.has(rit_nummer)) {
+                    rittenMap.set(rit_nummer, {
+                        rit_nummer,
+                        naam: link.innerText.trim(),
+                        rowText,
+                    });
                 }
             });
 
             return {
                 datumTekst: dateMatch?.[1]?.trim() || null,
-                ritten,
+                bodyText,
+                ritten: Array.from(rittenMap.values()),
             };
         });
 
@@ -147,38 +180,55 @@ async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
 
         if (wedstrijdError) throw wedstrijdError;
 
-        const datums = parsePcsDateRange(raceInfo.datumTekst, wedstrijd.jaar);
+        const fallbackYear = wedstrijd?.jaar || haalJaarUitUrlOfTekst(racePcsUrl, raceInfo.bodyText || "");
+        const raceDatums = parsePcsDateRange(raceInfo.datumTekst, fallbackYear);
 
-        if (datums.start_datum || datums.eind_datum) {
+        if (raceDatums.start_datum || raceDatums.eind_datum) {
             await supabase
                 .from('wedstrijden')
-                .update(datums)
+                .update(raceDatums)
                 .eq('id', wedstrijdId);
         }
 
-        if (raceInfo.ritten.length > 0) {
-            console.log(`📊 Scraper vond ${raceInfo.ritten.length} ritten.`);
+        const rittenMetDatum = [];
 
-            for (const rit of raceInfo.ritten) {
-                await supabase
-                    .from('ritten')
-                    .upsert(
-                        {
-                            wedstrijd_id: wedstrijdId,
-                            rit_nummer: rit.rit_nummer,
-                            naam: rit.naam,
-                        },
-                        {
-                            onConflict: 'wedstrijd_id,rit_nummer',
-                        }
-                    );
+        for (const rit of raceInfo.ritten) {
+            let datum = null;
+            let starttijd = null;
+
+            const rowDateMatch = rit.rowText.match(/(\d{1,2}\s+[A-Za-z]{3}(?:\s+20\d{2})?)/);
+            const rowTimeMatch = rit.rowText.match(/(\d{1,2}:\d{2})/);
+
+            if (rowDateMatch) {
+                datum = parsePcsDateToIso(rowDateMatch[1], fallbackYear);
+                starttijd = combineDateAndTime(datum, rowTimeMatch?.[1]);
             }
+
+            rittenMetDatum.push({
+                wedstrijd_id: wedstrijdId,
+                rit_nummer: rit.rit_nummer,
+                naam: rit.naam,
+                starttijd,
+            });
+        }
+
+        if (rittenMetDatum.length > 0) {
+            console.log(`📊 Scraper vond ${rittenMetDatum.length} ritten.`);
+
+            const { error: upsertError } = await supabase
+                .from('ritten')
+                .upsert(rittenMetDatum, {
+                    onConflict: 'wedstrijd_id,rit_nummer',
+                });
+
+            if (upsertError) throw upsertError;
         }
 
         return {
             success: true,
-            count: raceInfo.ritten.length,
-            ...datums,
+            count: rittenMetDatum.length,
+            start_datum: raceDatums.start_datum,
+            eind_datum: raceDatums.eind_datum,
         };
     } finally {
         await browser.close();
@@ -206,27 +256,33 @@ async function scrapeFullRaceInfo(racePcsUrl) {
         });
 
         const raceDetails = await page.evaluate(() => {
-            const naam = document.querySelector('h1')?.innerText.trim();
-            const tekst = document.body.innerText;
+            const naam = document.querySelector('h1')?.innerText.trim() || "";
+            const bodyText = document.body.innerText;
 
-            const yearMatch = naam?.match(/(20\d{2})/) || tekst.match(/(20\d{2})/);
+            const yearMatch = naam.match(/(20\d{2})/) || bodyText.match(/(20\d{2})/);
             const jaar = yearMatch ? Number(yearMatch[1]) : null;
 
             const dateMatch =
-                tekst.match(/Date:\s*([^\n]+)/i) ||
-                tekst.match(/Race date:\s*([^\n]+)/i);
+                bodyText.match(/Date:\s*([^\n]+)/i) ||
+                bodyText.match(/Race date:\s*([^\n]+)/i);
 
-            const links = Array.from(document.querySelectorAll('a[href*="stage-"]'));
-            const ritten = [];
+            const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
+            const rittenMap = new Map();
 
-            links.forEach((link) => {
-                const url = link.getAttribute('href');
-                const nrMatch = url.match(/stage-(\d+)/);
+            stageLinks.forEach((link) => {
+                const href = link.getAttribute('href') || "";
+                const nrMatch = href.match(/stage-(\d+)/);
+                if (!nrMatch) return;
 
-                if (nrMatch && !ritten.find((r) => r.rit_nummer === parseInt(nrMatch[1]))) {
-                    ritten.push({
-                        rit_nummer: parseInt(nrMatch[1]),
+                const rit_nummer = Number(nrMatch[1]);
+                const row = link.closest('tr');
+                const rowText = row?.innerText || link.parentElement?.innerText || link.innerText || "";
+
+                if (!rittenMap.has(rit_nummer)) {
+                    rittenMap.set(rit_nummer, {
+                        rit_nummer,
                         naam: link.innerText.trim(),
+                        rowText,
                     });
                 }
             });
@@ -235,12 +291,28 @@ async function scrapeFullRaceInfo(racePcsUrl) {
                 naam,
                 jaar,
                 datumTekst: dateMatch?.[1]?.trim() || null,
-                ritten,
-                aantal_ritten: ritten.length,
+                ritten: Array.from(rittenMap.values()),
+                aantal_ritten: rittenMap.size,
             };
         });
 
-        const datums = parsePcsDateRange(raceDetails.datumTekst, raceDetails.jaar);
+        const fallbackYear = raceDetails.jaar || haalJaarUitUrlOfTekst(racePcsUrl, raceDetails.naam || "");
+        const raceDatums = parsePcsDateRange(raceDetails.datumTekst, fallbackYear);
+
+        const ritten = raceDetails.ritten.map((rit) => {
+            const rowDateMatch = rit.rowText.match(/(\d{1,2}\s+[A-Za-z]{3}(?:\s+20\d{2})?)/);
+            const rowTimeMatch = rit.rowText.match(/(\d{1,2}:\d{2})/);
+
+            const datum = rowDateMatch
+                ? parsePcsDateToIso(rowDateMatch[1], fallbackYear)
+                : null;
+
+            return {
+                rit_nummer: rit.rit_nummer,
+                naam: rit.naam,
+                starttijd: combineDateAndTime(datum, rowTimeMatch?.[1]),
+            };
+        });
 
         const startlistUrl = racePcsUrl.endsWith('/')
             ? `${racePcsUrl}startlist`
@@ -271,8 +343,12 @@ async function scrapeFullRaceInfo(racePcsUrl) {
         });
 
         return {
-            ...raceDetails,
-            ...datums,
+            naam: raceDetails.naam,
+            jaar: fallbackYear,
+            aantal_ritten: ritten.length,
+            start_datum: raceDatums.start_datum,
+            eind_datum: raceDatums.eind_datum,
+            ritten,
             deelnemers,
         };
     } finally {
@@ -290,8 +366,7 @@ async function scrapeRitDetails(racePcsUrl, ritNummer) {
 
     try {
         const page = await browser.newPage();
-        const baseUrl = racePcsUrl.endsWith('/') ? racePcsUrl.slice(0, -1) : racePcsUrl;
-        const stageUrl = `${baseUrl}/stage-${ritNummer}`;
+        const stageUrl = bouwStageUrl(racePcsUrl, ritNummer);
 
         await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -303,7 +378,23 @@ async function scrapeRitDetails(racePcsUrl, ritNummer) {
         });
 
         const data = await page.evaluate(() => {
-            const results = { uitslag: [], truien: {} };
+            const results = {
+                uitslag: [],
+                truien: {},
+                starttijdTekst: null,
+            };
+
+            const bodyText = document.body.innerText;
+
+            const dateMatch = bodyText.match(/Date:\s*([^\n]+)/i);
+            const timeMatch =
+                bodyText.match(/Starttime:\s*([0-9]{1,2}:[0-9]{2})/i) ||
+                bodyText.match(/Start time:\s*([0-9]{1,2}:[0-9]{2})/i);
+
+            results.starttijdTekst = dateMatch?.[1]
+                ? `${dateMatch[1]} ${timeMatch?.[1] || ""}`.trim()
+                : null;
+
             const tables = Array.from(document.querySelectorAll('table'));
             const resultTable = tables.find(
                 (t) => t.innerText.includes('Rider') && t.querySelectorAll('tr').length > 10

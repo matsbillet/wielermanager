@@ -54,6 +54,7 @@ async function syncStartlijstEnRitten(wedstrijd) {
             wedstrijd_id: wedstrijd.id,
             rit_nummer: rit.rit_nummer,
             naam: rit.naam,
+            starttijd: rit.starttijd,
         }));
 
         const { error: rittenError } = await supabase
