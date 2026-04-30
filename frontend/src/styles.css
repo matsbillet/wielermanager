@@ -1842,3 +1842,52 @@ textarea:focus {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding: 1rem 0;
 }
+
+/* Het draaiende wiel */
+.spinner-wheel {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    font-size: 2rem;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* De terminal-stijl tekst */
+.loading-terminal {
+    font-family: 'Courier New', Courier, monospace;
+    background: #1a1a1a;
+    color: #00ff00;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    margin: 20px 0;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+.cursor {
+    animation: blink 1s step-end infinite;
+    border-right: 8px solid #00ff00;
+    margin-left: 5px;
+}
+
+@keyframes blink {
+
+    from,
+    to {
+        border-color: transparent
+    }
+
+    50% {
+        border-color: #00ff00;
+    }
+}

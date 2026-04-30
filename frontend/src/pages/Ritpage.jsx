@@ -1,15 +1,17 @@
 // src/pages/RitPage.jsx
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { getRit, triggerScrape } from '../services/api';
 
 export default function RitPage() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const [rit, setRit] = useState(null);
     const [loading, setLoading] = useState(true);
     const [scrapping, setScrapping] = useState(false);
+    const [statusMsg, setStatusMsg] = useState("");
+    const [progress, setProgress] = useState(0);
 
-    // Helper functie om slugs (tadej-pogacar) mooi te maken (Tadej Pogacar)
     const formatName = (slug) => {
         if (!slug) return '';
         return slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -21,7 +23,10 @@ export default function RitPage() {
             setRit(res.data);
 
             if (res.data && !res.data.gescrapet && !scrapping) {
-                voerScrapeUit();
+                const isLocked = localStorage.getItem(`scraping_active_${id}`);
+                if (!isLocked) {
+                    voerScrapeUit();
+                }
             }
         } catch (err) {
             console.error("Fout bij laden:", err);
@@ -31,98 +36,171 @@ export default function RitPage() {
     };
 
     const voerScrapeUit = async () => {
+        if (scrapping) return;
+
         setScrapping(true);
+        localStorage.setItem(`scraping_active_${id}`, "true");
+        setProgress(5);
+        setStatusMsg("Peloton vertrekt voor de uitslag-rit...");
+
         try {
-            console.log("🚀 Scraper wordt getriggerd voor rit:", id);
-            await triggerScrape(id);
-            const refresh = await getRit(id);
-            setRit(refresh.data);
+            triggerScrape(id).catch(err => {
+                if (err.response?.status === 429) {
+                    console.warn("Backend lock actief, we wachten op de resultaten...");
+                }
+            });
+
+            const fakeProgress = setInterval(() => {
+                setProgress(prev => (prev < 40 ? prev + 1 : prev));
+            }, 400);
+
+            let dataGevonden = false;
+            let pogingen = 0;
+            const maxPogingen = 25;
+            let vorigAantal = 0;
+
+            while (!dataGevonden && pogingen < maxPogingen) {
+                pogingen++;
+                const refresh = await getRit(id);
+                const huidigAantal = refresh.data?.ritresultaten?.length || 0;
+
+                // Stop als we minstens 20 renners hebben OF als de groei stopt
+                if (huidigAantal >= 20) {
+                    clearInterval(fakeProgress);
+                    setRit(refresh.data);
+                    dataGevonden = true;
+                    setProgress(100);
+                    setStatusMsg("🏁 Finish bereikt! Uitslag volledig geladen.");
+                } else if (huidigAantal > 0 && huidigAantal === vorigAantal && pogingen > 6) {
+                    clearInterval(fakeProgress);
+                    setRit(refresh.data);
+                    dataGevonden = true;
+                    setProgress(100);
+                    setStatusMsg("🏁 Finish bereikt! Uitslag verwerkt.");
+                } else {
+                    vorigAantal = huidigAantal;
+                    setProgress(prev => (prev < 90 ? prev + 3 : prev));
+                    setStatusMsg(`Bezig met verwerken... (${huidigAantal} renners binnen)`);
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+
+            setTimeout(() => {
+                setScrapping(false);
+                localStorage.removeItem(`scraping_active_${id}`);
+            }, 1500);
+
         } catch (err) {
-            console.log("Scrape (nog) niet gelukt.");
-        } finally {
+            console.error("Kritieke fout:", err);
+            setStatusMsg("Er ging iets mis. Herstart de pagina.");
             setScrapping(false);
+            localStorage.removeItem(`scraping_active_${id}`);
         }
     };
 
     useEffect(() => {
         laadData();
+        return () => localStorage.removeItem(`scraping_active_${id}`);
     }, [id]);
 
-    if (loading) return <div style={{ padding: '20px' }}>Rit laden...</div>;
-    if (!rit) return <div style={{ padding: '20px' }}>Rit niet gevonden.</div>;
+    if (loading) return <div style={{ color: '#fff', padding: '40px', textAlign: 'center' }}>Rit inladen...</div>;
+    if (!rit) return <div style={{ color: '#fff', padding: '40px', textAlign: 'center' }}>Rit niet gevonden.</div>;
 
     return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            <h2>Rit {rit.rit_nummer}: {rit.naam}</h2>
+        <div className="rit-container">
+            <button onClick={() => navigate('/races')} className="back-button">
+                ⬅ Terug naar Koersen
+            </button>
 
             {scrapping && (
-                <div style={{ padding: '10px', backgroundColor: '#e3f2fd', borderRadius: '5px', marginBottom: '10px' }}>
-                    Bezig met ophalen van live uitslagen... ⏳
+                <div className="scrape-overlay">
+                    <div className="loader-content">
+                        <div className="bike-animation">
+                            <span className="bike-emoji">🚴‍♂️💨</span>
+                        </div>
+                        <div className="loading-bar-container">
+                            <div className="loading-bar-fill" style={{ width: `${progress}%` }}></div>
+                        </div>
+                        <p className="status-text">{statusMsg}</p>
+                    </div>
                 </div>
             )}
 
-            {/* --- SECTIE: TRUIDRAGERS --- */}
-            {rit.gescrapet && (
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', flexWrap: 'wrap' }}>
-                    {rit.leider_algemeen && (
-                        <div style={{ background: '#ffeb3b', padding: '8px 15px', borderRadius: '20px', fontSize: '14px', border: '1px solid #d4c400' }}>
-                            <strong>🟡 Algemeen:</strong> {formatName(rit.leider_algemeen)}
-                        </div>
-                    )}
-                    {rit.leider_punten && (
-                        <div style={{ background: '#4caf50', padding: '8px 15px', borderRadius: '20px', fontSize: '14px', color: 'white' }}>
-                            <strong>🟢 Punten:</strong> {formatName(rit.leider_punten)}
-                        </div>
-                    )}
-                    {rit.leider_berg && (
-                        <div style={{ background: '#fff', padding: '8px 15px', borderRadius: '20px', fontSize: '14px', border: '2px dashed red' }}>
-                            <strong>⚪🔴 Berg:</strong> {formatName(rit.leider_berg)}
-                        </div>
-                    )}
-                    {rit.leider_jongeren && (
-                        <div style={{ background: '#fff', padding: '8px 15px', borderRadius: '20px', fontSize: '14px', border: '1px solid #ccc' }}>
-                            <strong>⚪ Jong:</strong> {formatName(rit.leider_jongeren)}
-                        </div>
-                    )}
-                </div>
-            )}
+            <div className={`content-wrapper ${scrapping ? 'is-loading' : 'fade-in'}`}>
+                <header className="rit-header">
+                    <h1>Rit {rit.rit_nummer}: <span className="rit-naam">{rit.naam}</span></h1>
+                </header>
 
-            {/* --- SECTIE: DE UITSLAG --- */}
-            {!rit.gescrapet && !scrapping ? (
-                <div className="alert">Deze rit is nog niet gereden of uitslag is nog niet verwerkt.</div>
-            ) : (
-                <div className="uitslag-container">
-                    <h3>Daguitslag</h3>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-                        <thead>
-                            <tr style={{ textAlign: 'left', borderBottom: '2px solid #333' }}>
-                                <th style={{ padding: '10px' }}>Pos</th>
-                                <th style={{ padding: '10px' }}>Renner</th>
-                                <th style={{ padding: '10px' }}>Punten</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rit.ritresultaten && rit.ritresultaten.length > 0 ? (
-                                rit.ritresultaten.map((res, index) => (
-                                    <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                                        <td style={{ padding: '10px' }}>{res.positie || '-'}</td>
-                                        <td style={{ padding: '10px', fontWeight: '500' }}>{res.renners?.naam}</td>
-                                        <td style={{ padding: '10px' }}>
-                                            <strong>{res.punten + (res.trui_punten || 0)}</strong>
+                {rit.gescrapet && (
+                    <div className="jersey-row">
+                        {rit.leider_algemeen && <div className="jersey yellow"><b>🟡 Algemeen:</b> {formatName(rit.leider_algemeen)}</div>}
+                        {rit.leider_punten && <div className="jersey green"><b>🟢 Punten:</b> {formatName(rit.leider_punten)}</div>}
+                        {rit.leider_berg && <div className="jersey polka"><b>🔴 Berg:</b> {formatName(rit.leider_berg)}</div>}
+                        {rit.leider_jongeren && <div className="jersey white"><b>⚪ Jong:</b> {formatName(rit.leider_jongeren)}</div>}
+                    </div>
+                )}
+
+                <section className="results-section">
+                    <div className="table-card">
+                        <h3>Daguitslag</h3>
+                        <table className="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Pos</th>
+                                    <th>Renner</th>
+                                    <th>Punten</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rit.ritresultaten?.length > 0 ? (
+                                    rit.ritresultaten.map((res, i) => (
+                                        <tr key={i}>
+                                            <td className="pos-cell">{res.positie || '-'}</td>
+                                            <td className="name-cell">{res.renners?.naam}</td>
+                                            <td className="points-cell">{res.punten + (res.trui_punten || 0)}</td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="3" className="empty-cell">
+                                            {scrapping ? "Gegevens aan het laden..." : "Nog geen uitslag verwerkt."}
                                         </td>
                                     </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="4" style={{ padding: '20px', textAlign: 'center' }}>
-                                        Uitslag wordt verwerkt...
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <style>{`
+                .rit-container { padding: 20px; max-width: 900px; margin: 0 auto; color: #fff; min-height: 100vh; }
+                .back-button { background: none; border: 1px solid #444; color: #aaa; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-bottom: 20px; }
+                .back-button:hover { border-color: #22d3ee; color: #22d3ee; background: rgba(34, 211, 238, 0.1); }
+                .rit-naam { color: #22d3ee; }
+                .scrape-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0a; display: flex; justify-content: center; align-items: center; z-index: 9999; }
+                .loader-content { text-align: center; width: 80%; max-width: 450px; }
+                .status-text { color: #22d3ee; font-family: monospace; margin-top: 20px; min-height: 20px; font-weight: bold; }
+                .bike-animation { font-size: 3.5rem; margin-bottom: 20px; width: 100%; overflow: hidden; position: relative; height: 80px; }
+                .bike-emoji { position: absolute; animation: driveRight 2.2s infinite linear; left: -100px; display: inline-block; transform: scaleX(-1); }
+                @keyframes driveRight { 0% { left: -20%; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 110%; opacity: 0; } }
+                .loading-bar-container { width: 100%; height: 10px; background: #1a1a1a; border-radius: 20px; overflow: hidden; border: 1px solid #333; }
+                .loading-bar-fill { height: 100%; background: linear-gradient(90deg, #22d3ee, #00ff00); transition: width 0.4s ease; }
+                .is-loading { opacity: 0.1; pointer-events: none; filter: blur(2px); }
+                .fade-in { animation: fadeIn 0.5s forwards; }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                .jersey-row { display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
+                .jersey { padding: 10px 18px; border-radius: 50px; font-size: 14px; color: #000; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+                .yellow { background: #ffd700; } .green { background: #2e8b57; color: #fff; }
+                .polka { background: #fff; border: 2px dashed red; } .white { background: #fff; border: 1px solid #ddd; }
+                .table-card { background: #161616; border-radius: 12px; padding: 25px; border: 1px solid #222; }
+                .results-table { width: 100%; border-collapse: collapse; }
+                .results-table th { text-align: left; padding: 15px; border-bottom: 2px solid #22d3ee; color: #888; font-size: 0.8rem; text-transform: uppercase; }
+                .results-table td { padding: 15px; border-bottom: 1px solid #222; }
+                .pos-cell { color: #22d3ee; font-weight: bold; width: 60px; }
+                .points-cell { text-align: right; font-weight: bold; }
+                .empty-cell { text-align: center; padding: 40px; color: #444; font-style: italic; }
+            `}</style>
         </div>
     );
 }
