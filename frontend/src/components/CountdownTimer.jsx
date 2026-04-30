@@ -68,8 +68,34 @@ const CountdownTimer = ({ customTargetDate, customTitel, customSubTitel }) => {
         return () => clearInterval(interval);
     }, [targetDate, customTargetDate]);
 
-    if (!targetDate) return null;
+    // Als er (nog) geen data is, toon dan deze placeholder
+    if (!targetDate) {
+        return (
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                textAlign: 'left'
+            }}>
+                <div style={{ fontSize: '1.5rem' }}>📅</div>
 
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', color: '#fff' }}>Geen ritten gepland</div>
+                    <div style={{ fontSize: '0.8rem', opacity: 0.6, color: '#fff', marginTop: '2px' }}>
+                        Wachten op nieuwe kalender...
+                    </div>
+                </div>
+
+                <div style={{
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    color: '#64748b' /* Een neutrale grijze kleur */
+                }}>
+                    --:--
+                </div>
+            </div>
+        );
+    }
     return (
         <div style={{
             display: 'flex',
