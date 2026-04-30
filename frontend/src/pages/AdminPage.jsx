@@ -13,6 +13,7 @@ import {
     importStartlist,
     scrapeRit
 } from '../services/api';
+import { runRaceLifecycle } from "../services/api";
 
 function normaliseer(text = "") {
     if (!text) return "";
@@ -192,6 +193,22 @@ export default function AdminPage() {
             setLoading(false);
         }
     };
+
+    async function handleRaceLifecycle() {
+        try {
+            setLoading(true);
+            const response = await runRaceLifecycle();
+            console.log(response.data);
+            alert("Race lifecycle uitgevoerd");
+            await fetchData();
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.details || "Lifecycle mislukt");
+        } finally {
+            setLoading(false);
+        }
+    }
+
     async function verwijderAlleRenners() {
         const bevestiging = window.confirm("Weet je ZEKER dat je alle renners wilt verwijderen? Dit kan niet ongedaan worden gemaakt!");
 
@@ -226,6 +243,15 @@ export default function AdminPage() {
 
             {activeTab === 'scraper' && (
                 <section className="panel card">
+                    <div style={{ marginBottom: '15px' }}>
+                        <button
+                            className="pill-btn"
+                            onClick={handleRaceLifecycle}
+                            style={{ background: '#4CAF50', color: 'white' }}
+                        >
+                            🔄 Volgende koers + nieuwe draft
+                        </button>
+                    </div>
                     <div className="admin-header-flex">
                         <div>
                             <h3>Automatische Rit Scraper</h3>

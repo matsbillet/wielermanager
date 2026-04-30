@@ -1,21 +1,24 @@
 const express = require('express');
 const cors = require('cors');
+const cron = require('node-cron');
 require('dotenv').config();
 
+const { verwerkRaceLifecycle } = require('./services/raceLifecycleService');
+
 const app = express();
+
 app.use(cors({
-    origin: 'http://localhost:5173', // Geef je frontend expliciet toegang
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
-app.use(express.json());
 
+app.use(express.json());
 
 app.get('/test', (req, res) => {
     res.send('De server reageert!');
 });
-
 
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
@@ -28,8 +31,6 @@ const rittenRoutes = require('./routes/ritten');
 const scoresRoutes = require('./routes/scores');
 const competitieRoutes = require('./routes/competitie');
 
-
-
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/draft', draftRoutes);
@@ -41,12 +42,23 @@ app.use('/api/ritten', rittenRoutes);
 app.use('/api/scores', scoresRoutes);
 app.use('/api/competitie', competitieRoutes);
 
-
 app.get('/', (req, res) => {
     res.json({ bericht: 'Wielermanager API werkt!' });
 });
 
+cron.schedule('0 */6 * * *', async () => {
+    console.log('Automatische race lifecycle check gestart...');
+
+    try {
+        const resultaat = await verwerkRaceLifecycle();
+        console.log('Race lifecycle resultaat:', resultaat);
+    } catch (error) {
+        console.error('Race lifecycle fout:', error.message);
+    }
+});
+
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
     console.log(`Server draait op http://localhost:${PORT}`);
 });

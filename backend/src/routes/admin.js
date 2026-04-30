@@ -3,6 +3,7 @@ const router = express.Router();
 const scraper = require('../scraper/scraper');
 const { supabase } = require('../db/supabase');
 const requireAdmin = require('../middleware/requireAdmin');
+const { verwerkRaceLifecycle } = require('../services/raceLifecycleService');
 
 router.use(requireAdmin);
 
@@ -297,6 +298,19 @@ router.delete('/drafts/:id', async (req, res) => {
     } catch (err) {
         console.error('Fout bij verwijderen:', err.message);
         res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/race-lifecycle/run', async (req, res) => {
+    try {
+        const resultaat = await verwerkRaceLifecycle();
+        res.json(resultaat);
+    } catch (error) {
+        console.error('Race lifecycle fout:', error);
+        res.status(500).json({
+            error: 'Race lifecycle mislukt',
+            details: error.message,
+        });
     }
 });
 
