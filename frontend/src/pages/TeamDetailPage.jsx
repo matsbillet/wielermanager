@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import {
     getTeamVanSpeler,
     getBeschikbareRenners,
@@ -7,8 +7,12 @@ import {
     blessureWissel,
 } from "../services/api";
 
+// 1. Importeer de Countdown component
+import CountdownTimer from "../components/CountdownTimer";
+
 export default function TeamDetailPage() {
     const { sessieId, spelerId } = useParams();
+    const location = useLocation(); // 2. Haal locatie op voor wedstrijdId
 
     const [team, setTeam] = useState([]);
     const [beschikbareRenners, setBeschikbareRenners] = useState([]);
@@ -18,6 +22,10 @@ export default function TeamDetailPage() {
     const [typeWissel, setTypeWissel] = useState("voor_start");
     const [melding, setMelding] = useState("");
     const [loading, setLoading] = useState(true);
+
+    // 3. Nieuwe state voor de deadlines
+    const [deadlines, setDeadlines] = useState(null);
+    const wedstrijdId = location.state?.wedstrijdId || 2; // Fallback naar 1 als er direct genavigeerd wordt
 
     async function laadData() {
         try {
@@ -41,6 +49,16 @@ export default function TeamDetailPage() {
     useEffect(() => {
         laadData();
     }, [sessieId, spelerId]);
+
+    // 4. Extra useEffect om de deadlines op te halen
+    useEffect(() => {
+        if (wedstrijdId) {
+            fetch(`http://localhost:3000/api/ritten/deadlines/${wedstrijdId}`)
+                .then(res => res.json())
+                .then(data => setDeadlines(data))
+                .catch(err => console.error("Fout bij laden deadlines:", err));
+        }
+    }, [wedstrijdId]);
 
     const actieveRenners = useMemo(
         () => team.filter((renner) => !renner.isBank),
@@ -115,6 +133,31 @@ export default function TeamDetailPage() {
                 </div>
             </section>
 
+            {/* 5. PLAATS DE TIMERS HIER, NET ONDER DE HEADER */}
+            {deadlines && (
+                <div className="card" style={{ display: 'flex', gap: '20px', marginBottom: '25px', flexWrap: 'wrap', padding: '1.5rem' }}>
+                    {deadlines.groteStart && (
+                        <div style={{ flex: '1', minWidth: '250px' }}>
+                            <CountdownTimer
+                                customTargetDate={deadlines.groteStart}
+                                customTitel="Deadline Basisteam"
+                                customSubTitel="Start van Rit 1"
+                            />
+                        </div>
+                    )}
+
+                    {deadlines.volgendeRit && (
+                        <div style={{ flex: '1', minWidth: '250px', borderLeft: '1px solid #334155', paddingLeft: '20px' }}>
+                            <CountdownTimer
+                                customTargetDate={deadlines.volgendeRit.starttijd}
+                                customTitel="Deadline Wissel"
+                                customSubTitel={deadlines.volgendeRit.naam}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+
             {melding && <p className="form-message">{melding}</p>}
 
             <section className="team-columns">
@@ -140,6 +183,7 @@ export default function TeamDetailPage() {
             </section>
 
             <section className="card wissel-card">
+                {/* De rest van je wissel formulier blijft ongewijzigd */}
                 <h2>Wissel uitvoeren</h2>
 
                 <form onSubmit={handleWissel} className="wissel-form">
@@ -218,3 +262,4 @@ export default function TeamDetailPage() {
         </div>
     );
 }
+
