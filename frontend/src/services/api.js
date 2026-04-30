@@ -77,4 +77,6 @@ export const maakCompetitie = (data) => api.post("/competitie/create", data);
 export const joinCompetitie = (data) => api.post("/competitie/join", data);
 export const getMijnCompetities = (userId) => api.get(`/competitie/mijn/${userId}`);
 
+export const runRaceLifecycle = () => api.post(`/admin/run-lifecycle/run`);
+
 export default api;

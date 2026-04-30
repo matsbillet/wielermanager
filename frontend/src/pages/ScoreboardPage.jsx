@@ -98,7 +98,6 @@ export default function ScoreboardPage() {
             <section className="scoreboard-header">
                 <div>
                     <h1>Scoreboard</h1>
-                    <CountdownTimer />
                     <p>Overzicht van alle spelers, ritpunten, truienpunten en totaalstand.</p>
                 </div>
 

@@ -1,25 +1,27 @@
 import React, { useState, useEffect } from 'react';
 
-// We voegen 'customSubTitel' toe zodat we de tekst mooi in tweeën kunnen splitsen
 const CountdownTimer = ({ customTargetDate, customTitel, customSubTitel }) => {
     const [targetDate, setTargetDate] = useState(customTargetDate || null);
     const [titel, setTitel] = useState(customTitel || "Volgende rit");
     const [subTitel, setSubTitel] = useState(customSubTitel || "");
     const [timeLeft, setTimeLeft] = useState("");
 
+    const laadVolgendeRit = () => {
+        fetch('http://localhost:3000/api/ritten/volgende')
+            .then(res => res.json())
+            .then(data => {
+                if (data.starttijd) {
+                    setTargetDate(data.starttijd);
+                    setTitel("Volgende rit");
+                    setSubTitel(data.naam);
+                }
+            })
+            .catch(err => console.error("Fout bij ophalen volgende rit:", err));
+    };
+
     useEffect(() => {
-        // Als er geen custom datum is, haal dan zelf de volgende rit op (voor op het dashboard)
         if (!customTargetDate) {
-            fetch('http://localhost:3000/api/ritten/volgende')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.starttijd) {
-                        setTargetDate(data.starttijd);
-                        setTitel("Volgende rit");
-                        setSubTitel(data.naam); // Dit zet de ritnaam (bijv. Stage 1 | Firenze...) in de grijze tekst
-                    }
-                })
-                .catch(err => console.error("Fout bij ophalen volgende rit:", err));
+            laadVolgendeRit();
         } else {
             setTargetDate(customTargetDate);
             setTitel(customTitel);
@@ -35,10 +37,21 @@ const CountdownTimer = ({ customTargetDate, customTitel, customSubTitel }) => {
             const start = new Date(targetDate).getTime();
             const verschil = start - nu;
 
-            if (verschil <= 0) {
-                setTimeLeft("Gestart!");
-                clearInterval(interval);
-            } else {
+            // De rit duurt zo'n 5 uur (in milliseconden)
+            const ritDuurMs = 5 * 60 * 60 * 1000;
+
+            if (verschil <= 0 && verschil > -ritDuurMs) {
+                setTimeLeft("Live!");
+            }
+            else if (verschil <= -ritDuurMs) {
+                if (!customTargetDate) {
+                    laadVolgendeRit();
+                } else {
+                    setTimeLeft("Afgelopen");
+                    clearInterval(interval);
+                }
+            }
+            else {
                 const dagen = Math.floor(verschil / (1000 * 60 * 60 * 24));
                 const uren = Math.floor((verschil % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minuten = Math.floor((verschil % (1000 * 60 * 60)) / (1000 * 60));
@@ -53,7 +66,7 @@ const CountdownTimer = ({ customTargetDate, customTitel, customSubTitel }) => {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [targetDate]);
+    }, [targetDate, customTargetDate]);
 
     if (!targetDate) return null;
 
@@ -62,12 +75,10 @@ const CountdownTimer = ({ customTargetDate, customTitel, customSubTitel }) => {
             display: 'flex',
             alignItems: 'center',
             gap: '1rem',
-            textAlign: 'left' // Lijnt de tekst links uit, net als bij je Snelle Acties
+            textAlign: 'left'
         }}>
-            {/* Icoontje links */}
             <div style={{ fontSize: '1.5rem' }}>⏱️</div>
 
-            {/* Tekst in het midden */}
             <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 'bold', color: '#fff' }}>{titel}</div>
                 {subTitel && (
@@ -77,12 +88,24 @@ const CountdownTimer = ({ customTargetDate, customTitel, customSubTitel }) => {
                 )}
             </div>
 
-            {/* Timer rechts */}
             <div style={{
                 fontSize: '1.2rem',
                 fontWeight: 'bold',
-                color: timeLeft === "Gestart!" ? '#f87171' : '#22d3ee'
+                color: timeLeft === "Live!" ? '#f87171' : '#22d3ee',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
             }}>
+                {timeLeft === "Live!" && (
+                    <span style={{
+                        display: 'inline-block',
+                        width: '10px',
+                        height: '10px',
+                        backgroundColor: '#f87171',
+                        borderRadius: '50%',
+                        boxShadow: '0 0 6px #f87171'
+                    }}></span>
+                )}
                 {timeLeft}
             </div>
         </div>
