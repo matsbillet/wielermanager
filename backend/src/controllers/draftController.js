@@ -1,5 +1,6 @@
 const { supabase } = require("../db/supabase");
 const { getSpelerVoorBeurt } = require("../utils/draftHelper");
+const { getSpelersMetDraftVolgorde } = require("../utils/draftOrder");
 
 async function getSessie(sessieId) {
     const { data, error } = await supabase
@@ -16,20 +17,7 @@ async function getSessie(sessieId) {
 }
 
 async function getSpelersVoorSessie(sessieId) {
-    const sessie = await getSessie(sessieId);
-
-    const { data, error } = await supabase
-        .from("spelers")
-        .select("id, gebruiker_id, competitie_id, gebruikers(id, naam)")
-        .eq("competitie_id", sessie.competitie_id)
-        .order("id", { ascending: true });
-
-    if (error) throw error;
-
-    return data.map((speler) => ({
-        id: speler.id,
-        naam: speler.gebruikers?.naam || "Onbekende gebruiker",
-    }));
+    return await getSpelersMetDraftVolgorde(sessieId);
 }
 
 async function getVolgendeDraftSlot(sessieId, spelers) {
