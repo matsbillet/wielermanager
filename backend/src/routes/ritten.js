@@ -67,7 +67,7 @@ router.get('/wedstrijd/:slug', async (req, res) => {
  */
 
 // Route voor het handmatig scrapen van een rituitslag
-router.post('/scrape/:id', async (req, res) => {
+router.post('/:id/auto-scrape', async (req, res) => {
     const { id } = req.params;
 
     if (activeScrapes.has(id)) {

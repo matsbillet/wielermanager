@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getScoreboard, getMijnCompetities } from '../services/api';
+import CountdownTimer from '../components/CountdownTimer';
 
 export default function DashboardPage() {
     const [stats, setStats] = useState({
@@ -64,14 +65,9 @@ export default function DashboardPage() {
                         <h2>Live Status</h2>
                     </div>
                     <div className="card" style={{
-                        padding: '2rem',
-                        textAlign: 'center',
-                        border: '2px dashed #334155',
-                        background: 'transparent'
+                        display: 'flex',
                     }}>
-                        <p style={{ color: '#64748b' }}>
-                            [ Hier komt de Aftel-functie van je teamgenoot ]
-                        </p>
+                        <CountdownTimer />
                     </div>
                 </aside>
 
