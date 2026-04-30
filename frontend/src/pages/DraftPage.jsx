@@ -40,6 +40,7 @@ export default function DraftPage() {
     const [gekozenTeller, setGekozenTeller] = useState({});
     const [teams, setTeams] = useState({});
     const [sessieId, setSessieId] = useState(null);
+    const [wedstrijdNaam, setWedstrijdNaam] = useState("");
 
     async function laadDraftData() {
         try {
@@ -47,6 +48,12 @@ export default function DraftPage() {
             setMelding("");
 
             const sessieResponse = await getSessieVoorCompetitie(competitieId);
+
+            setSessieId(sessieResponse.data.id);
+
+            setWedstrijdNaam(
+                `${sessieResponse.data.wedstrijden?.naam || "Onbekende koers"} ${sessieResponse.data.wedstrijden?.jaar || ""}`
+            );
             const actieveSessieId = sessieResponse.data.id;
             setSessieId(actieveSessieId);
 
@@ -237,7 +244,13 @@ export default function DraftPage() {
     return (
         <div>
             <div className="draft-page-header">
-                <h1>Live Draft Board</h1>
+                <div>
+                    <h1>Live Draft Board</h1>
+                    <p className="small-muted">
+                        Huidige koers: <strong>{wedstrijdNaam}</strong>
+                    </p>
+                </div>
+
                 <span>Competitie #{competitieId}</span>
             </div>
 

@@ -248,7 +248,22 @@ const getSessieVoorCompetitie = async (req, res) => {
     try {
         const { data, error } = await supabase
             .from("draft_sessies")
-            .select("id, Naam, is_actief, wedstrijd_id, competitie_id")
+            .select(`
+                id,
+                Naam,
+                is_actief,
+                wedstrijd_id,
+                competitie_id,
+                wedstrijden (
+                    id,
+                    naam,
+                    jaar,
+                    slug,
+                    start_datum,
+                    eind_datum,
+                    status
+                )
+            `)
             .eq("competitie_id", competitieId)
             .eq("is_actief", true)
             .single();
