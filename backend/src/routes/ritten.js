@@ -15,6 +15,7 @@ let activeScrapes = new Set();
  * ROUTES VIA CONTROLLER
  */
 
+router.get('/deadlines/:wedstrijd_id', rittenController.getDeadlines);
 // Nieuwe route voor de countdown naar de volgende rit
 router.get('/volgende', rittenController.getVolgendeRit);
 

@@ -34,4 +34,32 @@ const getVolgendeRit = async (req, res) => {
     }
 };
 
-module.exports = { getRittenPerWedstrijd, getVolgendeRit };
+const getDeadlines = async (req, res) => {
+    const { wedstrijd_id } = req.params;
+    try {
+        const { data: rit1 } = await supabase
+            .from('ritten')
+            .select('starttijd')
+            .eq('wedstrijd_id', wedstrijd_id)
+            .eq('rit_nummer', 1)
+            .single();
+
+        const { data: volgendeRit } = await supabase
+            .from('ritten')
+            .select('rit_nummer, starttijd, naam')
+            .eq('wedstrijd_id', wedstrijd_id)
+            .gt('starttijd', new Date().toISOString())
+            .order('starttijd', { ascending: true })
+            .limit(1)
+            .single();
+
+        res.json({
+            groteStart: rit1?.starttijd || null,
+            volgendeRit: volgendeRit || null
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+module.exports = { getRittenPerWedstrijd, getVolgendeRit, getDeadlines };

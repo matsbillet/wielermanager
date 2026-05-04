@@ -64,23 +64,27 @@ export default function RitPage() {
                 const refresh = await getRit(id);
                 const huidigAantal = refresh.data?.ritresultaten?.length || 0;
 
-                // Stop als we minstens 20 renners hebben OF als de groei stopt
-                if (huidigAantal >= 20) {
+                // We kijken of er tenminste één renner is die truipunten heeft (indien van toepassing)
+                // Dit zorgt ervoor dat we niet stoppen voordat de trui-update klaar is
+                const heeftTruiPunten = refresh.data?.ritresultaten?.some(res => res.trui_punten > 0);
+
+                if (huidigAantal >= 20 && (heeftTruiPunten || pogingen > 10)) {
                     clearInterval(fakeProgress);
                     setRit(refresh.data);
                     dataGevonden = true;
                     setProgress(100);
-                    setStatusMsg("🏁 Finish bereikt! Uitslag volledig geladen.");
-                } else if (huidigAantal > 0 && huidigAantal === vorigAantal && pogingen > 6) {
-                    clearInterval(fakeProgress);
-                    setRit(refresh.data);
-                    dataGevonden = true;
-                    setProgress(100);
-                    setStatusMsg("🏁 Finish bereikt! Uitslag verwerkt.");
+
+                    const isLaatsteRit = refresh.data.rit_nummer === refresh.data.wedstrijden?.aantal_ritten;
+                    if (isLaatsteRit) {
+                        setStatusMsg("🏁 Tour voltooid! Volgend jaar wordt voorbereid... 🏆");
+                        await new Promise(r => setTimeout(r, 2000));
+                    } else {
+                        setStatusMsg("🏁 Finish bereikt! Uitslag volledig geladen.");
+                    }
                 } else {
                     vorigAantal = huidigAantal;
                     setProgress(prev => (prev < 90 ? prev + 3 : prev));
-                    setStatusMsg(`Bezig met verwerken... (${huidigAantal} renners binnen)`);
+                    setStatusMsg(`Uitslag en truipunten verwerken... (${huidigAantal} renners)`);
                     await new Promise(r => setTimeout(r, 2000));
                 }
             }
@@ -118,6 +122,10 @@ export default function RitPage() {
                         <div className="bike-animation">
                             <span className="bike-emoji">🚴‍♂️💨</span>
                         </div>
+                        {/* Extra trofee animatie als de tour voltooid is */}
+                        {statusMsg.includes("voltooid") && (
+                            <div style={{ fontSize: '2.5rem', marginBottom: '10px', animation: 'fadeIn 0.5s' }}>🏆</div>
+                        )}
                         <div className="loading-bar-container">
                             <div className="loading-bar-fill" style={{ width: `${progress}%` }}></div>
                         </div>
