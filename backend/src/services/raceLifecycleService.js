@@ -10,7 +10,6 @@ async function isWedstrijdVolledigGescrapet(wedstrijdId) {
         .eq("wedstrijd_id", wedstrijdId);
 
     if (error) throw error;
-
     if (!ritten || ritten.length === 0) return false;
 
     return ritten.every((rit) => rit.gescrapet === true);
@@ -54,7 +53,7 @@ async function syncStartlijstEnRitten(wedstrijd) {
             wedstrijd_id: wedstrijd.id,
             rit_nummer: rit.rit_nummer,
             naam: rit.naam,
-            starttijd: rit.starttijd,
+            starttijd: rit.starttijd || null,
         }));
 
         const { error: rittenError } = await supabase
@@ -134,6 +133,11 @@ async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
     if (bestaandeError) throw bestaandeError;
 
     if (bestaandeSessie) {
+        await supabase
+            .from("draft")
+            .delete()
+            .eq("sessie_id", bestaandeSessie.id);
+
         const { error: updateError } = await supabase
             .from("draft_sessies")
             .update({ is_actief: true })
@@ -164,7 +168,12 @@ async function verwerkRaceLifecycle() {
     if (lifecycleBezig) {
         return {
             success: false,
-            message: "Lifecycle draait al.",
+            resultaten: [
+                {
+                    actie: "geen_actie",
+                    reden: "Lifecycle draait al.",
+                },
+            ],
         };
     }
 
@@ -189,24 +198,41 @@ async function verwerkRaceLifecycle() {
                     status
                 )
             `)
-            .eq("is_actief", true);
+            .eq("is_actief", true)
+            .order("created_at", { ascending: false });
 
         if (error) throw error;
 
-        const resultaten = [];
+        const sessiesPerCompetitie = new Map();
 
         for (const sessie of actieveSessies || []) {
+            if (!sessiesPerCompetitie.has(sessie.competitie_id)) {
+                sessiesPerCompetitie.set(sessie.competitie_id, sessie);
+            }
+        }
+
+        const resultaten = [];
+
+        for (const sessie of sessiesPerCompetitie.values()) {
             const huidigeWedstrijd = sessie.wedstrijden;
 
-            if (!huidigeWedstrijd) continue;
+            if (!huidigeWedstrijd) {
+                resultaten.push({
+                    sessieId: sessie.id,
+                    actie: "geen_actie",
+                    reden: "Geen wedstrijd gekoppeld aan actieve sessie.",
+                });
+                continue;
+            }
 
             const klaar = await isWedstrijdVolledigGescrapet(huidigeWedstrijd.id);
 
             if (!klaar) {
                 resultaten.push({
                     sessieId: sessie.id,
+                    competitieId: sessie.competitie_id,
                     actie: "geen_actie",
-                    reden: "wedstrijd_nog_niet_klaar",
+                    reden: `${huidigeWedstrijd.naam} is nog niet volledig gescrapet.`,
                 });
                 continue;
             }
@@ -216,8 +242,9 @@ async function verwerkRaceLifecycle() {
             if (!volgendeWedstrijd) {
                 resultaten.push({
                     sessieId: sessie.id,
+                    competitieId: sessie.competitie_id,
                     actie: "geen_actie",
-                    reden: "geen_volgende_wedstrijd",
+                    reden: "Geen volgende wedstrijd gevonden.",
                 });
                 continue;
             }
@@ -225,15 +252,19 @@ async function verwerkRaceLifecycle() {
             try {
                 const syncResultaat = await syncStartlijstEnRitten(volgendeWedstrijd);
 
-                await supabase
+                const { error: wedstrijdFinishedError } = await supabase
                     .from("wedstrijden")
                     .update({ status: "finished" })
                     .eq("id", huidigeWedstrijd.id);
 
-                await supabase
+                if (wedstrijdFinishedError) throw wedstrijdFinishedError;
+
+                const { error: sessiesUitError } = await supabase
                     .from("draft_sessies")
                     .update({ is_actief: false })
-                    .eq("id", sessie.id);
+                    .eq("competitie_id", sessie.competitie_id);
+
+                if (sessiesUitError) throw sessiesUitError;
 
                 const nieuweSessie = await maakNieuweDraftSessie({
                     competitieId: sessie.competitie_id,
@@ -243,6 +274,7 @@ async function verwerkRaceLifecycle() {
                 resultaten.push({
                     oudeSessieId: sessie.id,
                     nieuweSessieId: nieuweSessie.id,
+                    competitieId: sessie.competitie_id,
                     actie: "nieuwe_draft_aangemaakt",
                     vorigeWedstrijd: huidigeWedstrijd.naam,
                     nieuweWedstrijd: volgendeWedstrijd.naam,
@@ -252,6 +284,7 @@ async function verwerkRaceLifecycle() {
             } catch (syncError) {
                 resultaten.push({
                     sessieId: sessie.id,
+                    competitieId: sessie.competitie_id,
                     actie: "wachten",
                     reden: syncError.message,
                 });

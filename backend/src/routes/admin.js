@@ -301,14 +301,14 @@ router.delete('/drafts/:id', async (req, res) => {
     }
 });
 
-router.post('/race-lifecycle/run', async (req, res) => {
+router.post("/race-lifecycle/run", async (req, res) => {
     try {
         const resultaat = await verwerkRaceLifecycle();
         res.json(resultaat);
     } catch (error) {
-        console.error('Race lifecycle fout:', error);
+        console.error("Race lifecycle fout:", error);
         res.status(500).json({
-            error: 'Race lifecycle mislukt',
+            error: "Race lifecycle mislukt",
             details: error.message,
         });
     }

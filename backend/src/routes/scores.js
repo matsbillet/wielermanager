@@ -22,7 +22,8 @@ async function maakScoreboardVoorSessie(sessie) {
     const { data: draft, error: draftError } = await supabase
         .from("draft")
         .select("speler_id, renner_id, is_bank")
-        .eq("sessie_id", sessie.id);
+        .eq("sessie_id", sessie.id)
+        .not("renner_id", "is", null);
 
     if (draftError) throw draftError;
 
@@ -34,10 +35,7 @@ async function maakScoreboardVoorSessie(sessie) {
     if (teamStatusError) throw teamStatusError;
 
     const teamStatus = teamStatusData || [];
-
-    if (draftError) throw draftError;
-
-    const ritIds = ritten.map((rit) => rit.id);
+    const ritIds = (ritten || []).map((rit) => rit.id);
 
     let ritresultaten = [];
 
@@ -52,42 +50,42 @@ async function maakScoreboardVoorSessie(sessie) {
         ritresultaten = data || [];
     }
 
+    function isRennerActiefVoorRit(spelerId, rennerId, ritNummer) {
+        const actieveStatus = teamStatus.some(
+            (status) =>
+                Number(status.speler_id) === Number(spelerId) &&
+                Number(status.renner_id) === Number(rennerId) &&
+                status.status === "actief" &&
+                Number(status.actief_vanaf_rit) <= Number(ritNummer) &&
+                (
+                    status.actief_tot_rit === null ||
+                    Number(status.actief_tot_rit) >= Number(ritNummer)
+                )
+        );
+
+        if (actieveStatus) return true;
+
+        const heeftStatusHistoriek = teamStatus.some(
+            (status) => Number(status.speler_id) === Number(spelerId)
+        );
+
+        if (!heeftStatusHistoriek) {
+            return draft.some(
+                (keuze) =>
+                    Number(keuze.speler_id) === Number(spelerId) &&
+                    Number(keuze.renner_id) === Number(rennerId) &&
+                    keuze.is_bank === false
+            );
+        }
+
+        return false;
+    }
+
     const scoreboard = spelersData.map((spelerEntry) => {
         const spelerId = spelerEntry.id;
         const spelerNaam = spelerEntry.gebruikers?.naam || "Onbekend";
 
-        function isRennerActiefVoorRit(spelerId, rennerId, ritNummer) {
-            const statussen = teamStatus.filter(
-                (status) =>
-                    Number(status.speler_id) === Number(spelerId) &&
-                    Number(status.renner_id) === Number(rennerId) &&
-                    status.status === "actief" &&
-                    Number(status.actief_vanaf_rit) <= Number(ritNummer) &&
-                    (
-                        status.actief_tot_rit === null ||
-                        Number(status.actief_tot_rit) >= Number(ritNummer)
-                    )
-            );
-
-            if (statussen.length > 0) return true;
-
-            const heeftStatusHistoriek = teamStatus.some(
-                (status) => Number(status.speler_id) === Number(spelerId)
-            );
-
-            if (!heeftStatusHistoriek) {
-                return draft.some(
-                    (keuze) =>
-                        Number(keuze.speler_id) === Number(spelerId) &&
-                        Number(keuze.renner_id) === Number(rennerId) &&
-                        keuze.is_bank === false
-                );
-            }
-
-            return false;
-        }
-
-        const per_rit = ritten.map((rit) => {
+        const per_rit = (ritten || []).map((rit) => {
             const resultatenVanRit = ritresultaten.filter(
                 (resultaat) =>
                     Number(resultaat.rit_id) === Number(rit.id) &&
@@ -95,11 +93,17 @@ async function maakScoreboardVoorSessie(sessie) {
             );
 
             const rit_punten = resultatenVanRit.reduce((som, resultaat) => {
-                return som + Number(resultaat.rit_punten ?? resultaat.punten ?? 0);
+                const ritPunten = Number(resultaat.rit_punten || 0);
+                const punten = Number(resultaat.punten || 0);
+
+                return som + (ritPunten > 0 ? ritPunten : punten);
             }, 0);
 
             const truien_punten = resultatenVanRit.reduce((som, resultaat) => {
-                return som + Number(resultaat.truien_punten ?? resultaat.trui_punten ?? 0);
+                const truienPunten = Number(resultaat.truien_punten || 0);
+                const truiPunten = Number(resultaat.trui_punten || 0);
+
+                return som + (truienPunten > 0 ? truienPunten : truiPunten);
             }, 0);
 
             return {
@@ -134,7 +138,19 @@ router.get("/competitie/:competitieId", async (req, res) => {
     try {
         const { data: sessie, error: sessieError } = await supabase
             .from("draft_sessies")
-            .select("id, competitie_id, wedstrijd_id, Naam, is_actief")
+            .select(`
+                id,
+                competitie_id,
+                wedstrijd_id,
+                Naam,
+                is_actief,
+                wedstrijden (
+                    id,
+                    naam,
+                    jaar,
+                    slug
+                )
+            `)
             .eq("competitie_id", competitieId)
             .eq("is_actief", true)
             .single();
@@ -147,36 +163,12 @@ router.get("/competitie/:competitieId", async (req, res) => {
 
         const scoreboard = await maakScoreboardVoorSessie(sessie);
 
-        res.json(scoreboard);
-    } catch (error) {
-        console.error("Fout bij ophalen scores:", error);
-        res.status(500).json({
-            error: "Kon scores niet ophalen",
-            details: error.message,
+        res.json({
+            sessieId: sessie.id,
+            sessieNaam: sessie.Naam,
+            wedstrijd: sessie.wedstrijden,
+            scoreboard,
         });
-    }
-});
-
-router.get("/:wedstrijdId", async (req, res) => {
-    const { wedstrijdId } = req.params;
-
-    try {
-        const { data: sessie, error: sessieError } = await supabase
-            .from("draft_sessies")
-            .select("id, competitie_id, wedstrijd_id, Naam, is_actief")
-            .eq("wedstrijd_id", wedstrijdId)
-            .eq("is_actief", true)
-            .single();
-
-        if (sessieError || !sessie) {
-            return res.status(404).json({
-                error: "Geen actieve draftsessie gevonden voor deze wedstrijd.",
-            });
-        }
-
-        const scoreboard = await maakScoreboardVoorSessie(sessie);
-
-        res.json(scoreboard);
     } catch (error) {
         console.error("Fout bij ophalen scores:", error);
         res.status(500).json({

@@ -197,9 +197,28 @@ export default function AdminPage() {
     async function handleRaceLifecycle() {
         try {
             setLoading(true);
+
             const response = await runRaceLifecycle();
-            console.log(response.data);
-            alert("Race lifecycle uitgevoerd");
+            console.log("Lifecycle resultaat:", response.data);
+
+            const resultaten = response.data.resultaten || [];
+
+            if (resultaten.length === 0) {
+                alert("Geen actieve draftsessies gevonden.");
+                return;
+            }
+
+            const tekst = resultaten
+                .map((r) => {
+                    if (r.actie === "nieuwe_draft_aangemaakt") {
+                        return `✅ ${r.vorigeWedstrijd} → ${r.nieuweWedstrijd}`;
+                    }
+
+                    return `⚠️ ${r.actie}: ${r.reden || "geen reden"}`;
+                })
+                .join("\n");
+
+            alert(tekst);
             await fetchData();
         } catch (err) {
             console.error(err);

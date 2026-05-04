@@ -51,6 +51,7 @@ export default function ScoreboardPage() {
     const { competitieId = "1" } = useParams();
 
     const [spelers, setSpelers] = useState([]);
+    const [wedstrijd, setWedstrijd] = useState(null);
     const [loading, setLoading] = useState(true);
     const [melding, setMelding] = useState("");
 
@@ -62,12 +63,16 @@ export default function ScoreboardPage() {
 
                 const response = await getScoreboard(competitieId);
 
-                const spelersMetKleur = response.data.map((speler, index) => ({
+                const scoreboardData = response.data.scoreboard || [];
+                const wedstrijdData = response.data.wedstrijd || null;
+
+                const spelersMetKleur = scoreboardData.map((speler, index) => ({
                     ...speler,
                     kleur: kleuren[index % kleuren.length],
                 }));
 
                 setSpelers(spelersMetKleur);
+                setWedstrijd(wedstrijdData);
             } catch (err) {
                 console.error("Fout bij ophalen scoreboard:", err);
                 setMelding(
@@ -99,6 +104,11 @@ export default function ScoreboardPage() {
                 <div>
                     <h1>Scoreboard</h1>
                     <p>Overzicht van alle spelers, ritpunten, truienpunten en totaalstand.</p>
+                    <p>
+                        {wedstrijd
+                            ? `Huidige koers: ${wedstrijd.naam} ${wedstrijd.jaar}`
+                            : "Geen actieve koers gevonden"}
+                    </p>
                 </div>
 
                 <div className="scoreboard-summary">
