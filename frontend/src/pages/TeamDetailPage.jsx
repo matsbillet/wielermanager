@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
     getTeamVanSpeler,
     getBeschikbareRenners,
     vervangRennerVoorStart,
     blessureWissel,
+    getSessieVoorCompetitie,
 } from "../services/api";
 
 // 1. Importeer de Countdown component
@@ -12,7 +13,7 @@ import CountdownTimer from "../components/CountdownTimer";
 
 export default function TeamDetailPage() {
     const { sessieId, spelerId } = useParams();
-    const location = useLocation(); // 2. Haal locatie op voor wedstrijdId
+
 
     const [team, setTeam] = useState([]);
     const [beschikbareRenners, setBeschikbareRenners] = useState([]);
@@ -25,19 +26,28 @@ export default function TeamDetailPage() {
 
     // 3. Nieuwe state voor de deadlines
     const [deadlines, setDeadlines] = useState(null);
-    const wedstrijdId = location.state?.wedstrijdId || 2; // Fallback naar 1 als er direct genavigeerd wordt
-
     async function laadData() {
         try {
             setLoading(true);
 
-            const [teamResponse, rennersResponse] = await Promise.all([
+            // FORCEER DE COMPETITIE HIER OOK OP 1:
+            const [teamResponse, rennersResponse, sessieResponse] = await Promise.all([
                 getTeamVanSpeler(sessieId, spelerId),
                 getBeschikbareRenners(sessieId),
+                getSessieVoorCompetitie(1) // Altijd competitie 1
             ]);
 
             setTeam(teamResponse.data || []);
             setBeschikbareRenners(rennersResponse.data || []);
+
+            const wId = sessieResponse.data.wedstrijd_id || sessieResponse.data.wedstrijden?.id;
+
+            if (wId) {
+                const dlResponse = await fetch(`http://localhost:3000/api/ritten/deadlines/${wId}`);
+                const dlData = await dlResponse.json();
+                setDeadlines(dlData);
+            }
+
         } catch (err) {
             console.error(err);
             setMelding("Kon team niet laden.");
@@ -46,19 +56,10 @@ export default function TeamDetailPage() {
         }
     }
 
+    // 4. Extra useEffect om de deadlines op te halen
     useEffect(() => {
         laadData();
     }, [sessieId, spelerId]);
-
-    // 4. Extra useEffect om de deadlines op te halen
-    useEffect(() => {
-        if (wedstrijdId) {
-            fetch(`http://localhost:3000/api/ritten/deadlines/${wedstrijdId}`)
-                .then(res => res.json())
-                .then(data => setDeadlines(data))
-                .catch(err => console.error("Fout bij laden deadlines:", err));
-        }
-    }, [wedstrijdId]);
 
     const actieveRenners = useMemo(
         () => team.filter((renner) => !renner.isBank),

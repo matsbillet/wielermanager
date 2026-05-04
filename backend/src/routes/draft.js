@@ -12,4 +12,20 @@ router.get("/test", (req, res) => {
     res.json({ bericht: "Draft route werkt naar behoren!" });
 });
 
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('sessies')
+            .select('*, wedstrijden(*)') // Haalt ook meteen de wedstrijd info op
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
