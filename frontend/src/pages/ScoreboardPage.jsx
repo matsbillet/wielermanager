@@ -106,7 +106,7 @@ export default function ScoreboardPage() {
                     <p>Overzicht van alle spelers, ritpunten, truienpunten en totaalstand.</p>
                     <p>
                         {wedstrijd
-                            ? `Huidige koers: ${wedstrijd.naam} ${wedstrijd.jaar}`
+                            ? `Huidige koers: ${wedstrijd.naam}`
                             : "Geen actieve koers gevonden"}
                     </p>
                 </div>
