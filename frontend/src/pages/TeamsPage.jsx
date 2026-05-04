@@ -4,6 +4,7 @@ import {
     getSessieVoorCompetitie,
     getSpelersVoorCompetitie,
 } from "../services/api";
+import CountdownTimer from "../components/CountdownTimer";
 
 export default function TeamsPage() {
     const { competitieId = "1" } = useParams();
@@ -14,16 +15,33 @@ export default function TeamsPage() {
     const [loading, setLoading] = useState(true);
     const [melding, setMelding] = useState("");
 
+    // State voor de deadlines
+    const [deadlines, setDeadlines] = useState(null);
+
     useEffect(() => {
         async function laadData() {
             try {
                 setLoading(true);
 
-                const sessieResponse = await getSessieVoorCompetitie(competitieId);
-                const spelersResponse = await getSpelersVoorCompetitie(competitieId);
+                // 1. Haal de sessie en spelers op via de competitieId
+                const sessieResponse = await getSessieVoorCompetitie(1);
+                const spelersResponse = await getSpelersVoorCompetitie(1);
 
-                setSessieId(sessieResponse.data.id);
+                // Sla de sessieId op zodat we deze in de knoppen kunnen gebruiken
+                const sId = sessieResponse.data.id;
+                setSessieId(sId);
                 setSpelers(spelersResponse.data || []);
+
+                // 2. Haal de wedstrijdId robuust uit de sessie data!
+                const wId = sessieResponse.data.wedstrijd_id || sessieResponse.data.wedstrijden?.id;
+
+                // 3. Nu we de wedstrijdId zeker weten, halen we de deadlines op
+                if (wId) {
+                    const dlResponse = await fetch(`http://localhost:3000/api/ritten/deadlines/${wId}`);
+                    const dlData = await dlResponse.json();
+                    setDeadlines(dlData);
+                }
+
             } catch (err) {
                 console.error(err);
                 setMelding("Kon teams niet laden.");
@@ -47,14 +65,38 @@ export default function TeamsPage() {
                 </div>
             </section>
 
+            {/* DEADLINES OP DE OVERZICHTSPAGINA */}
+            {deadlines && (
+                <div className="card" style={{ display: 'flex', gap: '20px', marginBottom: '25px', flexWrap: 'wrap', padding: '1.5rem' }}>
+                    {deadlines.groteStart && (
+                        <div style={{ flex: '1', minWidth: '250px' }}>
+                            <CountdownTimer
+                                customTargetDate={deadlines.groteStart}
+                                customTitel="Deadline Basisteam"
+                                customSubTitel="Start van Rit 1"
+                            />
+                        </div>
+                    )}
+
+                    {deadlines.volgendeRit && (
+                        <div style={{ flex: '1', minWidth: '250px', borderLeft: '1px solid #334155', paddingLeft: '20px' }}>
+                            <CountdownTimer
+                                customTargetDate={deadlines.volgendeRit.starttijd}
+                                customTitel="Deadline Wissel"
+                                customSubTitel={deadlines.volgendeRit.naam}
+                            />
+                        </div>
+                    )}
+                </div>
+            )}
+
             <section className="teams-grid">
                 {spelers.map((speler) => (
                     <button
                         key={speler.id}
                         className="team-card"
-                        onClick={() =>
-                            navigate(`/teams/${competitieId}/${sessieId}/${speler.id}`)
-                        }
+                        // Geen 'state' bagage meer, we bouwen gewoon de schone URL op
+                        onClick={() => navigate(`/teams/${competitieId}/${sessieId}/${speler.id}`)}
                     >
                         <h2>{speler.naam}</h2>
                         <p>Bekijk team</p>
