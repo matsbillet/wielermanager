@@ -52,6 +52,8 @@ export default function ScoreboardPage() {
 
     const [spelers, setSpelers] = useState([]);
     const [wedstrijd, setWedstrijd] = useState(null);
+    const [topRenners, setTopRenners] = useState([]);
+    const [truien, setTruien] = useState(null);
     const [loading, setLoading] = useState(true);
     const [melding, setMelding] = useState("");
 
@@ -73,6 +75,8 @@ export default function ScoreboardPage() {
 
                 setSpelers(spelersMetKleur);
                 setWedstrijd(wedstrijdData);
+                setTopRenners(response.data.topRenners || []);
+                setTruien(response.data.truien || null);
             } catch (err) {
                 console.error("Fout bij ophalen scoreboard:", err);
                 setMelding(
@@ -155,7 +159,7 @@ export default function ScoreboardPage() {
                 </div>
             </section>
 
-            <section className="scoreboard-grid">
+            <section className="scoreboard-top-grid">
                 <div className="card klassement-card">
                     <div className="section-head">
                         <h2>Algemeen klassement</h2>
@@ -180,59 +184,117 @@ export default function ScoreboardPage() {
                     </div>
                 </div>
 
-                <div className="card ritpunten-card">
+                <div className="card top-renners-card">
                     <div className="section-head">
-                        <h2>Punten per rit</h2>
+                        <h2>Top 10 renners</h2>
                     </div>
 
-                    <div className="ritpunten-table-wrapper">
-                        <table className="ritpunten-table">
-                            <thead>
-                                <tr>
-                                    <th>Speler</th>
-                                    {Array.from({ length: aantalRitten }, (_, i) => (
-                                        <th key={i}>Rit {i + 1}</th>
-                                    ))}
-                                    <th>Totaal</th>
-                                </tr>
-                            </thead>
+                    <div className="klassement-list">
+                        {topRenners.map((renner, index) => (
+                            <div key={renner.renner_id} className="klassement-row">
+                                <div className="rank">#{index + 1}</div>
 
-                            <tbody>
-                                {klassement.map((speler) => (
-                                    <tr key={speler.speler_id}>
-                                        <td>
-                                            <span
-                                                className="player-dot"
-                                                style={{ backgroundColor: speler.kleur }}
-                                            />
-                                            {speler.speler}
-                                        </td>
+                                <div className="player-info">
+                                    <strong>{renner.renner}</strong>
+                                    <span className="small-muted">
+                                        {renner.eigenaar}
+                                        {renner.isBank ? " · bank" : ""}
+                                    </span>
+                                </div>
 
-                                        {Array.from({ length: aantalRitten }, (_, i) => {
-                                            const rit = speler.per_rit.find(
-                                                (r) => r.rit_nummer === i + 1,
-                                            );
+                                <div className="player-total">{renner.totaal} pts</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
 
-                                            if (!rit) return <td key={i}>-</td>;
+                <div className="card truien-card">
+                    <div className="section-head">
+                        <h2>Truitjes</h2>
+                    </div>
 
-                                            return (
-                                                <td key={i} className="score-cell">
-                                                    <strong>{rit.punten}</strong>
-                                                    <span className="score-detail">
-                                                        {rit.rit_punten} + {rit.truien_punten}
-                                                    </span>
-                                                </td>
-                                            );
-                                        })}
+                    <div className="truien-list">
+                        <div className="trui-row">
+                            <span>Roze / geel</span>
+                            <strong>{truien?.algemeen || "-"}</strong>
+                        </div>
 
-                                        <td>
-                                            <strong>{speler.totaal}</strong>
-                                        </td>
-                                    </tr>
+                        <div className="trui-row">
+                            <span>Punten</span>
+                            <strong>{truien?.punten || "-"}</strong>
+                        </div>
+
+                        <div className="trui-row">
+                            <span>Berg</span>
+                            <strong>{truien?.berg || "-"}</strong>
+                        </div>
+
+                        <div className="trui-row">
+                            <span>Jongeren</span>
+                            <strong>{truien?.jongeren || "-"}</strong>
+                        </div>
+
+                        {truien?.rit_nummer && (
+                            <p className="small-muted">
+                                Na rit {truien.rit_nummer}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            <section className="card ritpunten-card ritpunten-card-full">
+                <div className="section-head">
+                    <h2>Punten per rit</h2>
+                </div>
+
+                <div className="ritpunten-table-wrapper">
+                    <table className="ritpunten-table">
+                        <thead>
+                            <tr>
+                                <th>Speler</th>
+                                {Array.from({ length: aantalRitten }, (_, i) => (
+                                    <th key={i}>Rit {i + 1}</th>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                <th>Totaal</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {klassement.map((speler) => (
+                                <tr key={speler.speler_id}>
+                                    <td>
+                                        <span
+                                            className="player-dot"
+                                            style={{ backgroundColor: speler.kleur }}
+                                        />
+                                        {speler.speler}
+                                    </td>
+
+                                    {Array.from({ length: aantalRitten }, (_, i) => {
+                                        const rit = speler.per_rit.find(
+                                            (r) => r.rit_nummer === i + 1,
+                                        );
+
+                                        if (!rit) return <td key={i}>-</td>;
+
+                                        return (
+                                            <td key={i} className="score-cell">
+                                                <strong>{rit.punten}</strong>
+                                                <span className="score-detail">
+                                                    {rit.rit_punten} + {rit.truien_punten}
+                                                </span>
+                                            </td>
+                                        );
+                                    })}
+
+                                    <td>
+                                        <strong>{speler.totaal}</strong>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </section>
         </div>

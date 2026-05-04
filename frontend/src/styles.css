@@ -1387,6 +1387,45 @@ textarea:focus {
     gap: 6px;
 }
 
+.scoreboard-top-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 20px;
+    align-items: start;
+    margin-bottom: 24px;
+}
+
+.ritpunten-card-full {
+    width: 100%;
+}
+
+.truien-list {
+    display: grid;
+    gap: 14px;
+}
+
+.trui-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.trui-row span {
+    opacity: 0.7;
+}
+
+.top-renners-card .player-info {
+    display: grid;
+    gap: 4px;
+}
+
+.ritpunten-table-wrapper {
+    overflow-x: auto;
+}
+
+
 .wissel-form select,
 .wissel-form input {
     padding: 10px 12px;
@@ -1398,7 +1437,32 @@ textarea:focus {
     font-weight: 600;
 }
 
+.top-renners-card .klassement-list {
+    max-height: 370px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.top-renners-card .klassement-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.top-renners-card .klassement-list::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.top-renners-card .klassement-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
 /* RESPONSIVE */
+
+@media (max-width: 1100px) {
+    .scoreboard-top-grid {
+        grid-template-columns: 1fr;
+    }
+}
 
 @media (max-width: 1100px) {
 
