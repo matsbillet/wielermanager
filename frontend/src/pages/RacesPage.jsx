@@ -41,11 +41,14 @@ export default function RacesPage() {
     const sortedYears = Object.keys(groupedRaces).sort((a, b) => b - a);
 
     // 2. Helper functie voor kleuren en afbeeldingen
-    const getRaceTheme = (slug) => {
-        if (slug.includes('giro')) return { color: '#ff69b4', img: giroImg, label: 'Giro' };
-        if (slug.includes('tour')) return { color: '#ffe100', img: tourImg, label: 'Tour' };
-        if (slug.includes('vuelta')) return { color: '#ed1c24', img: vueltaImg, label: 'Vuelta' };
-        return { color: '#cccccc', img: tourImg, label: 'Race' };
+    const getRaceTheme = (slug = "") => {
+        const veiligeSlug = slug || "";
+
+        if (veiligeSlug.includes("giro")) return { color: "#ff69b4", img: giroImg, label: "Giro" };
+        if (veiligeSlug.includes("tour")) return { color: "#ffe100", img: tourImg, label: "Tour" };
+        if (veiligeSlug.includes("vuelta")) return { color: "#ed1c24", img: vueltaImg, label: "Vuelta" };
+
+        return { color: "#cccccc", img: tourImg, label: "Race" };
     };
 
     if (loading) return <div className="loading">Laden van wedstrijden...</div>;
@@ -73,7 +76,7 @@ export default function RacesPage() {
                             return (
                                 <Link
                                     key={wedstrijd.id}
-                                    to={`/races/${wedstrijd.slug}`}
+                                    to={wedstrijd.slug ? `/races/${wedstrijd.slug}` : "#"}
                                     className="race-card card"
                                     style={{
                                         textDecoration: 'none',
