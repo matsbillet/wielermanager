@@ -316,7 +316,12 @@ router.post("/race-lifecycle/run", async (req, res) => {
 
 //Wedstrijden importeren admin tab
 
-// backend/src/routes/admin.js
+const createSlug = (text) => {
+    return text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-') // Vervang alles wat geen letter/getal is door -
+        .replace(/(^-|-$)+/g, '');    // Verwijder streepjes aan begin of eind
+};
 
 router.post('/import-volledige-wedstrijd', async (req, res) => {
     const { url } = req.body;
@@ -332,7 +337,8 @@ router.post('/import-volledige-wedstrijd', async (req, res) => {
                 jaar: structuur.jaar,
                 pcs_url: url,
                 is_eendagskoers: structuur.is_eendagskoers,
-                aantal_ritten: structuur.ritten.length // VOEG DEZE REGEL TOE
+                aantal_ritten: structuur.ritten.length, // VOEG DEZE REGEL TOE
+                slug: createSlug(`${structuur.naam}-${structuur.jaar}`)
             }])
             .select()
             .single();
