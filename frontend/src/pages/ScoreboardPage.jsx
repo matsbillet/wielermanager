@@ -124,10 +124,19 @@ export default function ScoreboardPage() {
 
                 <div className="scoreboard-chart">
                     <ResponsiveContainer width="100%" height={360}>
-                        <LineChart data={grafiekData}>
+                        <LineChart
+                            data={grafiekData}
+                            margin={{ top: 20, right: 30, left: 40, bottom: 40 }}
+                        >
                             <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                            <XAxis dataKey="rit" />
-                            <YAxis />
+                            <XAxis
+                                dataKey="rit"
+                                interval={0}
+                                angle={-35}
+                                textAnchor="end"
+                                height={70}
+                            />
+                            <YAxis width={55} />
                             <Tooltip />
                             <Legend />
                             {spelers.map((speler) => (
