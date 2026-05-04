@@ -314,4 +314,69 @@ router.post("/race-lifecycle/run", async (req, res) => {
     }
 });
 
+//Wedstrijden importeren admin tab
+
+// backend/src/routes/admin.js
+
+router.post('/import-volledige-wedstrijd', async (req, res) => {
+    const { url } = req.body;
+
+    try {
+        const structuur = await scraper.scrapeWedstrijdStructuur(url);
+
+        // STAP B: Maak de wedstrijd aan in de DB
+        const { data: wedstrijd, error: wErr } = await supabase
+            .from('wedstrijden')
+            .insert([{
+                naam: structuur.naam,
+                jaar: structuur.jaar,
+                pcs_url: url,
+                is_eendagskoers: structuur.is_eendagskoers,
+                aantal_ritten: structuur.ritten.length // VOEG DEZE REGEL TOE
+            }])
+            .select()
+            .single();
+
+        if (wErr) throw wErr;
+
+        // STAP C: Voeg alle ritten toe
+        const rittenToInsert = structuur.ritten.map(r => {
+            // PCS datums zijn soms kaal (bijv. "19/04"). 
+            // PostgreSQL timestamp heeft een volwaardig formaat nodig: YYYY-MM-DD HH:mm:ss
+            const jaar = structuur.jaar || new Date().getFullYear();
+
+            // Simpele check: als r.datum iets bevat als "19/04", maken we er "2026-04-19" van
+            // Als r.datum al een ISO datum is, gebruiken we die.
+            let geformatteerdeDatum = r.datum;
+            if (r.datum && r.datum.includes('/')) {
+                const [dag, maand] = r.datum.split('/');
+                geformatteerdeDatum = `${jaar}-${maand}-${dag}`;
+            }
+
+            return {
+                wedstrijd_id: wedstrijd.id,
+                rit_nummer: r.rit_nummer,
+                naam: r.naam,
+                starttijd: geformatteerdeDatum ? `${geformatteerdeDatum} 10:00:00` : null, // Verander 'datum' naar 'starttijd'
+                gescrapet: false
+            };
+        });
+
+        const { error: rErr } = await supabase.from('ritten').insert(rittenToInsert);
+        if (rErr) throw rErr;
+        // STAP D: Haal de startlijst op (Hergebruik je bestaande functie!)
+        // Let op: controleer of je importStartlist-functie de url en wedstrijd.id accepteert
+        await scraper.importStartlist(url + "/startlist", wedstrijd.id);
+
+        res.json({
+            success: true,
+            message: `🏁 '${structuur.naam}' geïmporteerd! ${structuur.ritten.length} ritten aangemaakt en startlijst geladen.`
+        });
+
+    } catch (err) {
+        console.error("Super Import Fout:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
