@@ -313,6 +313,59 @@ router.post("/race-lifecycle/run", async (req, res) => {
         });
     }
 });
+// wedstrijden verwijderen
+
+router.delete('/wedstrijd/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        console.log(`🗑️ Grondige verwijdering voor wedstrijd ID: ${id}`);
+
+        // STAP 1: Haal eerst alle rit_id's op die bij deze wedstrijd horen
+        const { data: ritten, error: fetchError } = await supabase
+            .from('ritten')
+            .select('id')
+            .eq('wedstrijd_id', id);
+
+        if (fetchError) throw fetchError;
+
+        if (ritten && ritten.length > 0) {
+            const ritIds = ritten.map(r => r.id);
+
+            // STAP 2: Verwijder de resultaten van al die ritten
+            const { error: resError } = await supabase
+                .from('ritresultaten')
+                .delete()
+                .in('rit_id', ritIds); // 'in' verwijdert alles in de lijst met ID's
+
+            if (resError) throw resError;
+        }
+
+        // STAP 3: Nu kunnen de ritten veilig weg
+        const { error: rittenDeleteError } = await supabase
+            .from('ritten')
+            .delete()
+            .eq('wedstrijd_id', id);
+
+        if (rittenDeleteError) throw rittenDeleteError;
+
+        // STAP 4: Verwijder eventuele startlijst koppelingen (indien nodig)
+        // Bijv: .from('wedstrijd_deelnemers').delete().eq('wedstrijd_id', id)
+
+        // STAP 5: Als laatste de wedstrijd zelf
+        const { error: wedstrijdError } = await supabase
+            .from('wedstrijden')
+            .delete()
+            .eq('id', id);
+
+        if (wedstrijdError) throw wedstrijdError;
+
+        res.json({ success: true, message: "Alles is schoon verwijderd!" });
+    } catch (err) {
+        console.error("Fout bij cascade delete:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 //Wedstrijden importeren admin tab
 

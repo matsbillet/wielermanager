@@ -108,6 +108,39 @@ export default function AdminPage() {
         }
     };
 
+    // verwijderen wedstrijden
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Weet je zeker dat je deze wedstrijd wilt verwijderen?")) return;
+
+        // Haal het token op (meestal opgeslagen bij login)
+        const token = localStorage.getItem('token');
+
+        try {
+            const response = await fetch(`http://localhost:3000/api/admin/wedstrijd/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    // Zorg dat je token meestuurt zodat de backend weet wie je bent
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                alert("Wedstrijd verwijderd!");
+                setWedstrijden(prev => prev.filter(w => w.id !== id));
+            } else {
+                // Dit is waar je nu de "Geen geldig token" melding ziet
+                alert("Fout bij verwijderen: " + (data.error || data.message || "Onbekende fout"));
+            }
+        } catch (err) {
+            console.error("Netwerkfout:", err);
+            alert("Kan geen verbinding maken met de server.");
+        }
+    };
+
     // Filter logica voor ritten per wedstrijd
     const gefilterdeRitten = useMemo(() => {
         if (!selectedWedstrijd) return ritten;
@@ -447,7 +480,7 @@ export default function AdminPage() {
                                         <td>{w.is_eendagskoers ? '🏁 Eendagskoers' : '🚴 Meerdaagse'}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             {/* Je kunt hier een deleteWedstrijd functie koppelen */}
-                                            <button className="admin-delete-icon-btn" onClick={() => deleteItem('wedstrijden', w.id)}>
+                                            <button className="admin-delete-icon-btn" onClick={() => handleDelete(w.id)}>
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
                                             </button>
                                         </td>
