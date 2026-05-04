@@ -2,6 +2,18 @@ const express = require("express");
 const router = express.Router();
 const { supabase } = require("../db/supabase");
 
+function berekenRitPunten(resultaat) {
+    const ritPunten = Number(resultaat.rit_punten || 0);
+    const punten = Number(resultaat.punten || 0);
+    return ritPunten > 0 ? ritPunten : punten;
+}
+
+function berekenTruienPunten(resultaat) {
+    const truienPunten = Number(resultaat.truien_punten || 0);
+    const truiPunten = Number(resultaat.trui_punten || 0);
+    return truienPunten > 0 ? truienPunten : truiPunten;
+}
+
 async function maakScoreboardVoorSessie(sessie) {
     const { data: spelersData, error: spelersError } = await supabase
         .from("spelers")
@@ -13,7 +25,7 @@ async function maakScoreboardVoorSessie(sessie) {
 
     const { data: ritten, error: rittenError } = await supabase
         .from("ritten")
-        .select("id, rit_nummer, naam, gescrapet")
+        .select("id, rit_nummer, naam, gescrapet, leider_algemeen, leider_punten, leider_berg, leider_jongeren")
         .eq("wedstrijd_id", sessie.wedstrijd_id)
         .order("rit_nummer", { ascending: true });
 
@@ -21,7 +33,13 @@ async function maakScoreboardVoorSessie(sessie) {
 
     const { data: draft, error: draftError } = await supabase
         .from("draft")
-        .select("speler_id, renner_id, is_bank")
+        .select(`
+            speler_id,
+            renner_id,
+            is_bank,
+            renners(id, naam),
+            spelers(id, gebruikers(id, naam))
+        `)
         .eq("sessie_id", sessie.id)
         .not("renner_id", "is", null);
 
@@ -42,7 +60,7 @@ async function maakScoreboardVoorSessie(sessie) {
     if (ritIds.length > 0) {
         const { data, error } = await supabase
             .from("ritresultaten")
-            .select("rit_id, renner_id, punten, rit_punten, truien_punten, trui_punten")
+            .select("rit_id, renner_id, punten, rit_punten, truien_punten, trui_punten, renners(id, naam)")
             .in("rit_id", ritIds);
 
         if (error) throw error;
@@ -93,17 +111,11 @@ async function maakScoreboardVoorSessie(sessie) {
             );
 
             const rit_punten = resultatenVanRit.reduce((som, resultaat) => {
-                const ritPunten = Number(resultaat.rit_punten || 0);
-                const punten = Number(resultaat.punten || 0);
-
-                return som + (ritPunten > 0 ? ritPunten : punten);
+                return som + berekenRitPunten(resultaat);
             }, 0);
 
             const truien_punten = resultatenVanRit.reduce((som, resultaat) => {
-                const truienPunten = Number(resultaat.truien_punten || 0);
-                const truiPunten = Number(resultaat.trui_punten || 0);
-
-                return som + (truienPunten > 0 ? truienPunten : truiPunten);
+                return som + berekenTruienPunten(resultaat);
             }, 0);
 
             return {
@@ -129,7 +141,72 @@ async function maakScoreboardVoorSessie(sessie) {
 
     scoreboard.sort((a, b) => b.totaal - a.totaal);
 
-    return scoreboard;
+    const eigenaarPerRenner = new Map();
+
+    draft.forEach((keuze) => {
+        eigenaarPerRenner.set(Number(keuze.renner_id), {
+            speler: keuze.spelers?.gebruikers?.naam || "Niet gekozen",
+            isBank: keuze.is_bank,
+        });
+    });
+
+    const rennerScores = new Map();
+
+    ritresultaten.forEach((resultaat) => {
+        const rit = ritten.find((r) => Number(r.id) === Number(resultaat.rit_id));
+
+        if (!rit || !rit.gescrapet) return;
+
+        const rennerId = Number(resultaat.renner_id);
+        const bestaande = rennerScores.get(rennerId) || {
+            renner_id: rennerId,
+            renner: resultaat.renners?.naam || "Onbekende renner",
+            totaal: 0,
+            rit_punten: 0,
+            truien_punten: 0,
+            eigenaar: eigenaarPerRenner.get(rennerId)?.speler || "Niet gekozen",
+            isBank: eigenaarPerRenner.get(rennerId)?.isBank || false,
+        };
+
+        const ritPunten = berekenRitPunten(resultaat);
+        const truienPunten = berekenTruienPunten(resultaat);
+
+        bestaande.rit_punten += ritPunten;
+        bestaande.truien_punten += truienPunten;
+        bestaande.totaal += ritPunten + truienPunten;
+
+        rennerScores.set(rennerId, bestaande);
+    });
+
+    const topRenners = Array.from(rennerScores.values())
+        .sort((a, b) => b.totaal - a.totaal)
+        .slice(0, 10);
+
+    const laatsteGescrapeteRit = [...(ritten || [])]
+        .filter((rit) => rit.gescrapet)
+        .sort((a, b) => Number(b.rit_nummer) - Number(a.rit_nummer))[0];
+
+    const truien = laatsteGescrapeteRit
+        ? {
+            rit_nummer: laatsteGescrapeteRit.rit_nummer,
+            algemeen: laatsteGescrapeteRit.leider_algemeen || "-",
+            punten: laatsteGescrapeteRit.leider_punten || "-",
+            berg: laatsteGescrapeteRit.leider_berg || "-",
+            jongeren: laatsteGescrapeteRit.leider_jongeren || "-",
+        }
+        : {
+            rit_nummer: null,
+            algemeen: "-",
+            punten: "-",
+            berg: "-",
+            jongeren: "-",
+        };
+
+    return {
+        scoreboard,
+        topRenners,
+        truien,
+    };
 }
 
 router.get("/competitie/:competitieId", async (req, res) => {
@@ -161,13 +238,15 @@ router.get("/competitie/:competitieId", async (req, res) => {
             });
         }
 
-        const scoreboard = await maakScoreboardVoorSessie(sessie);
+        const resultaat = await maakScoreboardVoorSessie(sessie);
 
         res.json({
             sessieId: sessie.id,
             sessieNaam: sessie.Naam,
             wedstrijd: sessie.wedstrijden,
-            scoreboard,
+            scoreboard: resultaat.scoreboard,
+            topRenners: resultaat.topRenners,
+            truien: resultaat.truien,
         });
     } catch (error) {
         console.error("Fout bij ophalen scores:", error);
