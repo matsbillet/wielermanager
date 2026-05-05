@@ -120,35 +120,25 @@ function bouwStageUrl(baseUrl, ritNummer) {
 
 // wedstrijd scrapen in admin pagina
 
-async function scrapeWedstrijdStructuur(url) {
-    console.log(`🔎 Wedstrijdstructuur ophalen via Browser: ${url}`);
+// ... (behoud je bestaande imports en helper functies bovenin)
 
-    // Gebruik de getBrowser helper die je al hebt
+async function scrapeWedstrijdStructuur(url) {
+    console.log(`🔎 Wedstrijdstructuur ophalen: ${url}`);
     const browser = await getBrowser();
 
     try {
         const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-        // Stel de User Agent in (belangrijk voor PCS)
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        );
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        // Ga naar de URL en wacht tot de pagina geladen is
-        await page.goto(url, {
-            waitUntil: 'networkidle2',
-            timeout: 60000,
-        });
-
-        // Haal de data op uit de browser context
         const structuur = await page.evaluate(() => {
-            // 1. Haal de titel van de wedstrijd op
             const h1 = document.querySelector('h1')?.innerText || "";
             const jaarMatch = h1.match(/\d{4}/);
             const jaar = jaarMatch ? parseInt(jaarMatch[0]) : new Date().getFullYear();
             const naam = h1.replace(/\d{4}/, '').trim();
 
-            // 2. Zoek alle etappe links
+            // Zoek etappe links
             const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
             const rittenMap = new Map();
 
@@ -162,107 +152,113 @@ async function scrapeWedstrijdStructuur(url) {
                     rittenMap.set(rit_nummer, {
                         rit_nummer,
                         naam: link.innerText.trim() || `Etappe ${rit_nummer}`,
-                        // We proberen de datum uit de tabelrij te vissen
                         datum: link.closest('tr')?.querySelector('.date')?.innerText?.trim() || null
                     });
                 }
             });
 
-            const ritten = Array.from(rittenMap.values());
+            const ritten = Array.from(rittenMap.values()).sort((a, b) => a.rit_nummer - b.rit_nummer);
 
             return {
                 naam: naam || document.title.split(' 20')[0],
                 jaar: jaar,
                 ritten: ritten,
-                is_eendagskoers: ritten.length === 0 // Als er geen etappe-links zijn, is het een klassieker
+                is_eendagskoers: ritten.length === 0
             };
         });
 
-        // Extra check voor eendagskoersen (zoals Amstel Gold Race)
-        if (structuur.is_eendagskoers) {
+        // FIX: Voor eendagskoersen moet er ALTIJD 1 rit zijn in de database
+        if (structuur.is_eendagskoers || structuur.ritten.length === 0) {
             structuur.ritten = [{
                 rit_nummer: 1,
                 naam: structuur.naam,
-                datum: null // Dit wordt later door je importStartlist-logica wel opgevangen of handmatig gezet
+                datum: null
             }];
+            structuur.is_eendagskoers = true;
         }
 
         await page.close();
         return structuur;
-
     } catch (err) {
         console.error("Browser Scrape Fout:", err);
-        throw new Error("Kon wedstrijdstructuur niet scrapen via browser: " + err.message);
+        throw err;
     }
 }
 
-// import startlist
+const createSlug = (text) => {
+    return text
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Verwijder accenten (bijv. á -> a)
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+};
+// importeren startlijst admin pagina wedstrijden
 async function importStartlist(pcsUrl, wedstrijdId) {
-    console.log(`🚴 Startlijst importeren van: ${pcsUrl}`);
+    // 1. Zorg voor een schone URL zonder dubbele slashes
+    let cleanUrl = pcsUrl.replace(/([^:]\/)\/+/g, "$1");
+
+    // 2. Logica voor eendagskoersen: check of we naar /result moeten ipv /startlist
+    // Soms is een race al gereden en is de 'startlist' pagina niet meer de beste bron
+    console.log(`🚴 Startlijst/Deelnemers importeren van: ${cleanUrl}`);
+
     const browser = await getBrowser();
 
     try {
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-        // We gaan naar de startlist pagina
-        await page.goto(pcsUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        await page.goto(cleanUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        const renners = await page.evaluate(() => {
-            const result = [];
-            // PCS startlijst heeft vaak een structuur met .team en .rider
-            const teamBlocks = document.querySelectorAll('.startlist-v4 > li');
+        const rennersRaw = await page.evaluate(() => {
+            const list = [];
+            // We zoeken alle links naar renners
+            const riderLinks = Array.from(document.querySelectorAll('a[href^="rider/"]'));
 
-            teamBlocks.forEach(block => {
-                const teamNaam = block.querySelector('b a')?.innerText.trim() || "Onbekend Team";
-                const riderElements = block.querySelectorAll('ul li');
+            riderLinks.forEach((a) => {
+                const naam = a.innerText.trim();
+                const href = a.getAttribute('href');
 
-                riderElements.forEach(r => {
-                    const naamElement = r.querySelector('a');
-                    if (naamElement) {
-                        result.push({
-                            naam: naamElement.innerText.trim(),
-                            team: teamNaam,
-                            // We geven elke renner een standaard prijs (bijv 5.0)
-                            prijs: 5.0
-                        });
-                    }
-                });
+                if (naam && naam.length > 3 && href && a.closest('li, tr, .rider-line')) {
+                    // CRUCIAL: Pak de slug direct uit de URL van PCS
+                    // Voorbeeld: "rider/sandy-dujardin" -> "sandy-dujardin"
+                    const slug = href.replace('rider/', '').split('/')[0].trim();
+
+                    list.push({ naam, slug });
+                }
             });
-            return result;
+
+            // Verwijder dubbelen op basis van slug
+            return Array.from(new Map(list.map((r) => [r.slug, r])).values());
         });
 
-        console.log(`✅ ${renners.length} renners gevonden op startlijst.`);
+        if (rennersRaw.length > 0) {
+            console.log(`💾 ${rennersRaw.length} renners gevonden. Controleren op slugs...`);
 
-        // Renners opslaan in de database
-        for (const renner of renners) {
-            // 1. Check of renner al bestaat of voeg toe (upsert op naam)
-            const { data: bestaandeRenner, error: rErr } = await supabase
+            // We gebruiken de createSlug helper voor het geval dat, 
+            // maar de 'slug' uit de URL is leidend voor de match
+            const finaleRenners = rennersRaw.map(r => ({
+                naam: r.naam,
+                slug: r.slug // Gebruik de PCS slug!
+            }));
+
+            const { error: upsertError } = await supabase
                 .from('renners')
-                .upsert({
-                    naam: renner.naam,
-                    team: renner.team,
-                    prijs: renner.prijs
-                }, { onConflict: 'naam' })
-                .select()
-                .single();
+                .upsert(finaleRenners, {
+                    onConflict: 'naam',
+                    ignoreDuplicates: false // Update de slug als de naam al bestond
+                });
 
-            if (rErr) continue;
-
-            // 2. Koppel renner aan de wedstrijd in de koppeltabel (bijv. wedstrijd_deelnemers)
-            // Heb je een tabel die bijhoudt welke renner in welke wedstrijd rijdt?
-            // Zo niet, dan sla je ze nu alleen op in de globale rennerslijst.
+            if (upsertError) throw upsertError;
         }
 
         await page.close();
-        return { success: true, count: renners.length };
+        return { success: true, count: rennersRaw.length };
     } catch (err) {
         console.error("Fout bij startlijst import:", err);
         throw err;
     }
 }
-
-/**
+/*
  * 1. HAAL RITTEN + DATUMS OP
  */
 async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
@@ -505,17 +501,32 @@ async function scrapeFullRaceInfo(racePcsUrl) {
 /**
  * 3. RIT DETAILS
  */
-async function scrapeRitDetails(racePcsUrl, ritNummer) {
-    console.log(`🔎 SCRAPER GESTART voor Rit ${ritNummer}`);
+async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
+    console.log(`🔎 SCRAPER GESTART voor Rit ${ritNummer} (${isEendagskoers ? 'Eendagskoers' : 'Etappe'})`);
 
     const browser = await getBrowser();
 
     try {
         const page = await browser.newPage();
-        const stageUrl = bouwStageUrl(racePcsUrl, ritNummer);
+
+        // Dynamische URL opbouw op basis van het type wedstrijd
+        let stageUrl;
+        const cleanBase = racePcsUrl.endsWith('/') ? racePcsUrl.slice(0, -1) : racePcsUrl;
+
+        if (isEendagskoers) {
+            // Voor eendagskoersen (zoals Amstel Gold Race) eindigt de URL op /result
+            stageUrl = `${cleanBase}/result`;
+        } else {
+            // Voor etappekoersen (zoals Paris-Nice) gebruiken we de stage URL + 's'
+            // De helper bouwStageUrl maakt meestal .../stage-1, PCS uitslagen staan op .../stage-1/results
+            const baseUrl = bouwStageUrl(racePcsUrl, ritNummer);
+            stageUrl = baseUrl.endsWith('/') ? `${baseUrl}results` : `${baseUrl}/results`;
+        }
+
+        console.log(`🔗 Scrapen van uitslag via: ${stageUrl}`);
 
         await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         );
 
         await page.goto(stageUrl, {
@@ -532,6 +543,7 @@ async function scrapeRitDetails(racePcsUrl, ritNummer) {
 
             const bodyText = document.body.innerText;
 
+            // Zoek naar datum en starttijd op de pagina
             const dateMatch = bodyText.match(/Date:\s*([^\n]+)/i);
             const timeMatch =
                 bodyText.match(/Starttime:\s*([0-9]{1,2}:[0-9]{2})/i) ||
@@ -542,6 +554,8 @@ async function scrapeRitDetails(racePcsUrl, ritNummer) {
                 : null;
 
             const tables = Array.from(document.querySelectorAll('table'));
+
+            // Zoek de juiste tabel (bevat 'Rider' en heeft genoeg rijen)
             const resultTable = tables.find(
                 (t) => t.innerText.includes('Rider') && t.querySelectorAll('tr').length > 10
             );
@@ -552,16 +566,20 @@ async function scrapeRitDetails(racePcsUrl, ritNummer) {
                 results.uitslag = rows
                     .map((row, i) => {
                         const a = row.querySelector('a[href^="rider/"]');
+                        // Pak de slug direct uit de href om mismatches te voorkomen
+                        const href = a?.getAttribute('href') || "";
+                        const slug = href.replace('rider/', '').split('/')[0];
 
                         return {
                             positie: i + 1,
                             naam: a?.innerText.trim(),
-                            slug: a?.getAttribute('href')?.replace('rider/', ''),
+                            slug: slug || null,
                         };
                     })
                     .filter((r) => r.slug);
             }
 
+            // Helper om de leider van een klassement te vinden
             const getLeaderSlug = (headerText) => {
                 const targetTable = tables.find(
                     (t) =>
@@ -569,12 +587,8 @@ async function scrapeRitDetails(racePcsUrl, ritNummer) {
                         t.innerText.includes(headerText)
                 );
 
-                return (
-                    targetTable
-                        ?.querySelector('a[href^="rider/"]')
-                        ?.getAttribute('href')
-                        .replace('rider/', '') || null
-                );
+                const a = targetTable?.querySelector('a[href^="rider/"]');
+                return a?.getAttribute('href')?.replace('rider/', '').split('/')[0] || null;
             };
 
             results.truien = {

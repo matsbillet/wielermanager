@@ -78,24 +78,48 @@ router.post('/:id/auto-scrape', async (req, res) => {
     try {
         activeScrapes.add(id);
 
-
+        // 1. Zorg dat 'is_eendagskoers' expliciet in de select staat!
         const { data: rit, error: rErr } = await supabase
             .from('ritten')
-            .select('*, wedstrijden(id, naam, pcs_url, slug, aantal_ritten, jaar)') // Voeg 'id' en 'jaar' expliciet toe
+            .select('*, wedstrijden(id, naam, pcs_url, slug, aantal_ritten, jaar, is_eendagskoers)')
             .eq('id', id)
             .single();
 
         if (rErr || !rit) return res.status(404).json({ error: "Rit niet gevonden" });
 
-        const resultaat = await scraper.scrapeRitDetails(rit.wedstrijden.pcs_url, rit.rit_nummer);
+        // 2. Gebruik consequent 'rit.wedstrijden' (zoals gedefinieerd in de select hierboven)
+        // We voegen een extra check toe zodat de server niet crasht als de join mislukt
+        if (!rit.wedstrijden) {
+            throw new Error("Wedstrijdgegevens konden niet worden opgehaald via de join.");
+        }
+
+        const resultaat = await scraper.scrapeRitDetails(
+            rit.wedstrijden.pcs_url,
+            rit.rit_nummer,
+            rit.wedstrijden.is_eendagskoers // Nu correct aangeroepen
+        );
 
         if (!resultaat || !resultaat.uitslag || resultaat.uitslag.length === 0) {
             console.log("📭 Geen resultaten gevonden op PCS.");
+            activeScrapes.delete(id); // Vergeet niet de lock te verwijderen bij een vroege return
             return res.status(400).json({ message: "Geen uitslag gevonden op PCS." });
         }
 
         console.log(`💾 Bezig met opslaan van ${resultaat.uitslag.length} resultaten...`);
 
+        // E. Update de rit als 'gescrapet' en sla de namen van de leiders op
+        const { error: updateError } = await supabase
+            .from('ritten')
+            .update({
+                leider_algemeen: resultaat.truien.algemeen || null,
+                leider_punten: resultaat.truien.punten || null,
+                leider_berg: resultaat.truien.berg || null,
+                leider_jongeren: resultaat.truien.jongeren || null,
+                gescrapet: true
+            })
+            .eq('id', id);
+
+        if (updateError) console.error("Fout bij updaten ritten-tabel:", updateError.message);
 
         // C. Verwerk Top 25 Uitslag & Punten
         console.log(`🧪 Start verwerking van ${resultaat.uitslag.length} renners...`);
@@ -115,19 +139,6 @@ router.post('/:id/auto-scrape', async (req, res) => {
                 continue;
             }
 
-            // E. Update de rit als 'gescrapet' en sla de namen van de leiders op
-            const { error: updateError } = await supabase
-                .from('ritten')
-                .update({
-                    leider_algemeen: resultaat.truien.algemeen || null,
-                    leider_punten: resultaat.truien.punten || null,
-                    leider_berg: resultaat.truien.berg || null,
-                    leider_jongeren: resultaat.truien.jongeren || null,
-                    gescrapet: true
-                })
-                .eq('id', id);
-
-            if (updateError) console.error("Fout bij updaten ritten-tabel:", updateError.message);
 
             if (renner) {
                 console.log(`🔗 Renner gevonden: ${rennerInfo.slug} (ID: ${renner.id}). Opslaan resultaat...`);
