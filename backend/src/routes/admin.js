@@ -425,7 +425,8 @@ router.post('/import-volledige-wedstrijd', async (req, res) => {
         if (rErr) throw rErr;
         // STAP D: Haal de startlijst op (Hergebruik je bestaande functie!)
         // Let op: controleer of je importStartlist-functie de url en wedstrijd.id accepteert
-        await scraper.importStartlist(url + "/startlist", wedstrijd.id);
+        const startlistUrl = url.endsWith('/') ? `${url}startlist` : `${url}/startlist`;
+        await scraper.importStartlist(startlistUrl, wedstrijd.id);
 
         res.json({
             success: true,
