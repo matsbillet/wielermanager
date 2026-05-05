@@ -1104,7 +1104,8 @@ textarea:focus {
 }
 
 .draft-player-card-active {
-    border-left: 3px solid #00f5d4;
+    border: 3px solid #00f5d4;
+    box-shadow: 0 0 22px rgba(0, 245, 212, 0.35);
 }
 
 .draft-player-header {
