@@ -31,20 +31,13 @@ export default function DashboardPage() {
     if (loading) return <div>Dashboard laden...</div>;
 
     return (
-        <div className="dashboard-container" style={{ padding: "2rem" }}>
+        <div className="dashboard-container">
             <div className="section-head">
                 <h1>Welkom terug, {stats.naam}! 👋</h1>
                 <p style={{ opacity: 0.7 }}>Hier is de status van je wieler-imperium.</p>
             </div>
 
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                    gap: "1.5rem",
-                    marginBottom: "3rem",
-                }}
-            >
+            <div className="dashboard-stats-grid">
                 <StatCard
                     title="Totaal Punten"
                     value={stats.totaalPunten}
@@ -67,13 +60,13 @@ export default function DashboardPage() {
                 />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "2rem" }}>
+            <div className="dashboard-bottom-grid">
                 <section>
                     <div className="section-head">
                         <h2>Snelle Acties</h2>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div className="dashboard-actions-grid">
                         <ActionLink to="/teams/1" title="Mijn Team" desc="Bekijk je team" icon="👥" />
                         <ActionLink to="/races" title="Kalender" desc="Bekijk alle ritten" icon="📅" />
                     </div>
@@ -84,7 +77,7 @@ export default function DashboardPage() {
                         <h2>Live Status</h2>
                     </div>
 
-                    <div className="card" style={{ display: "flex" }}>
+                    <div className="card dashboard-live-card">
                         <CountdownTimer />
                     </div>
                 </aside>
@@ -95,7 +88,7 @@ export default function DashboardPage() {
 
 function StatCard({ title, value, icon, color }) {
     return (
-        <div className="card" style={{ borderLeft: `4px solid ${color}`, padding: "1.5rem" }}>
+        <div className="card stat-card" style={{ borderLeft: `4px solid ${color}` }}>
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>{icon}</div>
             <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>{title}</div>
             <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>{value}</div>
@@ -105,17 +98,7 @@ function StatCard({ title, value, icon, color }) {
 
 function ActionLink({ to, title, desc, icon }) {
     return (
-        <Link
-            to={to}
-            className="card action-card"
-            style={{
-                textDecoration: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "1rem",
-                padding: "1rem",
-            }}
-        >
+        <Link to={to} className="card action-card dashboard-action-card">
             <div style={{ fontSize: "1.5rem" }}>{icon}</div>
             <div>
                 <div style={{ fontWeight: "bold", color: "#fff" }}>{title}</div>
