@@ -138,6 +138,21 @@ async function scrapeWedstrijdStructuur(url) {
             const jaar = jaarMatch ? parseInt(jaarMatch[0]) : new Date().getFullYear();
             const naam = h1.replace(/\d{4}/, '').trim();
 
+            // --- NIEUW: Haal globale datums uit de info-sectie ---
+            // In scraper.js -> scrapeWedstrijdStructuur -> binnen page.evaluate:
+            const infoItems = Array.from(document.querySelectorAll('ul.keyvalueList li'));
+            let startDate = null;
+            let endDate = null;
+
+            infoItems.forEach(li => {
+                const title = li.querySelector('.title')?.innerText.trim();
+                const value = li.querySelector('.value')?.innerText.trim();
+
+                if (title === 'Startdate:') startDate = value; // Pakt "2025-03-10"
+                if (title === 'Enddate:') endDate = value;     // Pakt "2025-03-16"
+            });
+
+
             // Zoek etappe links
             const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
             const rittenMap = new Map();
@@ -149,10 +164,12 @@ async function scrapeWedstrijdStructuur(url) {
 
                 const rit_nummer = Number(nrMatch[1]);
                 if (!rittenMap.has(rit_nummer)) {
+                    // Pak de datum uit de tabelcel indien aanwezig
+                    const rawDate = link.closest('tr')?.querySelector('.date')?.innerText?.trim();
                     rittenMap.set(rit_nummer, {
                         rit_nummer,
                         naam: link.innerText.trim() || `Etappe ${rit_nummer}`,
-                        datum: link.closest('tr')?.querySelector('.date')?.innerText?.trim() || null
+                        datum: rawDate || null
                     });
                 }
             });
@@ -160,19 +177,21 @@ async function scrapeWedstrijdStructuur(url) {
             const ritten = Array.from(rittenMap.values()).sort((a, b) => a.rit_nummer - b.rit_nummer);
 
             return {
-                naam: naam || document.title.split(' 20')[0],
-                jaar: jaar,
-                ritten: ritten,
+                naam,
+                jaar,
+                ritten,
+                startDate, // bijv: "2025-03-10"
+                endDate,   // bijv: "2025-03-16"
                 is_eendagskoers: ritten.length === 0
             };
         });
 
-        // FIX: Voor eendagskoersen moet er ALTIJD 1 rit zijn in de database
+        // FIX: Voor eendagskoersen moet er ALTIJD 1 rit zijn
         if (structuur.is_eendagskoers || structuur.ritten.length === 0) {
             structuur.ritten = [{
                 rit_nummer: 1,
                 naam: structuur.naam,
-                datum: null
+                datum: structuur.startDate // Gebruik de gevonden startdatum
             }];
             structuur.is_eendagskoers = true;
         }
@@ -194,9 +213,7 @@ const createSlug = (text) => {
 };
 // importeren startlijst admin pagina wedstrijden
 async function importStartlist(pcsUrl, wedstrijdId) {
-    // 1. Zorg voor een schone URL zonder dubbele slashes
     let cleanUrl = pcsUrl.replace(/([^:]\/)\/+/g, "$1");
-
     console.log(`\n--- 🏁 START STARTLIJST IMPORT ---`);
     console.log(`🔗 Bron: ${cleanUrl}`);
 
@@ -205,94 +222,65 @@ async function importStartlist(pcsUrl, wedstrijdId) {
     try {
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-
         await page.goto(cleanUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
         const scrapeData = await page.evaluate(() => {
+            // --- 1. Tijd Scrapen ---
+            const bodyText = document.body.innerText;
+            const timeMatch = bodyText.match(/(?:Start\s*time|Starttime):\s*([0-9]{1,2}:[0-9]{2})/i);
+            const gevondenTijd = timeMatch ? timeMatch[1] : "11:00";
+
+            // --- 2. Renners Scrapen ---
             const list = [];
-
-            // In scraper.js binnen importStartlist -> page.evaluate
-            const infoData = (() => {
-                const bodyText = document.body.innerText;
-                // Zoek naar "Start time: 10:30" of "Starttime: 10:30"
-                const timeMatch = bodyText.match(/(?:Start\s*time|Starttime):\s*([0-9]{1,2}:[0-9]{2})/i);
-                return {
-                    starttijd: timeMatch ? timeMatch[1] : null
-                };
-            })();
-
-            // Zoek de hoofdcontainer om de footer te vermijden
             const mainContent = document.querySelector('.page-content, .main, #main') || document.body;
-
-            // We pakken ALLE rider links op de pagina voor de log statistieken
             const allRiderLinks = Array.from(document.querySelectorAll('a[href^="rider/"]'));
             let footerSkipped = 0;
             let contextSkipped = 0;
 
             allRiderLinks.forEach((a) => {
+                const isFooter = a.closest('footer, .footer, .site-footer, .rn-footer');
+                if (isFooter) { footerSkipped++; return; }
+
+                const hasContext = a.closest('li, tr, .rider-line, .startlist-v4');
+                if (!hasContext) { contextSkipped++; return; }
+
                 const naam = a.innerText.trim();
                 const href = a.getAttribute('href');
-
-                // Check 1: Zit het in de footer? (De "Popular Riders" valkuil)
-                const isFooter = a.closest('footer, .footer, .site-footer, .rn-footer');
-                if (isFooter) {
-                    footerSkipped++;
-                    return;
-                }
-
-                // Check 2: Heeft het de juiste context? (Moet in een lijst of tabel staan)
-                const hasContext = a.closest('li, tr, .rider-line, .startlist-v4');
-                if (!hasContext) {
-                    contextSkipped++;
-                    return;
-                }
-
                 if (naam && naam.length > 3 && href) {
                     const slug = href.replace('rider/', '').split('/')[0].trim();
                     list.push({ naam, slug });
                 }
             });
 
-            // Ontdubbelen op basis van slug
             const uniqueList = Array.from(new Map(list.map((r) => [r.slug, r])).values());
 
             return {
                 totaalLinksGevonden: allRiderLinks.length,
                 footerGenegeerd: footerSkipped,
                 geenContextGenegeerd: contextSkipped,
-                finaleLijst: uniqueList
+                finaleLijst: uniqueList,
+                gevondenTijd: gevondenTijd // NU CORRECT TERUGGEGEVEN
             };
         });
 
-        // --- Console Logs voor validatie ---
-        console.log(`📊 Scraper Analyse voor deze pagina:`);
-        console.log(`   - Totaal 'rider/' links op de hele pagina: ${scrapeData.totaalLinksGevonden}`);
-        console.log(`   - ❌ Genegeerd wegens footer (o.a. vrouwen): ${scrapeData.footerGenegeerd}`);
-        console.log(`   - ❌ Genegeerd wegens gebrek aan context (menu/sidebar): ${scrapeData.geenContextGenegeerd}`);
-        console.log(`   - ✅ Geldige renners gevonden voor import: ${scrapeData.finaleLijst.length}`);
+        // Logs en Database Upsert (Blijft hetzelfde als jouw code)
+        console.log(`📊 Analyse: Links: ${scrapeData.totaalLinksGevonden}, Footer Skip: ${scrapeData.footerGenegeerd}, Renners: ${scrapeData.finaleLijst.length}`);
 
         if (scrapeData.finaleLijst.length > 0) {
-            console.log(`💾 Bezig met verzenden van ${scrapeData.finaleLijst.length} renners naar database...`);
-
             const { error: upsertError } = await supabase
                 .from('renners')
-                .upsert(scrapeData.finaleLijst, {
-                    // WE GEBRUIKEN NU SLUG ALS CONFLICT CHECK
-                    onConflict: 'slug',
-                    ignoreDuplicates: false
-                });
-
-            if (upsertError) {
-                console.error("❌ Database Upsert Fout:", upsertError.message);
-                throw upsertError;
-            }
-            console.log(`✨ Database succesvol bijgewerkt.`);
+                .upsert(scrapeData.finaleLijst, { onConflict: 'slug', ignoreDuplicates: false });
+            if (upsertError) throw upsertError;
         }
 
-        console.log(`--- 🏁 EINDE IMPORT ---\n`);
-
         await page.close();
-        return { success: true, count: scrapeData.finaleLijst.length };
+
+        // RETURN MET DE TIJD
+        return {
+            success: true,
+            count: scrapeData.finaleLijst.length,
+            gevondenTijd: scrapeData.gevondenTijd
+        };
 
     } catch (err) {
         console.error("❌ Fout bij startlijst import:", err);
