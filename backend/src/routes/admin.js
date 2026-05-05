@@ -313,5 +313,129 @@ router.post("/race-lifecycle/run", async (req, res) => {
         });
     }
 });
+// wedstrijden verwijderen
+
+router.delete('/wedstrijd/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        console.log(`🗑️ Grondige verwijdering voor wedstrijd ID: ${id}`);
+
+        // STAP 1: Haal eerst alle rit_id's op die bij deze wedstrijd horen
+        const { data: ritten, error: fetchError } = await supabase
+            .from('ritten')
+            .select('id')
+            .eq('wedstrijd_id', id);
+
+        if (fetchError) throw fetchError;
+
+        if (ritten && ritten.length > 0) {
+            const ritIds = ritten.map(r => r.id);
+
+            // STAP 2: Verwijder de resultaten van al die ritten
+            const { error: resError } = await supabase
+                .from('ritresultaten')
+                .delete()
+                .in('rit_id', ritIds); // 'in' verwijdert alles in de lijst met ID's
+
+            if (resError) throw resError;
+        }
+
+        // STAP 3: Nu kunnen de ritten veilig weg
+        const { error: rittenDeleteError } = await supabase
+            .from('ritten')
+            .delete()
+            .eq('wedstrijd_id', id);
+
+        if (rittenDeleteError) throw rittenDeleteError;
+
+        // STAP 4: Verwijder eventuele startlijst koppelingen (indien nodig)
+        // Bijv: .from('wedstrijd_deelnemers').delete().eq('wedstrijd_id', id)
+
+        // STAP 5: Als laatste de wedstrijd zelf
+        const { error: wedstrijdError } = await supabase
+            .from('wedstrijden')
+            .delete()
+            .eq('id', id);
+
+        if (wedstrijdError) throw wedstrijdError;
+
+        res.json({ success: true, message: "Alles is schoon verwijderd!" });
+    } catch (err) {
+        console.error("Fout bij cascade delete:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+//Wedstrijden importeren admin tab
+
+const createSlug = (text) => {
+    return text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-') // Vervang alles wat geen letter/getal is door -
+        .replace(/(^-|-$)+/g, '');    // Verwijder streepjes aan begin of eind
+};
+
+router.post('/import-volledige-wedstrijd', async (req, res) => {
+    const { url } = req.body;
+
+    try {
+        const structuur = await scraper.scrapeWedstrijdStructuur(url);
+
+        // STAP B: Maak de wedstrijd aan in de DB
+        const { data: wedstrijd, error: wErr } = await supabase
+            .from('wedstrijden')
+            .insert([{
+                naam: structuur.naam,
+                jaar: structuur.jaar,
+                pcs_url: url,
+                is_eendagskoers: structuur.is_eendagskoers,
+                aantal_ritten: structuur.ritten.length, // VOEG DEZE REGEL TOE
+                slug: createSlug(`${structuur.naam}-${structuur.jaar}`)
+            }])
+            .select()
+            .single();
+
+        if (wErr) throw wErr;
+
+        // STAP C: Voeg alle ritten toe
+        const rittenToInsert = structuur.ritten.map(r => {
+            // PCS datums zijn soms kaal (bijv. "19/04"). 
+            // PostgreSQL timestamp heeft een volwaardig formaat nodig: YYYY-MM-DD HH:mm:ss
+            const jaar = structuur.jaar || new Date().getFullYear();
+
+            // Simpele check: als r.datum iets bevat als "19/04", maken we er "2026-04-19" van
+            // Als r.datum al een ISO datum is, gebruiken we die.
+            let geformatteerdeDatum = r.datum;
+            if (r.datum && r.datum.includes('/')) {
+                const [dag, maand] = r.datum.split('/');
+                geformatteerdeDatum = `${jaar}-${maand}-${dag}`;
+            }
+
+            return {
+                wedstrijd_id: wedstrijd.id,
+                rit_nummer: r.rit_nummer,
+                naam: r.naam,
+                starttijd: geformatteerdeDatum ? `${geformatteerdeDatum} 10:00:00` : null, // Verander 'datum' naar 'starttijd'
+                gescrapet: false
+            };
+        });
+
+        const { error: rErr } = await supabase.from('ritten').insert(rittenToInsert);
+        if (rErr) throw rErr;
+        // STAP D: Haal de startlijst op (Hergebruik je bestaande functie!)
+        // Let op: controleer of je importStartlist-functie de url en wedstrijd.id accepteert
+        await scraper.importStartlist(url + "/startlist", wedstrijd.id);
+
+        res.json({
+            success: true,
+            message: `🏁 '${structuur.naam}' geïmporteerd! ${structuur.ritten.length} ritten aangemaakt en startlijst geladen.`
+        });
+
+    } catch (err) {
+        console.error("Super Import Fout:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 module.exports = router;

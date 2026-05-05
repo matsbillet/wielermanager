@@ -11,7 +11,7 @@ import {
     getAdminRitten,
     getAdminWedstrijden,
     importStartlist,
-    scrapeRit
+    scrapeRit, importVolledigeWedstrijd
 } from '../services/api';
 import { runRaceLifecycle } from "../services/api";
 
@@ -36,6 +36,7 @@ export default function AdminPage() {
     const [drafts, setDrafts] = useState([]);
     const [wedstrijden, setWedstrijden] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [pcsTourUrl, setPcsTourUrl] = useState('');
 
     // Filter state voor de ritten/scraper tab
     const [selectedWedstrijd, setSelectedWedstrijd] = useState('');
@@ -79,6 +80,64 @@ export default function AdminPage() {
             } else if (err.response?.status === 403) {
                 alert('Geen toegang. Alleen admins mogen deze pagina gebruiken.');
             }
+        }
+    };
+    //Wedstrijden scrape functie
+    const handleFullImport = async () => {
+        if (!pcsTourUrl) return alert("Plak eerst een PCS URL");
+
+        // Check of de URL wel van ProCyclingStats is
+        if (!pcsTourUrl.includes('procyclingstats.com')) {
+            return alert("Dit lijkt geen geldige PCS link te zijn.");
+        }
+        setLoading(true);
+        try {
+            const res = await importVolledigeWedstrijd(pcsTourUrl);
+
+            // Gebruik de message die de backend teruggeeft
+            alert(res.data.message || "Import succesvol!");
+
+            setPcsTourUrl(''); // Maak het veld leeg
+            await fetchData(); // Ververs de lijst met wedstrijden en ritten
+
+        } catch (err) {
+            console.error("Super Import Error:", err);
+            alert("Fout bij volledige import: " + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // verwijderen wedstrijden
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Weet je zeker dat je deze wedstrijd wilt verwijderen?")) return;
+
+        // Haal het token op (meestal opgeslagen bij login)
+        const token = localStorage.getItem('token');
+
+        try {
+            const response = await fetch(`http://localhost:3000/api/admin/wedstrijd/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    // Zorg dat je token meestuurt zodat de backend weet wie je bent
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                alert("Wedstrijd verwijderd!");
+                setWedstrijden(prev => prev.filter(w => w.id !== id));
+            } else {
+                // Dit is waar je nu de "Geen geldig token" melding ziet
+                alert("Fout bij verwijderen: " + (data.error || data.message || "Onbekende fout"));
+            }
+        } catch (err) {
+            console.error("Netwerkfout:", err);
+            alert("Kan geen verbinding maken met de server.");
         }
     };
 
@@ -253,7 +312,7 @@ export default function AdminPage() {
                 <div className="tab-menu">
                     <button className={`pill-btn ${activeTab === 'scraper' ? 'active' : ''}`} onClick={() => setActiveTab('scraper')}>🚀 Scraper</button>
                     <button className={`pill-btn ${activeTab === 'renners' ? 'active' : ''}`} onClick={() => setActiveTab('renners')}>🚴 Renners</button>
-                    <button className={`pill-btn ${activeTab === 'ritten' ? 'active' : ''}`} onClick={() => setActiveTab('ritten')}>📅 Ritten</button>
+                    <button className={`pill-btn ${activeTab === 'ritten' ? 'active' : ''}`} onClick={() => setActiveTab('ritten')}>🏆 Wedstrijden</button>
                     <button className={`pill-btn ${activeTab === 'drafts' ? 'active' : ''}`} onClick={() => setActiveTab('drafts')}>📝 Drafts</button>
                 </div>
             </div>
@@ -370,46 +429,68 @@ export default function AdminPage() {
                 </section>
             )}
 
-            {
-                activeTab === 'ritten' && (
-                    <section className="panel card">
-                        <h3>Etappes Beheren</h3>
-                        <div className="input-row" style={{ marginBottom: '20px' }}>
-                            <input type="number" placeholder="Rit nr" value={newRit.rit_nummer} onChange={(e) => setNewRit({ ...newRit, rit_nummer: e.target.value })} />
-                            <input type="text" placeholder="Naam" value={newRit.naam} onChange={(e) => setNewRit({ ...newRit, naam: e.target.value })} />
-                            <input type="date" value={newRit.datum} onChange={(e) => setNewRit({ ...newRit, datum: e.target.value })} />
-                            <button className="pill-btn" onClick={handleAddRit}>Toevoegen</button>
+            {activeTab === 'ritten' && (
+                <section className="panel card">
+                    <div className="admin-header-flex">
+                        <h3>🏆 Wedstrijden Beheren</h3>
+                    </div>
+
+                    <div className="super-import-container">
+                        <div className="super-import-header">
+
+                            <div>
+                                <h4>wedstrijd Import</h4>
+                                <p>Voer de PCS Overview URL in voor een volledige automatische configuratie.</p>
+                            </div>
                         </div>
 
-                        <div className="table-wrap">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Nr</th>
-                                        <th>Naam</th>
-                                        <th>Datum</th>
-                                        <th style={{ textAlign: 'right' }}>Actie</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {ritten.map((rit) => (
-                                        <tr key={rit.id}>
-                                            <td>{rit.rit_nummer}</td>
-                                            <td>{rit.naam}</td>
-                                            <td>{rit.datum}</td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <button className="admin-delete-icon-btn" onClick={() => deleteItem('ritten', rit.id)}>
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="super-import-actions">
+                            <input
+                                type="text"
+                                className="super-import-input"
+                                placeholder="https://www.procyclingstats.com/race/..."
+                                value={pcsTourUrl}
+                                onChange={(e) => setPcsTourUrl(e.target.value)}
+                            />
+                            <button
+                                className="super-import-btn"
+                                onClick={handleFullImport}
+                                disabled={loading}
+                            >
+                                {loading ? <span className="spinner"></span> : 'Start Import'}
+                            </button>
                         </div>
-                    </section>
-                )
-            }
+                    </div>
+
+                    <div className="table-wrap">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Naam</th>
+                                    <th>Jaar</th>
+                                    <th>Type</th>
+                                    <th style={{ textAlign: 'right' }}>Actie</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {wedstrijden.map((w) => (
+                                    <tr key={w.id}>
+                                        <td><strong>{w.naam}</strong></td>
+                                        <td>{w.jaar}</td>
+                                        <td>{w.is_eendagskoers ? '🏁 Eendagskoers' : '🚴 Meerdaagse'}</td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            {/* Je kunt hier een deleteWedstrijd functie koppelen */}
+                                            <button className="admin-delete-icon-btn" onClick={() => handleDelete(w.id)}>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
 
             {
                 activeTab === 'drafts' && (

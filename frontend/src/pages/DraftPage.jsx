@@ -406,7 +406,6 @@ export default function DraftPage() {
                         <div className="rider-body">
                             <div className="rider-topline">
                                 <div className="rider-name">{rider.naam}</div>
-                                <div className="rider-country">{rider.ploeg || "-"}</div>
                             </div>
 
                             <div className="rider-action-row">

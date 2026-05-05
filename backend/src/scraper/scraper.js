@@ -1,5 +1,7 @@
 const puppeteer = require('puppeteer');
 const { supabase } = require('../db/supabase');
+const axios = require('axios'); // Voeg deze regel toe
+const cheerio = require('cheerio'); // Deze hebben we ook nodig voor de wedstrijdstructuur
 
 async function getBrowser() {
     return await puppeteer.launch({
@@ -114,6 +116,150 @@ function haalJaarUitUrlOfTekst(url, tekst) {
 function bouwStageUrl(baseUrl, ritNummer) {
     const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
     return `${cleanBase}/stage-${ritNummer}`;
+}
+
+// wedstrijd scrapen in admin pagina
+
+async function scrapeWedstrijdStructuur(url) {
+    console.log(`🔎 Wedstrijdstructuur ophalen via Browser: ${url}`);
+
+    // Gebruik de getBrowser helper die je al hebt
+    const browser = await getBrowser();
+
+    try {
+        const page = await browser.newPage();
+
+        // Stel de User Agent in (belangrijk voor PCS)
+        await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        );
+
+        // Ga naar de URL en wacht tot de pagina geladen is
+        await page.goto(url, {
+            waitUntil: 'networkidle2',
+            timeout: 60000,
+        });
+
+        // Haal de data op uit de browser context
+        const structuur = await page.evaluate(() => {
+            // 1. Haal de titel van de wedstrijd op
+            const h1 = document.querySelector('h1')?.innerText || "";
+            const jaarMatch = h1.match(/\d{4}/);
+            const jaar = jaarMatch ? parseInt(jaarMatch[0]) : new Date().getFullYear();
+            const naam = h1.replace(/\d{4}/, '').trim();
+
+            // 2. Zoek alle etappe links
+            const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
+            const rittenMap = new Map();
+
+            stageLinks.forEach((link) => {
+                const href = link.getAttribute('href') || "";
+                const nrMatch = href.match(/stage-(\d+)/);
+                if (!nrMatch) return;
+
+                const rit_nummer = Number(nrMatch[1]);
+                if (!rittenMap.has(rit_nummer)) {
+                    rittenMap.set(rit_nummer, {
+                        rit_nummer,
+                        naam: link.innerText.trim() || `Etappe ${rit_nummer}`,
+                        // We proberen de datum uit de tabelrij te vissen
+                        datum: link.closest('tr')?.querySelector('.date')?.innerText?.trim() || null
+                    });
+                }
+            });
+
+            const ritten = Array.from(rittenMap.values());
+
+            return {
+                naam: naam || document.title.split(' 20')[0],
+                jaar: jaar,
+                ritten: ritten,
+                is_eendagskoers: ritten.length === 0 // Als er geen etappe-links zijn, is het een klassieker
+            };
+        });
+
+        // Extra check voor eendagskoersen (zoals Amstel Gold Race)
+        if (structuur.is_eendagskoers) {
+            structuur.ritten = [{
+                rit_nummer: 1,
+                naam: structuur.naam,
+                datum: null // Dit wordt later door je importStartlist-logica wel opgevangen of handmatig gezet
+            }];
+        }
+
+        await page.close();
+        return structuur;
+
+    } catch (err) {
+        console.error("Browser Scrape Fout:", err);
+        throw new Error("Kon wedstrijdstructuur niet scrapen via browser: " + err.message);
+    }
+}
+
+// import startlist
+async function importStartlist(pcsUrl, wedstrijdId) {
+    console.log(`🚴 Startlijst importeren van: ${pcsUrl}`);
+    const browser = await getBrowser();
+
+    try {
+        const page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+
+        // We gaan naar de startlist pagina
+        await page.goto(pcsUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+
+        const renners = await page.evaluate(() => {
+            const result = [];
+            // PCS startlijst heeft vaak een structuur met .team en .rider
+            const teamBlocks = document.querySelectorAll('.startlist-v4 > li');
+
+            teamBlocks.forEach(block => {
+                const teamNaam = block.querySelector('b a')?.innerText.trim() || "Onbekend Team";
+                const riderElements = block.querySelectorAll('ul li');
+
+                riderElements.forEach(r => {
+                    const naamElement = r.querySelector('a');
+                    if (naamElement) {
+                        result.push({
+                            naam: naamElement.innerText.trim(),
+                            team: teamNaam,
+                            // We geven elke renner een standaard prijs (bijv 5.0)
+                            prijs: 5.0
+                        });
+                    }
+                });
+            });
+            return result;
+        });
+
+        console.log(`✅ ${renners.length} renners gevonden op startlijst.`);
+
+        // Renners opslaan in de database
+        for (const renner of renners) {
+            // 1. Check of renner al bestaat of voeg toe (upsert op naam)
+            const { data: bestaandeRenner, error: rErr } = await supabase
+                .from('renners')
+                .upsert({
+                    naam: renner.naam,
+                    team: renner.team,
+                    prijs: renner.prijs
+                }, { onConflict: 'naam' })
+                .select()
+                .single();
+
+            if (rErr) continue;
+
+            // 2. Koppel renner aan de wedstrijd in de koppeltabel (bijv. wedstrijd_deelnemers)
+            // Heb je een tabel die bijhoudt welke renner in welke wedstrijd rijdt?
+            // Zo niet, dan sla je ze nu alleen op in de globale rennerslijst.
+        }
+
+        await page.close();
+        return { success: true, count: renners.length };
+    } catch (err) {
+        console.error("Fout bij startlijst import:", err);
+        throw err;
+    }
 }
 
 /**
@@ -451,4 +597,6 @@ module.exports = {
     scrapeStagesForRace,
     scrapeFullRaceInfo,
     scrapeRitDetails,
+    scrapeWedstrijdStructuur,
+    importStartlist
 };

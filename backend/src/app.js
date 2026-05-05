@@ -30,6 +30,7 @@ const wedstrijdenRoutes = require('./routes/wedstrijden');
 const rittenRoutes = require('./routes/ritten');
 const scoresRoutes = require('./routes/scores');
 const competitieRoutes = require('./routes/competitie');
+const dashboardRoutes = require('./routes/dashboard');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -41,6 +42,7 @@ app.use('/api/wedstrijden', wedstrijdenRoutes);
 app.use('/api/ritten', rittenRoutes);
 app.use('/api/scores', scoresRoutes);
 app.use('/api/competitie', competitieRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get('/', (req, res) => {
     res.json({ bericht: 'Wielermanager API werkt!' });
