@@ -54,8 +54,15 @@ export default function RacesPage() {
     if (veiligeSlug.includes("vuelta"))
       return { color: "#ed1c24", img: vueltaImg, label: "Vuelta" };
 
-    // 👇 AANGEPAST
     return { color: "#cccccc", img: klassiekerImg, label: "Klassieker" };
+  };
+
+  const getRaceOrder = (slug = "") => {
+    const veiligeSlug = slug?.toLowerCase() || "";
+    if (veiligeSlug.includes("giro")) return 0;
+    if (veiligeSlug.includes("tour")) return 1;
+    if (veiligeSlug.includes("vuelta")) return 2;
+    return 3;
   };
 
   if (loading) return <div className="loading">Laden van wedstrijden...</div>;
@@ -71,9 +78,19 @@ export default function RacesPage() {
       {melding && <div className="error-msg">{melding}</div>}
 
       {sortedYears.map((jaar) => (
-        <div key={jaar} className="year-section" style={{ marginBottom: "4rem" }}>
+        <div
+          key={jaar}
+          className="year-section"
+          style={{ marginBottom: "4rem" }}
+        >
           {/* Jaar Header */}
-          <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginBottom: "1.5rem",
+            }}
+          >
             <h2
               style={{
                 fontSize: "1.8rem",
@@ -102,83 +119,91 @@ export default function RacesPage() {
               gap: "1.5rem",
             }}
           >
-            {groupedRaces[jaar].map((wedstrijd) => {
-              const theme = getRaceTheme(wedstrijd.slug);
+            {groupedRaces[jaar]
+              .slice()
+              .sort((a, b) => getRaceOrder(a.slug) - getRaceOrder(b.slug))
+              .map((wedstrijd) => {
+                const theme = getRaceTheme(wedstrijd.slug);
 
-              return (
-                <Link
-                  key={wedstrijd.id}
-                  to={wedstrijd.slug ? `/races/${wedstrijd.slug}` : "#"}
-                  className="race-card card"
-                  style={{
-                    textDecoration: "none",
-                    color: "inherit",
-                    borderTop: `4px solid ${theme.color}`,
-                    overflow: "hidden",
-                    transition: "transform 0.2s",
-                  }}
-                  onMouseOver={(e) =>
-                    (e.currentTarget.style.transform = "scale(1.02)")
-                  }
-                  onMouseOut={(e) =>
-                    (e.currentTarget.style.transform = "scale(1)")
-                  }
-                >
-                  <div
-                    className="race-card-image"
+                return (
+                  <Link
+                    key={wedstrijd.id}
+                    to={wedstrijd.slug ? `/races/${wedstrijd.slug}` : "#"}
+                    className="race-card card"
                     style={{
-                      height: "160px",
+                      textDecoration: "none",
+                      color: "inherit",
+                      borderTop: `4px solid ${theme.color}`,
                       overflow: "hidden",
-                      position: "relative",
+                      transition: "transform 0.2s",
                     }}
+                    onMouseOver={(e) =>
+                      (e.currentTarget.style.transform = "scale(1.02)")
+                    }
+                    onMouseOut={(e) =>
+                      (e.currentTarget.style.transform = "scale(1)")
+                    }
                   >
-                    <img
-                      src={theme.img}
-                      alt={wedstrijd.naam}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
-
                     <div
+                      className="race-card-image"
                       style={{
-                        position: "absolute",
-                        top: "10px",
-                        right: "10px",
-                        backgroundColor: theme.color,
-                        color: "#000",
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        fontSize: "0.8rem",
-                        fontWeight: "bold",
+                        height: "160px",
+                        overflow: "hidden",
+                        position: "relative",
                       }}
                     >
-                      {theme.label}
-                    </div>
-                  </div>
+                      <img
+                        src={theme.img}
+                        alt={wedstrijd.naam}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
 
-                  <div className="race-card-body" style={{ padding: "1.2rem" }}>
-                    <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.2rem" }}>
-                      {wedstrijd.naam}
-                    </h3>
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                          backgroundColor: theme.color,
+                          color: "#000",
+                          padding: "2px 8px",
+                          borderRadius: "4px",
+                          fontSize: "0.8rem",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {theme.label}
+                      </div>
+                    </div>
 
                     <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        opacity: 0.7,
-                        fontSize: "0.9rem",
-                      }}
+                      className="race-card-body"
+                      style={{ padding: "1.2rem" }}
                     >
-                      <span>🏁 {wedstrijd.aantal_ritten} etappes</span>
-                      <span>📅 {wedstrijd.jaar}</span>
+                      <h3
+                        style={{ margin: "0 0 0.5rem 0", fontSize: "1.2rem" }}
+                      >
+                        {wedstrijd.naam}
+                      </h3>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          opacity: 0.7,
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        <span>🏁 {wedstrijd.aantal_ritten} etappes</span>
+                        <span>📅 {wedstrijd.jaar}</span>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
+                  </Link>
+                );
+              })}
           </section>
         </div>
       ))}
