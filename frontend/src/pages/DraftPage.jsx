@@ -421,53 +421,6 @@ export default function DraftPage() {
                     </article>
                 ))}
             </section>
-
-            <div className="section-head teams-section-head">
-                <h2>Gekozen Teams</h2>
-            </div>
-
-            <section className="teams-grid">
-                {spelers.map((speler) => {
-                    const spelerTeam = teams[speler.naam] || [];
-
-                    return (
-                        <div key={speler.id} className="card team-card">
-                            <div className="team-card-header">Team {speler.naam}</div>
-
-                            <div className="team-card-body">
-                                <div className="team-section-title">Basis (R1-12)</div>
-
-                                <ul className="team-list">
-                                    {spelerTeam
-                                        .filter((renner) => !renner.isBank)
-                                        .map((renner, i) => (
-                                            <li key={i} className="team-list-item">
-                                                <span className="yellow">R{renner.ronde}</span>
-                                                {renner.renner}
-                                            </li>
-                                        ))}
-                                </ul>
-
-                                <div className="team-section-title">De Bank (R13-18)</div>
-
-                                <ul className="team-list">
-                                    {spelerTeam
-                                        .filter((renner) => renner.isBank)
-                                        .map((renner, i) => (
-                                            <li key={i} className="team-list-item team-list-item-bank">
-                                                R{renner.ronde}: {renner.renner}
-                                            </li>
-                                        ))}
-                                </ul>
-
-                                {spelerTeam.length === 0 && (
-                                    <div className="small-muted">Nog geen renners gekozen.</div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-            </section>
         </div>
-    );
+    )
 }
