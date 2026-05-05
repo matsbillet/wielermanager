@@ -18,8 +18,6 @@ export const loginGebruiker = (data) => api.post("/auth/login", data);
 export const registreerGebruiker = (data) => api.post("/auth/register", data);
 
 export const syncStartlijst = (wedstrijdId) => {
-    // We gebruiken 'api' (de instance die je bovenin hebt gemaakt)
-    // Deze weet al dat de basis URL "http://localhost:3000/api" is.
     return api.post(`/wedstrijden/${wedstrijdId}/sync-startlijst`);
 };
 export const getScoreboard = (competitieId) => api.get(`/scores/competitie/${competitieId}`);

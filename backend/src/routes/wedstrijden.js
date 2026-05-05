@@ -158,45 +158,112 @@ router.post('/:id/sync-startlijst', async (req, res) => {
     const { id } = req.params;
 
     try {
-        // 1. Haal de wedstrijd-URL op uit de DB
-        const { data: wedstrijd, error } = await supabase
+        const { data: wedstrijd, error: wedstrijdError } = await supabase
             .from('wedstrijden')
-            .select('pcs_url, id')
+            .select('*')
             .eq('id', id)
             .single();
 
-        if (error || !wedstrijd) return res.status(404).json({ error: "Wedstrijd niet gevonden" });
+        if (wedstrijdError || !wedstrijd) {
+            return res.status(404).json({
+                error: 'Wedstrijd niet gevonden.',
+            });
+        }
 
-        console.log(`🔄 Sync startlijst gestart voor: ${wedstrijd.pcs_url}`);
+        if (!wedstrijd.pcs_url) {
+            return res.status(400).json({
+                error: 'Deze wedstrijd heeft geen PCS URL.',
+            });
+        }
 
-        // 2. Gebruik de bestaande scraper om de info + deelnemers op te halen
+        console.log(`🔄 Startlijst sync gestart voor ${wedstrijd.naam}: ${wedstrijd.pcs_url}`);
+
         const raceData = await scraper.scrapeFullRaceInfo(wedstrijd.pcs_url);
 
-        if (!raceData.deelnemers || raceData.deelnemers.length === 0) {
-            return res.status(400).json({ error: "Geen deelnemers gevonden op PCS. Is de startlijst al bekend?" });
+        if (!raceData?.deelnemers || raceData.deelnemers.length === 0) {
+            return res.status(400).json({
+                error: 'Geen deelnemers gevonden. Is de startlijst al bekend op PCS?',
+            });
         }
 
-        // 3. Renners opslaan in de 'renners' tabel (indien nieuw)
-        for (const renner of raceData.deelnemers) {
-            await supabase.from('renners').upsert({
-                naam: renner.naam,
-                slug: renner.slug,
-                // ploeg: renner.ploeg // Optioneel als je dit toch wilt opslaan
-            }, { onConflict: 'slug' });
+        const { data: opgeslagenRenners, error: rennersError } = await supabase
+            .from('renners')
+            .upsert(
+                raceData.deelnemers.map((renner) => ({
+                    naam: renner.naam,
+                    slug: renner.slug,
+                    ploeg: renner.ploeg || null,
+                })),
+                { onConflict: 'slug' }
+            )
+            .select('id, slug');
+
+        if (rennersError) throw rennersError;
+
+        const deelnemersRows = raceData.deelnemers
+            .map((renner) => {
+                const opgeslagenRenner = opgeslagenRenners.find(
+                    (item) => item.slug === renner.slug
+                );
+
+                if (!opgeslagenRenner) return null;
+
+                return {
+                    wedstrijd_id: Number(id),
+                    renner_id: opgeslagenRenner.id,
+                    ploeg: renner.ploeg || null,
+                    status: 'active',
+                };
+            })
+            .filter(Boolean);
+
+        const { error: deelnemersError } = await supabase
+            .from('wedstrijd_deelnemers')
+            .upsert(deelnemersRows, {
+                onConflict: 'wedstrijd_id,renner_id',
+            });
+
+        if (deelnemersError) throw deelnemersError;
+
+        if (raceData.ritten?.length > 0) {
+            const rittenRows = raceData.ritten.map((rit) => ({
+                wedstrijd_id: Number(id),
+                rit_nummer: rit.rit_nummer,
+                naam: rit.naam,
+                starttijd: rit.starttijd || null,
+            }));
+
+            const { error: rittenError } = await supabase
+                .from('ritten')
+                .upsert(rittenRows, {
+                    onConflict: 'wedstrijd_id,rit_nummer',
+                });
+
+            if (rittenError) throw rittenError;
         }
 
-        // 4. (Optioneel) Koppeling maken met de competitie/sessie
-        // Hier kun je logica toevoegen om deze renners direct aan de draft-pool toe te voegen
+        const { error: wedstrijdUpdateError } = await supabase
+            .from('wedstrijden')
+            .update({
+                aantal_ritten: raceData.aantal_ritten || wedstrijd.aantal_ritten,
+                start_datum: raceData.start_datum || wedstrijd.start_datum,
+                eind_datum: raceData.eind_datum || wedstrijd.eind_datum,
+            })
+            .eq('id', id);
+
+        if (wedstrijdUpdateError) throw wedstrijdUpdateError;
 
         res.json({
             success: true,
-            message: `${raceData.deelnemers.length} renners gesynchroniseerd!`,
-            count: raceData.deelnemers.length
+            message: `${deelnemersRows.length} renners gekoppeld aan ${wedstrijd.naam}.`,
+            deelnemers: deelnemersRows.length,
+            ritten: raceData.ritten?.length || 0,
         });
-
     } catch (err) {
-        console.error("❌ Sync fout:", err);
-        res.status(500).json({ error: err.message });
+        console.error('❌ Sync startlijst fout:', err);
+        res.status(500).json({
+            error: err.message,
+        });
     }
 });
 

@@ -11,7 +11,8 @@ import {
     getAdminRitten,
     getAdminWedstrijden,
     importStartlist,
-    scrapeRit, importVolledigeWedstrijd
+    scrapeRit, importVolledigeWedstrijd,
+    syncStartlijst
 } from '../services/api';
 import { runRaceLifecycle } from "../services/api";
 
@@ -108,6 +109,21 @@ export default function AdminPage() {
         }
     };
 
+    async function handleSyncStartlijst(wedstrijdId) {
+        try {
+            setLoading(true);
+            const response = await syncStartlijst(wedstrijdId);
+
+            alert(response.data.message || "Startlijst gesynchroniseerd");
+
+            await fetchData(); // refresh admin lijst
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.error || "Sync mislukt");
+        } finally {
+            setLoading(false);
+        }
+    }
     // verwijderen wedstrijden
 
     const handleDelete = async (id) => {
@@ -497,7 +513,30 @@ export default function AdminPage() {
                     <section className="panel card">
                         <div className="admin-header-flex" style={{ marginBottom: '20px' }}>
                             <h3>Actieve Drafts ({drafts.length})</h3>
+
+                            <select
+                                className="admin-select-custom"
+                                value={selectedWedstrijd}
+                                onChange={(e) => setSelectedWedstrijd(e.target.value)}
+                                style={{ marginLeft: "1rem" }}
+                            >
+                                <option value="">Kies wedstrijd</option>
+                                {wedstrijden.map((w) => (
+                                    <option key={w.id} value={w.id}>
+                                        {w.naam} ({w.jaar})
+                                    </option>
+                                ))}
+                            </select>
                             <button className="pill-btn" onClick={handleDeleteAllDrafts} style={{ background: 'var(--red)', color: 'white' }}>🗑️ Alles Leegmaken</button>
+                            <div style={{ marginBottom: "1rem" }}>
+                                <button
+                                    className="pill-btn"
+                                    onClick={() => handleSyncStartlijst(selectedWedstrijd)}
+                                    disabled={!selectedWedstrijd}
+                                >
+                                    Sync startlijst voor deze koers
+                                </button>
+                            </div>
                         </div>
                         <div className="table-wrap" style={{ maxHeight: '500px' }}>
                             <table className="table">
@@ -517,6 +556,7 @@ export default function AdminPage() {
                                                 <button className="admin-delete-icon-btn" onClick={() => deleteDraft(d.id)}>
                                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
                                                 </button>
+
                                             </td>
                                         </tr>
                                     ))}
