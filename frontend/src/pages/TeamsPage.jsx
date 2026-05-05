@@ -94,7 +94,7 @@ export default function TeamsPage() {
                         // Geen 'state' bagage meer, we bouwen gewoon de schone URL op
                         onClick={() => navigate(`/teams/${competitieId}/${sessieId}/${speler.id}`)}
                     >
-                        <h2>{speler.naam}</h2>
+                        <h2 className="player-name">{speler.naam}</h2>
                         <p>Bekijk team</p>
                     </button>
                 ))}

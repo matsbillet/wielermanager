@@ -1456,6 +1456,10 @@ textarea:focus {
     background: transparent;
 }
 
+.player-name {
+    text-transform: capitalize;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 1100px) {
