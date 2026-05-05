@@ -197,9 +197,8 @@ async function importStartlist(pcsUrl, wedstrijdId) {
     // 1. Zorg voor een schone URL zonder dubbele slashes
     let cleanUrl = pcsUrl.replace(/([^:]\/)\/+/g, "$1");
 
-    // 2. Logica voor eendagskoersen: check of we naar /result moeten ipv /startlist
-    // Soms is een race al gereden en is de 'startlist' pagina niet meer de beste bron
-    console.log(`🚴 Startlijst/Deelnemers importeren van: ${cleanUrl}`);
+    console.log(`\n--- 🏁 START STARTLIJST IMPORT ---`);
+    console.log(`🔗 Bron: ${cleanUrl}`);
 
     const browser = await getBrowser();
 
@@ -209,52 +208,94 @@ async function importStartlist(pcsUrl, wedstrijdId) {
 
         await page.goto(cleanUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        const rennersRaw = await page.evaluate(() => {
+        const scrapeData = await page.evaluate(() => {
             const list = [];
-            // We zoeken alle links naar renners
-            const riderLinks = Array.from(document.querySelectorAll('a[href^="rider/"]'));
 
-            riderLinks.forEach((a) => {
+            // In scraper.js binnen importStartlist -> page.evaluate
+            const infoData = (() => {
+                const bodyText = document.body.innerText;
+                // Zoek naar "Start time: 10:30" of "Starttime: 10:30"
+                const timeMatch = bodyText.match(/(?:Start\s*time|Starttime):\s*([0-9]{1,2}:[0-9]{2})/i);
+                return {
+                    starttijd: timeMatch ? timeMatch[1] : null
+                };
+            })();
+
+            // Zoek de hoofdcontainer om de footer te vermijden
+            const mainContent = document.querySelector('.page-content, .main, #main') || document.body;
+
+            // We pakken ALLE rider links op de pagina voor de log statistieken
+            const allRiderLinks = Array.from(document.querySelectorAll('a[href^="rider/"]'));
+            let footerSkipped = 0;
+            let contextSkipped = 0;
+
+            allRiderLinks.forEach((a) => {
                 const naam = a.innerText.trim();
                 const href = a.getAttribute('href');
 
-                if (naam && naam.length > 3 && href && a.closest('li, tr, .rider-line')) {
-                    // CRUCIAL: Pak de slug direct uit de URL van PCS
-                    // Voorbeeld: "rider/sandy-dujardin" -> "sandy-dujardin"
-                    const slug = href.replace('rider/', '').split('/')[0].trim();
+                // Check 1: Zit het in de footer? (De "Popular Riders" valkuil)
+                const isFooter = a.closest('footer, .footer, .site-footer, .rn-footer');
+                if (isFooter) {
+                    footerSkipped++;
+                    return;
+                }
 
+                // Check 2: Heeft het de juiste context? (Moet in een lijst of tabel staan)
+                const hasContext = a.closest('li, tr, .rider-line, .startlist-v4');
+                if (!hasContext) {
+                    contextSkipped++;
+                    return;
+                }
+
+                if (naam && naam.length > 3 && href) {
+                    const slug = href.replace('rider/', '').split('/')[0].trim();
                     list.push({ naam, slug });
                 }
             });
 
-            // Verwijder dubbelen op basis van slug
-            return Array.from(new Map(list.map((r) => [r.slug, r])).values());
+            // Ontdubbelen op basis van slug
+            const uniqueList = Array.from(new Map(list.map((r) => [r.slug, r])).values());
+
+            return {
+                totaalLinksGevonden: allRiderLinks.length,
+                footerGenegeerd: footerSkipped,
+                geenContextGenegeerd: contextSkipped,
+                finaleLijst: uniqueList
+            };
         });
 
-        if (rennersRaw.length > 0) {
-            console.log(`💾 ${rennersRaw.length} renners gevonden. Controleren op slugs...`);
+        // --- Console Logs voor validatie ---
+        console.log(`📊 Scraper Analyse voor deze pagina:`);
+        console.log(`   - Totaal 'rider/' links op de hele pagina: ${scrapeData.totaalLinksGevonden}`);
+        console.log(`   - ❌ Genegeerd wegens footer (o.a. vrouwen): ${scrapeData.footerGenegeerd}`);
+        console.log(`   - ❌ Genegeerd wegens gebrek aan context (menu/sidebar): ${scrapeData.geenContextGenegeerd}`);
+        console.log(`   - ✅ Geldige renners gevonden voor import: ${scrapeData.finaleLijst.length}`);
 
-            // We gebruiken de createSlug helper voor het geval dat, 
-            // maar de 'slug' uit de URL is leidend voor de match
-            const finaleRenners = rennersRaw.map(r => ({
-                naam: r.naam,
-                slug: r.slug // Gebruik de PCS slug!
-            }));
+        if (scrapeData.finaleLijst.length > 0) {
+            console.log(`💾 Bezig met verzenden van ${scrapeData.finaleLijst.length} renners naar database...`);
 
             const { error: upsertError } = await supabase
                 .from('renners')
-                .upsert(finaleRenners, {
-                    onConflict: 'naam',
-                    ignoreDuplicates: false // Update de slug als de naam al bestond
+                .upsert(scrapeData.finaleLijst, {
+                    // WE GEBRUIKEN NU SLUG ALS CONFLICT CHECK
+                    onConflict: 'slug',
+                    ignoreDuplicates: false
                 });
 
-            if (upsertError) throw upsertError;
+            if (upsertError) {
+                console.error("❌ Database Upsert Fout:", upsertError.message);
+                throw upsertError;
+            }
+            console.log(`✨ Database succesvol bijgewerkt.`);
         }
 
+        console.log(`--- 🏁 EINDE IMPORT ---\n`);
+
         await page.close();
-        return { success: true, count: rennersRaw.length };
+        return { success: true, count: scrapeData.finaleLijst.length };
+
     } catch (err) {
-        console.error("Fout bij startlijst import:", err);
+        console.error("❌ Fout bij startlijst import:", err);
         throw err;
     }
 }

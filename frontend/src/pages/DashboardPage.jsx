@@ -12,6 +12,18 @@ export default function DashboardPage() {
     });
 
     const [loading, setLoading] = useState(true);
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        function handleResize() {
+            setIsMobile(window.innerWidth <= 768);
+        }
+
+        window.addEventListener("resize", handleResize);
+        handleResize();
+
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     useEffect(() => {
         async function laadDashboard() {
@@ -31,13 +43,42 @@ export default function DashboardPage() {
     if (loading) return <div>Dashboard laden...</div>;
 
     return (
-        <div className="dashboard-container">
-            <div className="section-head">
-                <h1>Welkom terug, {stats.naam}! 👋</h1>
-                <p style={{ opacity: 0.7 }}>Hier is de status van je wieler-imperium.</p>
+        <div
+            className="dashboard-container"
+            style={{
+                maxWidth: "1280px",
+                margin: "0 auto",
+                padding: isMobile ? "1rem" : "6rem 2rem 2rem",
+            }}
+        >
+            <div
+                className="section-head"
+                style={{
+                    display: isMobile ? "block" : "flex",
+                }}
+            >
+                <h1
+                    style={{
+                        fontSize: isMobile ? "1.5rem" : undefined,
+                        lineHeight: 1.2,
+                    }}
+                >
+                    Welkom terug, {stats.naam}! 👋
+                </h1>
+
+                <p style={{ opacity: 0.7 }}>
+                    Hier is de status van je wieler-imperium.
+                </p>
             </div>
 
-            <div className="dashboard-stats-grid">
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+                    gap: "1.5rem",
+                    marginBottom: isMobile ? "2rem" : "4rem",
+                }}
+            >
                 <StatCard
                     title="Totaal Punten"
                     value={stats.totaalPunten}
@@ -60,15 +101,39 @@ export default function DashboardPage() {
                 />
             </div>
 
-            <div className="dashboard-bottom-grid">
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr",
+                    gap: isMobile ? "2rem" : "2rem",
+                    alignItems: "start",
+                }}
+            >
                 <section>
                     <div className="section-head">
                         <h2>Snelle Acties</h2>
                     </div>
 
-                    <div className="dashboard-actions-grid">
-                        <ActionLink to="/teams/1" title="Mijn Team" desc="Bekijk je team" icon="👥" />
-                        <ActionLink to="/races" title="Kalender" desc="Bekijk alle ritten" icon="📅" />
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                            gap: "1rem",
+                        }}
+                    >
+                        <ActionLink
+                            to="/teams/1"
+                            title="Mijn Team"
+                            desc="Bekijk je team"
+                            icon="👥"
+                        />
+
+                        <ActionLink
+                            to="/races"
+                            title="Kalender"
+                            desc="Bekijk alle ritten"
+                            icon="📅"
+                        />
                     </div>
                 </section>
 
@@ -77,7 +142,15 @@ export default function DashboardPage() {
                         <h2>Live Status</h2>
                     </div>
 
-                    <div className="card dashboard-live-card">
+                    <div
+                        className="card"
+                        style={{
+                            display: "flex",
+                            width: "100%",
+                            minWidth: 0,
+                            padding: "1.25rem",
+                        }}
+                    >
                         <CountdownTimer />
                     </div>
                 </aside>
@@ -88,7 +161,14 @@ export default function DashboardPage() {
 
 function StatCard({ title, value, icon, color }) {
     return (
-        <div className="card stat-card" style={{ borderLeft: `4px solid ${color}` }}>
+        <div
+            className="card"
+            style={{
+                borderLeft: `4px solid ${color}`,
+                padding: "1.5rem",
+                minWidth: 0,
+            }}
+        >
             <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>{icon}</div>
             <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>{title}</div>
             <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>{value}</div>
@@ -98,9 +178,22 @@ function StatCard({ title, value, icon, color }) {
 
 function ActionLink({ to, title, desc, icon }) {
     return (
-        <Link to={to} className="card action-card dashboard-action-card">
-            <div style={{ fontSize: "1.5rem" }}>{icon}</div>
-            <div>
+        <Link
+            to={to}
+            className="card action-card"
+            style={{
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
+                padding: "1rem",
+                width: "100%",
+                minWidth: 0,
+            }}
+        >
+            <div style={{ fontSize: "1.5rem", flexShrink: 0 }}>{icon}</div>
+
+            <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: "bold", color: "#fff" }}>{title}</div>
                 <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>{desc}</div>
             </div>

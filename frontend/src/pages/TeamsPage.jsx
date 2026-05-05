@@ -68,25 +68,21 @@ export default function TeamsPage() {
             {/* DEADLINES OP DE OVERZICHTSPAGINA */}
             {deadlines && (
                 <div className="card" style={{ display: 'flex', gap: '20px', marginBottom: '25px', flexWrap: 'wrap', padding: '1.5rem' }}>
-                    {deadlines.groteStart && (
-                        <div style={{ flex: '1', minWidth: '250px' }}>
-                            <CountdownTimer
-                                customTargetDate={deadlines.groteStart}
-                                customTitel="Deadline Basisteam"
-                                customSubTitel="Start van Rit 1"
-                            />
-                        </div>
-                    )}
+                    <div style={{ flex: '1', minWidth: '250px' }}>
+                        <CountdownTimer
+                            customTargetDate={deadlines.groteStart} // Kan undefined zijn
+                            customTitel="Deadline Basisteam"
+                            customSubTitel="Start van Rit 1"
+                        />
+                    </div>
 
-                    {deadlines.volgendeRit && (
-                        <div style={{ flex: '1', minWidth: '250px', borderLeft: '1px solid #334155', paddingLeft: '20px' }}>
-                            <CountdownTimer
-                                customTargetDate={deadlines.volgendeRit.starttijd}
-                                customTitel="Deadline Wissel"
-                                customSubTitel={deadlines.volgendeRit.naam}
-                            />
-                        </div>
-                    )}
+                    <div style={{ flex: '1', minWidth: '250px', borderLeft: '1px solid #334155', paddingLeft: '20px' }}>
+                        <CountdownTimer
+                            customTargetDate={deadlines.volgendeRit?.starttijd} // Gebruik optional chaining (?)
+                            customTitel="Deadline Wissel"
+                            customSubTitel={deadlines.volgendeRit?.naam}
+                        />
+                    </div>
                 </div>
             )}
 
