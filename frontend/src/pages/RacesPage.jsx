@@ -6,7 +6,7 @@ import { getWedstrijden } from "../services/api";
 import giroImg from "../img/amandine-veyron-AH7hRkXMF0E-unsplash.jpg";
 import tourImg from "../img/chris-karidis-nnzkZNYWHaU-unsplash.jpg";
 import vueltaImg from "../img/dimitry-b-uDl5opHop7E-unsplash.jpg";
-import klassiekerImg from "../img/horstNieuwrode.png";
+import klassiekerImg from "../img/horst.png";
 
 export default function RacesPage() {
   const [wedstrijden, setWedstrijden] = useState([]);
