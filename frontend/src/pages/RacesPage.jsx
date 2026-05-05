@@ -6,6 +6,7 @@ import { getWedstrijden } from "../services/api";
 import giroImg from "../img/amandine-veyron-AH7hRkXMF0E-unsplash.jpg";
 import tourImg from "../img/chris-karidis-nnzkZNYWHaU-unsplash.jpg";
 import vueltaImg from "../img/dimitry-b-uDl5opHop7E-unsplash.jpg";
+import klassiekerImg from "../img/horstNieuwrode.png";
 
 export default function RacesPage() {
   const [wedstrijden, setWedstrijden] = useState([]);
@@ -46,12 +47,15 @@ export default function RacesPage() {
 
     if (veiligeSlug.includes("giro"))
       return { color: "#ff69b4", img: giroImg, label: "Giro" };
+
     if (veiligeSlug.includes("tour"))
       return { color: "#ffe100", img: tourImg, label: "Tour" };
+
     if (veiligeSlug.includes("vuelta"))
       return { color: "#ed1c24", img: vueltaImg, label: "Vuelta" };
 
-    return { color: "#cccccc", img: tourImg, label: "Klassieker" };
+    // 👇 AANGEPAST
+    return { color: "#cccccc", img: klassiekerImg, label: "Klassieker" };
   };
 
   if (loading) return <div className="loading">Laden van wedstrijden...</div>;
@@ -67,19 +71,9 @@ export default function RacesPage() {
       {melding && <div className="error-msg">{melding}</div>}
 
       {sortedYears.map((jaar) => (
-        <div
-          key={jaar}
-          className="year-section"
-          style={{ marginBottom: "4rem" }}
-        >
+        <div key={jaar} className="year-section" style={{ marginBottom: "4rem" }}>
           {/* Jaar Header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "1.5rem",
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem" }}>
             <h2
               style={{
                 fontSize: "1.8rem",
@@ -90,14 +84,14 @@ export default function RacesPage() {
             >
               {jaar}
             </h2>
+
             <div
               style={{
                 flexGrow: 1,
-                h: "1px",
                 height: "2px",
                 backgroundColor: "rgba(255,255,255,0.1)",
               }}
-            ></div>
+            />
           </div>
 
           <section
@@ -119,7 +113,7 @@ export default function RacesPage() {
                   style={{
                     textDecoration: "none",
                     color: "inherit",
-                    borderTop: `4px solid ${theme.color}`, // Kleurstrip bovenaan
+                    borderTop: `4px solid ${theme.color}`,
                     overflow: "hidden",
                     transition: "transform 0.2s",
                   }}
@@ -147,6 +141,7 @@ export default function RacesPage() {
                         objectFit: "cover",
                       }}
                     />
+
                     <div
                       style={{
                         position: "absolute",
@@ -168,6 +163,7 @@ export default function RacesPage() {
                     <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.2rem" }}>
                       {wedstrijd.naam}
                     </h3>
+
                     <div
                       style={{
                         display: "flex",
