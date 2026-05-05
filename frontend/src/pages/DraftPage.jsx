@@ -414,7 +414,7 @@ export default function DraftPage() {
                                     onClick={() => handleKiesRenner(rider.id, rider.naam)}
                                     disabled={loading || draftKlaar || !actieveSpeler}
                                 >
-                                    {loading ? "Bezig..." : `Kies ${rider.naam}`}
+                                    {loading ? "Bezig..." : `Kies `}
                                 </button>
                             </div>
                         </div>
