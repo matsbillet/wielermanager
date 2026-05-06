@@ -27,10 +27,10 @@ function Layout() {
         <div className="app-shell">
             {!isLoginPage && token && (
                 <header className="topbar">
-                    <div className="brand">
+                    <NavLink to="/dashboard" className="brand">
                         <img src={logo} alt="Wielermanager logo" className="logo" />
                         <span className="brand-text">WIELER MANAGER</span>
-                    </div>
+                    </NavLink>
 
                     <nav className="main-nav">
                         <NavLink to="/dashboard">Dashboard</NavLink>
