@@ -95,14 +95,10 @@ router.post('/import-volledige-wedstrijd', async (req, res) => {
     const { url } = req.body;
 
     try {
+        // 1. Haal de globale structuur op (Naam, Jaar, Start/Eind datum)
         const structuur = await scraper.scrapeWedstrijdStructuur(url);
-        const jaar = structuur.jaar || new Date().getFullYear();
 
-        // Voorbereiden van globale datums voor stap 2 en stap 4
-        const wedstrijdStart = formatDate(structuur.startDate, jaar);
-        const wedstrijdEind = formatDate(structuur.endDate, jaar);
-
-        // 2. Maak de wedstrijd aan
+        // 2. Wedstrijd opslaan in de database
         const { data: wedstrijd, error: wErr } = await supabase
             .from('wedstrijden')
             .insert([{
@@ -110,31 +106,31 @@ router.post('/import-volledige-wedstrijd', async (req, res) => {
                 jaar: structuur.jaar,
                 pcs_url: url,
                 is_eendagskoers: structuur.is_eendagskoers,
-                aantal_ritten: structuur.ritten.length,
+                aantal_ritten: structuur.is_eendagskoers ? 1 : structuur.ritten.length,
                 slug: createSlug(`${structuur.naam}-${structuur.jaar}`),
-                start_datum: structuur.startDate, // Direct "2025-03-10"
-                eind_datum: structuur.endDate     // Direct "2025-03-16"
-            }])
+                start_datum: structuur.startDate, // Tabel kolom: begin_datum
+                eind_datum: structuur.endDate     // Tabel kolom: eind_datum
+            }], { onConflict: 'slug' })
             .select().single();
 
         if (wErr) throw wErr;
 
-        // 3. Detailpagina voor STARTTIJD
-        let detailUrl = structuur.is_eendagskoers
+        // 3. Starttijd bepalen (we kijken op de eerste etappe of resultatenpagina)
+        let tijdUrl = structuur.is_eendagskoers
             ? (url.endsWith('/') ? `${url}result` : `${url}/result`)
             : (url.endsWith('/') ? `${url}stage-1` : `${url}/stage-1`);
 
-        const startResult = await scraper.importStartlist(detailUrl, wedstrijd.id);
+        // We gebruiken je bestaande importStartlist die al een gevondenTijd teruggeeft
+        const startResult = await scraper.importStartlist(tijdUrl, wedstrijd.id);
         const gevondenTijd = startResult.gevondenTijd || "11:00";
 
-        // 4. Voeg ritten toe (met harde datum-check)
+        // 4. Ritten voorbereiden en opslaan
         const rittenToInsert = structuur.ritten.map(r => {
-            // Gebruik de rit-specifieke datum (10/03) als die er is, 
-            // anders vallen we terug op de startDate van de wedstrijd.
+            // Datum parseren: PCS geeft vaak "10/03" in de tabel
             let ritDatum = structuur.startDate;
-
             if (r.datum && r.datum.includes('/')) {
                 const [dag, maand] = r.datum.split('/');
+                // Gebruik het jaar van de wedstrijd
                 ritDatum = `${structuur.jaar}-${maand.padStart(2, '0')}-${dag.padStart(2, '0')}`;
             }
 
@@ -142,22 +138,42 @@ router.post('/import-volledige-wedstrijd', async (req, res) => {
                 wedstrijd_id: wedstrijd.id,
                 rit_nummer: r.rit_nummer,
                 naam: r.naam,
-                // Dit bouwt nu gegarandeerd: "2025-03-10 12:40:00"
+                // Combineer de berekende rit-datum met de gescrapete starttijd
                 starttijd: `${ritDatum} ${gevondenTijd}:00`,
                 gescrapet: false
             };
         });
 
-        const { error: rErr } = await supabase.from('ritten').insert(rittenToInsert);
+        // Als het een eendagskoers is en er werden geen ritten gevonden door de links:
+        if (structuur.is_eendagskoers && rittenToInsert.length === 0) {
+            rittenToInsert.push({
+                wedstrijd_id: wedstrijd.id,
+                rit_nummer: 1,
+                naam: structuur.naam,
+                starttijd: `${structuur.startDate} ${gevondenTijd}:00`,
+                gescrapet: false
+            });
+        }
+
+        const { error: rErr } = await supabase
+            .from('ritten')
+            .insert(rittenToInsert, { onConflict: 'wedstrijd_id,rit_nummer' });
+
         if (rErr) throw rErr;
 
         res.json({
             success: true,
-            message: `🏁 ${structuur.naam} succesvol! Wedstrijd van ${wedstrijdStart} tot ${wedstrijdEind}.`
+            message: `✅ ${structuur.naam} succesvol geïmporteerd!`,
+            details: {
+                start: structuur.startDate,
+                eind: structuur.endDate,
+                tijd: gevondenTijd,
+                ritten: rittenToInsert.length
+            }
         });
 
     } catch (err) {
-        console.error("Super Import Fout:", err);
+        console.error("Fout bij volledige import:", err);
         res.status(500).json({ error: err.message });
     }
 });

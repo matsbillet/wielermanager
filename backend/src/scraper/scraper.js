@@ -132,14 +132,15 @@ async function scrapeWedstrijdStructuur(url) {
 
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
+        // Zoek in scraper.js naar de functie scrapeWedstrijdStructuur en pas dit stukje aan:
+
         const structuur = await page.evaluate(() => {
             const h1 = document.querySelector('h1')?.innerText || "";
             const jaarMatch = h1.match(/\d{4}/);
             const jaar = jaarMatch ? parseInt(jaarMatch[0]) : new Date().getFullYear();
             const naam = h1.replace(/\d{4}/, '').trim();
 
-            // --- NIEUW: Haal globale datums uit de info-sectie ---
-            // In scraper.js -> scrapeWedstrijdStructuur -> binnen page.evaluate:
+            // Haal globale datums uit de info-sectie
             const infoItems = Array.from(document.querySelectorAll('ul.keyvalueList li'));
             let startDate = null;
             let endDate = null;
@@ -148,12 +149,14 @@ async function scrapeWedstrijdStructuur(url) {
                 const title = li.querySelector('.title')?.innerText.trim();
                 const value = li.querySelector('.value')?.innerText.trim();
 
-                if (title === 'Startdate:') startDate = value; // Pakt "2025-03-10"
-                if (title === 'Enddate:') endDate = value;     // Pakt "2025-03-16"
+                // PCS gebruikt vaak "Startdate" en "Enddate"
+                if (title?.toLowerCase().includes('startdate')) startDate = value;
+                if (title?.toLowerCase().includes('enddate')) endDate = value;
             });
 
+            // Als endDate ontbreekt (eendagskoers), is het gelijk aan startDate
+            if (startDate && !endDate) endDate = startDate;
 
-            // Zoek etappe links
             const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
             const rittenMap = new Map();
 
@@ -164,8 +167,11 @@ async function scrapeWedstrijdStructuur(url) {
 
                 const rit_nummer = Number(nrMatch[1]);
                 if (!rittenMap.has(rit_nummer)) {
-                    // Pak de datum uit de tabelcel indien aanwezig
-                    const rawDate = link.closest('tr')?.querySelector('.date')?.innerText?.trim();
+                    // Zoek de datum in de tabelcel (meestal de kolom vóór de link of met class .date)
+                    const row = link.closest('tr');
+                    const dateCell = row?.querySelector('.date, td:first-child');
+                    const rawDate = dateCell?.innerText?.trim();
+
                     rittenMap.set(rit_nummer, {
                         rit_nummer,
                         naam: link.innerText.trim() || `Etappe ${rit_nummer}`,
@@ -180,8 +186,8 @@ async function scrapeWedstrijdStructuur(url) {
                 naam,
                 jaar,
                 ritten,
-                startDate, // bijv: "2025-03-10"
-                endDate,   // bijv: "2025-03-16"
+                startDate,
+                endDate,
                 is_eendagskoers: ritten.length === 0
             };
         });
