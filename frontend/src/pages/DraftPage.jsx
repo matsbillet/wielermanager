@@ -52,7 +52,7 @@ export default function DraftPage() {
             setSessieId(sessieResponse.data.id);
 
             setWedstrijdNaam(
-                `${sessieResponse.data.wedstrijden?.naam || "Onbekende koers"} ${sessieResponse.data.wedstrijden?.jaar || ""}`
+                sessieResponse.data.wedstrijden?.naam || "Onbekende koers"
             );
             const actieveSessieId = sessieResponse.data.id;
             setSessieId(actieveSessieId);
@@ -422,5 +422,5 @@ export default function DraftPage() {
                 ))}
             </section>
         </div>
-    )
+    );
 }
