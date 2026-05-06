@@ -7,6 +7,7 @@ import {
     getTeams,
     getActieveSpeler,
     getSessieVoorCompetitie,
+    vulDraftAutomatisch,
 } from "../services/api";
 import { useRealtimeDraft } from "../hooks/useRealtimeDraft";
 
@@ -237,6 +238,35 @@ export default function DraftPage() {
         }
     }
 
+    async function handleAutoVulDraft() {
+        if (!sessieId || draftKlaar) return;
+
+        const zeker = window.confirm(
+            "Weet je zeker dat je de rest van de draft automatisch wil vullen?"
+        );
+
+        if (!zeker) return;
+
+        try {
+            setLoading(true);
+            setMelding("");
+
+            const response = await vulDraftAutomatisch(Number(sessieId));
+
+            setMelding(`${response.data.aantalToegevoegd} renners automatisch toegevoegd.`);
+
+            await refreshDraftData();
+        } catch (err) {
+            setMelding(
+                err.response?.data?.error ||
+                err.response?.data?.details ||
+                "Automatisch vullen mislukt."
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
     if (ladenPagina) {
         return <div>Laden van draft data...</div>;
     }
@@ -365,6 +395,14 @@ export default function DraftPage() {
 
                 <button className="pill-btn" disabled>
                     {loading ? "Bezig..." : draftKlaar ? "Draft klaar" : "Draft actief"}
+                </button>
+
+                <button
+                    className="pill-btn"
+                    onClick={handleAutoVulDraft}
+                    disabled={loading || draftKlaar || !sessieId}
+                >
+                    Auto vul draft
                 </button>
             </section>
 

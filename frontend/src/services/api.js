@@ -16,7 +16,7 @@ api.interceptors.request.use((config) => {
 
 export const loginGebruiker = (data) => api.post("/auth/login", data);
 export const registreerGebruiker = (data) => api.post("/auth/register", data);
-
+export const vulDraftAutomatisch = (sessieId) => api.post("/draft/auto-vullen", { sessieId });
 export const syncStartlijst = (wedstrijdId) => {
     return api.post(`/wedstrijden/${wedstrijdId}/sync-startlijst`);
 };

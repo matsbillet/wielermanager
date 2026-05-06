@@ -323,7 +323,95 @@ const getTeamVanSpeler = async (req, res) => {
     }
 };
 
+const vulDraftAutomatisch = async (req, res) => {
+    const { sessieId } = req.body;
+
+    if (!sessieId) {
+        return res.status(400).json({ error: "sessieId is verplicht." });
+    }
+
+    try {
+        const sessie = await getSessie(sessieId);
+        const spelers = await getSpelersVoorSessie(sessieId);
+
+        if (spelers.length === 0) {
+            return res.status(400).json({ error: "Geen spelers gevonden." });
+        }
+
+        const { data: deelnemers, error: deelnemersError } = await supabase
+            .from("wedstrijd_deelnemers")
+            .select("renner_id")
+            .eq("wedstrijd_id", sessie.wedstrijd_id);
+
+        if (deelnemersError) throw deelnemersError;
+
+        const { data: gekozen, error: gekozenError } = await supabase
+            .from("draft")
+            .select("renner_id")
+            .eq("sessie_id", sessieId);
+
+        if (gekozenError) throw gekozenError;
+
+        const gekozenIds = new Set(
+            (gekozen || [])
+                .filter((keuze) => keuze.renner_id !== null)
+                .map((keuze) => Number(keuze.renner_id))
+        );
+
+        const beschikbareRenners = (deelnemers || [])
+            .map((deelnemer) => Number(deelnemer.renner_id))
+            .filter((rennerId) => !gekozenIds.has(rennerId));
+
+        const maxBeurten = spelers.length * 18;
+        const nieuweKeuzes = [];
+
+        for (const rennerId of beschikbareRenners) {
+            const slot = await getVolgendeDraftSlot(sessieId, spelers);
+
+            if (!slot) break;
+
+            if (slot.bestaatAl) {
+                const { error: updateError } = await supabase
+                    .from("draft")
+                    .update({ renner_id: rennerId })
+                    .eq("id", slot.draftId);
+
+                if (updateError) throw updateError;
+            } else {
+                const { error: insertError } = await supabase
+                    .from("draft")
+                    .insert({
+                        sessie_id: Number(sessieId),
+                        speler_id: slot.spelerId,
+                        renner_id: rennerId,
+                        beurt_nummer: slot.beurtNummer,
+                        ronde: slot.ronde,
+                        is_bank: slot.isBank,
+                    });
+
+                if (insertError) throw insertError;
+            }
+
+            nieuweKeuzes.push(rennerId);
+
+            if (nieuweKeuzes.length >= maxBeurten) break;
+        }
+
+        res.json({
+            status: "Succes",
+            aantalToegevoegd: nieuweKeuzes.length,
+        });
+    } catch (error) {
+        console.error("Automatisch draft vullen mislukt:", error);
+        res.status(500).json({
+            error: "Automatisch draft vullen mislukt",
+            details: error.message,
+        });
+    }
+};
+
 module.exports = {
+    vulDraftAutomatisch,
     voerKeuzeUit,
     getTeamsPerSessie,
     getActieveSpeler,

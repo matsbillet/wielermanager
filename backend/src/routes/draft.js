@@ -3,6 +3,7 @@ const router = express.Router();
 const draftController = require("../controllers/draftController");
 
 router.post("/kies", draftController.voerKeuzeUit);
+router.post("/auto-vullen", draftController.vulDraftAutomatisch);
 router.get("/teams/:sessieId", draftController.getTeamsPerSessie);
 router.get("/team/:sessieId/:spelerId", draftController.getTeamVanSpeler);
 router.get("/actieve-speler/:sessieId", draftController.getActieveSpeler);
