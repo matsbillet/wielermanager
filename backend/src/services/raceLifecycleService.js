@@ -133,11 +133,6 @@ async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
     if (bestaandeError) throw bestaandeError;
 
     if (bestaandeSessie) {
-        await supabase
-            .from("draft")
-            .delete()
-            .eq("sessie_id", bestaandeSessie.id);
-
         const { error: updateError } = await supabase
             .from("draft_sessies")
             .update({ is_actief: true })
@@ -164,7 +159,7 @@ async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
     return nieuweSessie;
 }
 
-async function verwerkRaceLifecycle() {
+async function verwerkRaceLifecycle({ dryRun = false } = {}) {
     if (lifecycleBezig) {
         return {
             success: false,
@@ -245,6 +240,20 @@ async function verwerkRaceLifecycle() {
                     competitieId: sessie.competitie_id,
                     actie: "geen_actie",
                     reden: "Geen volgende wedstrijd gevonden.",
+                });
+                continue;
+            }
+
+            if (dryRun) {
+                resultaten.push({
+                    sessieId: sessie.id,
+                    competitieId: sessie.competitie_id,
+                    actie: "preview_volgende_koers",
+                    vorigeWedstrijd: huidigeWedstrijd.naam,
+                    vorigeJaar: huidigeWedstrijd.jaar,
+                    nieuweWedstrijd: volgendeWedstrijd.naam,
+                    nieuweJaar: volgendeWedstrijd.jaar,
+                    nieuweStartDatum: volgendeWedstrijd.start_datum,
                 });
                 continue;
             }

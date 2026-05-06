@@ -39,28 +39,21 @@ export const getRittenVanWedstrijd = (slug) => api.get(`/ritten/wedstrijd/${slug
 
 export const kiesRenner = (data) => api.post("/draft/kies", data);
 export const getTeams = (sessieId) => api.get(`/draft/teams/${sessieId}`);
-export const getTeamVanSpeler = (sessieId, spelerId) =>
-    api.get(`/draft/team/${sessieId}/${spelerId}`);
-export const getActieveSpeler = (sessieId) =>
-    api.get(`/draft/actieve-speler/${sessieId}`);
-export const getSessieVoorCompetitie = (competitieId) =>
-    api.get(`/draft/sessie/${competitieId}`);
+export const getTeamVanSpeler = (sessieId, spelerId) => api.get(`/draft/team/${sessieId}/${spelerId}`);
+export const getActieveSpeler = (sessieId) => api.get(`/draft/actieve-speler/${sessieId}`);
+export const getSessieVoorCompetitie = (competitieId) => api.get(`/draft/sessie/${competitieId}`);
 
-export const vervangRennerVoorStart = (data) =>
-    api.post("/transfer/voor-start", data);
-export const blessureWissel = (data) =>
-    api.post("/transfer/blessure", data);
+export const vervangRennerVoorStart = (data) => api.post("/transfer/voor-start", data);
+export const blessureWissel = (data) => api.post("/transfer/blessure", data);
 
 export const getAdminRitten = () => api.get("/admin/ritten");
 export const getAdminRenners = () => api.get("/admin/renners");
 export const getAdminDrafts = () => api.get("/admin/drafts");
 export const getAdminWedstrijden = () => api.get("/admin/wedstrijden");
 
-export const importStartlist = (url, wedstrijdId) =>
-    api.post("/admin/import-startlist", { url, wedstrijdId });
+export const importStartlist = (url, wedstrijdId) => api.post("/admin/import-startlist", { url, wedstrijdId });
 
-export const scrapeRit = (ritId, ritNummer) =>
-    api.post("/admin/scrape-rit", { ritId, ritNummer });
+export const scrapeRit = (ritId, ritNummer) => api.post("/admin/scrape-rit", { ritId, ritNummer });
 
 export const addRit = (data) => api.post("/admin/ritten/add", data);
 
@@ -74,7 +67,9 @@ export const deleteDraftById = (id) => api.delete(`/admin/drafts/${id}`);
 export const maakCompetitie = (data) => api.post("/competitie/create", data);
 export const joinCompetitie = (data) => api.post("/competitie/join", data);
 export const getMijnCompetities = (userId) => api.get(`/competitie/mijn/${userId}`);
-export const runRaceLifecycle = () => api.post("/admin/race-lifecycle/run");
+export const previewRaceLifecycle = () => api.get("/admin/race-lifecycle/preview");
+
+export const runRaceLifecycle = () => api.post("/admin/race-lifecycle/run", { bevestiging: "START" });
 export const getDashboardStats = () => api.get("/dashboard/me");
 
 // Voeg dit toe aan je bestaande api.js

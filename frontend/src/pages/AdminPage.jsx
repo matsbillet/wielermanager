@@ -13,9 +13,10 @@ import {
     importStartlist,
     scrapeRit, importVolledigeWedstrijd,
     syncStartlijst,
-    importKlassiekerAlsRit
+    importKlassiekerAlsRit,
+    previewRaceLifecycle,
+    runRaceLifecycle
 } from '../services/api';
-import { runRaceLifecycle } from "../services/api";
 
 function normaliseer(text = "") {
     if (!text) return "";
@@ -276,20 +277,49 @@ export default function AdminPage() {
         try {
             setLoading(true);
 
-            const response = await runRaceLifecycle();
-            console.log("Lifecycle resultaat:", response.data);
+            const previewResponse = await previewRaceLifecycle();
+            const previewResultaten = previewResponse.data.resultaten || [];
 
-            const resultaten = response.data.resultaten || [];
-
-            if (resultaten.length === 0) {
+            if (previewResultaten.length === 0) {
                 alert("Geen actieve draftsessies gevonden.");
                 return;
             }
 
+            const previewTekst = previewResultaten
+                .map((r) => {
+                    if (r.actie === "preview_volgende_koers") {
+                        return `✅ ${r.vorigeWedstrijd} ${r.vorigeJaar || ""} → ${r.nieuweWedstrijd} ${r.nieuweJaar || ""}`;
+                    }
+
+                    return `⚠️ ${r.reden || "Geen actie mogelijk."}`;
+                })
+                .join("\n");
+
+            const heeftVolgendeKoers = previewResultaten.some(
+                (r) => r.actie === "preview_volgende_koers"
+            );
+
+            if (!heeftVolgendeKoers) {
+                alert(previewTekst);
+                return;
+            }
+
+            const bevestiging = window.prompt(
+                `Je staat op het punt om de volgende koers te starten:\n\n${previewTekst}\n\nOude drafts en scores blijven bewaard.\n\nTyp START om te bevestigen.`
+            );
+
+            if (bevestiging !== "START") {
+                alert("Geannuleerd. Er is niets aangepast.");
+                return;
+            }
+
+            const response = await runRaceLifecycle();
+            const resultaten = response.data.resultaten || [];
+
             const tekst = resultaten
                 .map((r) => {
                     if (r.actie === "nieuwe_draft_aangemaakt") {
-                        return `✅ ${r.vorigeWedstrijd} → ${r.nieuweWedstrijd}`;
+                        return `✅ Nieuwe koers gestart: ${r.vorigeWedstrijd} → ${r.nieuweWedstrijd}`;
                     }
 
                     return `⚠️ ${r.actie}: ${r.reden || "geen reden"}`;
@@ -300,7 +330,7 @@ export default function AdminPage() {
             await fetchData();
         } catch (err) {
             console.error(err);
-            alert(err.response?.data?.details || "Lifecycle mislukt");
+            alert(err.response?.data?.details || err.response?.data?.error || "Lifecycle mislukt");
         } finally {
             setLoading(false);
         }
@@ -373,9 +403,10 @@ export default function AdminPage() {
                         <button
                             className="pill-btn"
                             onClick={handleRaceLifecycle}
+                            disabled={loading}
                             style={{ background: '#4CAF50', color: 'white' }}
                         >
-                            🔄 Volgende koers + nieuwe draft
+                            ➡️ Preview volgende koers
                         </button>
                     </div>
                     <div className="admin-header-flex">

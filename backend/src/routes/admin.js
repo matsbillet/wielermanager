@@ -285,9 +285,29 @@ router.delete('/drafts/:id', async (req, res) => {
     }
 });
 
+router.get("/race-lifecycle/preview", async (req, res) => {
+    try {
+        const resultaat = await verwerkRaceLifecycle({ dryRun: true });
+        res.json(resultaat);
+    } catch (error) {
+        console.error("Race lifecycle preview fout:", error);
+        res.status(500).json({
+            error: "Race lifecycle preview mislukt",
+            details: error.message,
+        });
+    }
+});
+
 router.post("/race-lifecycle/run", async (req, res) => {
     try {
-        const resultaat = await verwerkRaceLifecycle();
+        if (req.body?.bevestiging !== "START") {
+            return res.status(400).json({
+                error: "Bevestiging ontbreekt.",
+                details: "Typ START om de volgende koers te starten.",
+            });
+        }
+
+        const resultaat = await verwerkRaceLifecycle({ dryRun: false });
         res.json(resultaat);
     } catch (error) {
         console.error("Race lifecycle fout:", error);
