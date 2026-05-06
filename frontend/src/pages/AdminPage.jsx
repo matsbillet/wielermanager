@@ -12,7 +12,8 @@ import {
     getAdminWedstrijden,
     importStartlist,
     scrapeRit, importVolledigeWedstrijd,
-    syncStartlijst
+    syncStartlijst,
+    importKlassiekerAlsRit
 } from '../services/api';
 import { runRaceLifecycle } from "../services/api";
 
@@ -45,6 +46,8 @@ export default function AdminPage() {
     const [newRit, setNewRit] = useState({ rit_nummer: '', naam: '', datum: '' });
 
     const [zoekTerm, setZoekTerm] = useState("");
+
+    const [klassiekerUrl, setKlassiekerUrl] = useState('');
 
     const gefilterdeRenners = useMemo(() => {
         if (!zoekTerm) return renners;
@@ -321,6 +324,35 @@ export default function AdminPage() {
         }
     }
 
+    // --- NIEUWE HANDLER VOOR KLASSIEKER IMPORT ---
+    const handleKlassiekerImport = async () => {
+        if (!klassiekerUrl) return alert("Plak eerst een PCS URL van de klassieker.");
+
+        if (!klassiekerUrl.includes('procyclingstats.com')) {
+            return alert("Dit lijkt geen geldige PCS link te zijn.");
+        }
+
+        setLoading(true);
+        try {
+            // De échte API-aanroep
+            const res = await importKlassiekerAlsRit(klassiekerUrl);
+
+            // Succesmelding tonen
+            alert(res.data?.message || "Klassieker succesvol toegevoegd en gescrapet!");
+
+            // Veld leegmaken en data verversen
+            setKlassiekerUrl('');
+            await fetchData();
+
+        } catch (err) {
+            console.error("Klassieker Import Error:", err);
+            // Specifieke foutmelding uit de backend tonen, anders standaardmelding
+            alert("Fout bij importeren klassieker: " + (err.response?.data?.error || err.response?.data?.message || err.message));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="page-shell admin-page">
             <div className="section-head">
@@ -477,6 +509,35 @@ export default function AdminPage() {
                             </button>
                         </div>
                     </div>
+
+                    {/* --- NIEUW: Import voor Klassiekers --- */}
+                    <div className="super-import-container" style={{ marginBottom: "2rem", borderTop: "1px solid #334155", paddingTop: "2rem" }}>
+                        <div className="super-import-header">
+                            <div>
+                                <h4>Klassieker Toevoegen (Als Rit) (nog backend nodig)</h4>
+                                <p>Voer de PCS URL van een eendagskoers in. De scraper haalt automatisch de naam, datum en startlijst op en voegt deze toe aan de voorjaarskalender.</p>
+                            </div>
+                        </div>
+
+                        <div className="super-import-actions">
+                            <input
+                                type="text"
+                                className="super-import-input"
+                                placeholder="https://www.procyclingstats.com/race/ronde-van-vlaanderen/..."
+                                value={klassiekerUrl}
+                                onChange={(e) => setKlassiekerUrl(e.target.value)}
+                            />
+                            <button
+                                className="super-import-btn"
+                                onClick={handleKlassiekerImport}
+                                disabled={loading}
+                                style={{ backgroundColor: "#22d3ee", color: "#000" }}
+                            >
+                                {loading ? <span className="spinner"></span> : 'Start Import'}
+                            </button>
+                        </div>
+                    </div>
+                    {/* --- EINDE NIEUW BLOK --- */}
 
                     <div className="table-wrap">
                         <table className="table">
