@@ -466,7 +466,7 @@ a {
 .rit-link {
     background: #121620;
     border: 1px solid var(--border);
-    color: var(--text);
+    color: #00F5D4;
     padding: 1rem;
     text-decoration: none;
     border-radius: 14px;
