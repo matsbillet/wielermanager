@@ -173,57 +173,32 @@ router.post('/wedstrijd/:wedstrijdId/scrape-past', async (req, res) => {
 
     try {
         const nu = new Date();
-        const nuIso = nu.toISOString();
+        console.log(`\n--- 🔄 BULK SCRAPE + ROLLOVER CHECK ---`);
 
-        console.log(`\n--- 🔍 DEBUG BULK SCRAPE ---`);
-        console.log(`Huidige tijd (UTC): ${nuIso}`);
-        console.log(`Zoeken naar ritten voor wedstrijd ID: ${wedstrijdId}`);
-
-        // 1. Haal EERST alle ongescrapete ritten op zonder de tijdfilter 
-        // om te kijken wat er in de database staat.
+        // 1. Haal alle ongescrapete ritten op
         const { data: alleRitten, error: checkErr } = await supabase
             .from('ritten')
-            .select('id, rit_nummer, starttijd, gescrapet')
+            .select('*, wedstrijden(*)')
             .eq('wedstrijd_id', wedstrijdId)
             .eq('gescrapet', false);
 
         if (checkErr) throw checkErr;
 
-        // Filter nu handmatig in JS om exact te zien wat er gebeurt
         const rittenToScrape = alleRitten.filter(rit => {
             if (!rit.starttijd) return false;
-            const ritTijd = new Date(rit.starttijd);
-            return ritTijd <= nu;
+            return new Date(rit.starttijd) <= nu;
         }).sort((a, b) => a.rit_nummer - b.rit_nummer);
 
-        console.log(`Gevonden ongescrapete ritten in totaal: ${alleRitten.length}`);
-        console.log(`Ritten die volgens de logica al gereden zijn: ${rittenToScrape.length}`);
-
-        if (alleRitten.length > 0 && rittenToScrape.length === 0) {
-            console.log("⚠️ WAARSCHUWING: Er zijn ritten, maar de starttijd ligt in de toekomst.");
-            console.log(`Voorbeeld starttijd uit DB: ${alleRitten[0].starttijd}`);
-        }
-
         if (rittenToScrape.length === 0) {
-            return res.json({
-                success: true,
-                message: "Geen ongescrapete ritten gevonden die al gereden zijn (volgens de starttijd).",
-                count: 0
-            });
+            return res.json({ success: true, message: "Geen ritten om in te halen.", count: 0 });
         }
-
-        // 2. Haal de benodigde extra data (URL) op voor de te scrapen ritten
-        const { data: rittenMetUrl, error: urlErr } = await supabase
-            .from('ritten')
-            .select('*, wedstrijden(pcs_url, is_eendagskoers)')
-            .in('id', rittenToScrape.map(r => r.id))
-            .order('rit_nummer', { ascending: true });
-
-        if (urlErr) throw urlErr;
 
         let successCount = 0;
-        for (const rit of rittenMetUrl) {
-            console.log(`🚴 Scrapen van rit ${rit.rit_nummer}...`);
+        let laatsteRitGescrapet = false;
+
+        // 2. Loop door de ritten
+        for (const rit of rittenToScrape) {
+            console.log(`🚴 Inhalen rit ${rit.rit_nummer}...`);
             try {
                 const resultaat = await scraper.scrapeRitDetails(
                     rit.wedstrijden.pcs_url,
@@ -232,15 +207,52 @@ router.post('/wedstrijd/:wedstrijdId/scrape-past', async (req, res) => {
                 );
                 await verwerkRitResultaat(rit.id, resultaat);
                 successCount++;
+
+                // Check of dit de allerlaatste rit van de wedstrijd was
+                if (rit.rit_nummer === rit.wedstrijden.aantal_ritten) {
+                    laatsteRitGescrapet = true;
+                }
+
                 await new Promise(res => setTimeout(res, 1000));
             } catch (err) {
                 console.error(`❌ Fout bij rit ${rit.rit_nummer}:`, err.message);
             }
         }
 
+        // 3. ROLLOVER LOGICA: Als de laatste rit in de bulk zat, maak volgend jaar aan
+        if (laatsteRitGescrapet) {
+            console.log("🏁 Laatste rit gescrapet in bulk. Volgend jaar voorbereiden...");
+            const laatsteRit = rittenToScrape.find(r => r.rit_nummer === r.wedstrijden.aantal_ritten);
+
+            // Hier roepen we de rollover logica aan (kopie van je auto-scrape logica)
+            const huidigJaar = laatsteRit.wedstrijden.jaar;
+            const volgendJaar = huidigJaar + 1;
+            const nieuweUrl = laatsteRit.wedstrijden.pcs_url.replace(huidigJaar.toString(), volgendJaar.toString());
+            const nieuweNaam = laatsteRit.wedstrijden.naam.replace(huidigJaar.toString(), volgendJaar.toString());
+            const nieuweSlug = laatsteRit.wedstrijden.slug.replace(huidigJaar.toString(), volgendJaar.toString());
+
+            // Check of hij al bestaat
+            const { data: bestaande } = await supabase.from('wedstrijden').select('id').eq('slug', nieuweSlug).maybeSingle();
+
+            if (!bestaande) {
+                const { data: nieuweW } = await supabase.from('wedstrijden').insert({
+                    naam: nieuweNaam, slug: nieuweSlug, jaar: volgendJaar, pcs_url: nieuweUrl,
+                    aantal_ritten: laatsteRit.wedstrijden.aantal_ritten
+                }).select().single();
+
+                if (nieuweW) {
+                    // Start meteen de ritten-scraper voor het nieuwe jaar
+                    await scraper.scrapeStagesForRace(nieuweUrl, nieuweW.id);
+                    console.log(`✨ Volgend jaar (${volgendJaar}) succesvol aangemaakt en ritten gescrapet!`);
+                }
+            }
+        }
+
         res.json({
             success: true,
-            message: `✅ ${successCount} ritten succesvol ingehaald!`,
+            message: laatsteRitGescrapet
+                ? `✅ ${successCount} ritten ingehaald en volgend jaar aangemaakt!`
+                : `✅ ${successCount} ritten succesvol ingehaald!`,
             count: successCount
         });
 
