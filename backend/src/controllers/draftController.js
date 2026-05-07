@@ -410,11 +410,49 @@ const vulDraftAutomatisch = async (req, res) => {
     }
 };
 
+const getSessiesVoorCompetitie = async (req, res) => {
+    const { competitieId } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from("draft_sessies")
+            .select(`
+                id,
+                Naam,
+                is_actief,
+                wedstrijd_id,
+                competitie_id,
+                wedstrijden (
+                    id,
+                    naam,
+                    jaar,
+                    slug,
+                    start_datum,
+                    eind_datum,
+                    status
+                )
+            `)
+            .eq("competitie_id", competitieId)
+            .order("id", { ascending: false });
+
+        if (error) throw error;
+
+        res.json(data || []);
+    } catch (error) {
+        console.error("Fout bij ophalen draftsessies:", error);
+        res.status(500).json({
+            error: "Kon draftsessies niet ophalen.",
+            details: error.message,
+        });
+    }
+};
+
 module.exports = {
     vulDraftAutomatisch,
     voerKeuzeUit,
     getTeamsPerSessie,
     getActieveSpeler,
     getSessieVoorCompetitie,
+    getSessiesVoorCompetitie,
     getTeamVanSpeler,
 };

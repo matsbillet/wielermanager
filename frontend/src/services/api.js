@@ -42,6 +42,7 @@ export const getTeams = (sessieId) => api.get(`/draft/teams/${sessieId}`);
 export const getTeamVanSpeler = (sessieId, spelerId) => api.get(`/draft/team/${sessieId}/${spelerId}`);
 export const getActieveSpeler = (sessieId) => api.get(`/draft/actieve-speler/${sessieId}`);
 export const getSessieVoorCompetitie = (competitieId) => api.get(`/draft/sessie/${competitieId}`);
+export const getDraftSessiesVoorCompetitie = (competitieId) => api.get(`/draft/sessies/${competitieId}`);
 
 export const vervangRennerVoorStart = (data) => api.post("/transfer/voor-start", data);
 export const blessureWissel = (data) => api.post("/transfer/blessure", data);

@@ -1465,6 +1465,23 @@ textarea:focus {
     text-decoration: none;
 }
 
+.draft-session-select {
+    margin-top: 0.75rem;
+    width: 100%;
+    max-width: 420px;
+    padding: 0.9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 229, 199, 0.45);
+    background: #0b1018;
+    color: #ffffff;
+    font-weight: 700;
+    outline: none;
+}
+
+.draft-session-select:focus {
+    border-color: #00e5c7;
+}
+
 /* RESPONSIVE */
 
 @media (max-width: 1100px) {

@@ -7,7 +7,9 @@ router.post("/auto-vullen", draftController.vulDraftAutomatisch);
 router.get("/teams/:sessieId", draftController.getTeamsPerSessie);
 router.get("/team/:sessieId/:spelerId", draftController.getTeamVanSpeler);
 router.get("/actieve-speler/:sessieId", draftController.getActieveSpeler);
+router.get("/sessies/:competitieId", draftController.getSessiesVoorCompetitie);
 router.get("/sessie/:competitieId", draftController.getSessieVoorCompetitie);
+
 
 router.get("/test", (req, res) => {
     res.json({ bericht: "Draft route werkt naar behoren!" });

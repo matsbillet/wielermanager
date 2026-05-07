@@ -7,6 +7,7 @@ import {
     getTeams,
     getActieveSpeler,
     getSessieVoorCompetitie,
+    getDraftSessiesVoorCompetitie,
     vulDraftAutomatisch,
 } from "../services/api";
 import { useRealtimeDraft } from "../hooks/useRealtimeDraft";
@@ -42,65 +43,30 @@ export default function DraftPage() {
     const [teams, setTeams] = useState({});
     const [sessieId, setSessieId] = useState(null);
     const [wedstrijdNaam, setWedstrijdNaam] = useState("");
+    const [draftSessies, setDraftSessies] = useState([]);
+    const [actieveSessieId, setActieveSessieId] = useState(null);
+    const [bekekenSessie, setBekekenSessie] = useState(null);
 
     async function laadDraftData() {
         try {
             setLadenPagina(true);
             setMelding("");
 
-            const sessieResponse = await getSessieVoorCompetitie(competitieId);
+            const [sessiesResponse, actieveSessieResponse] = await Promise.all([
+                getDraftSessiesVoorCompetitie(competitieId),
+                getSessieVoorCompetitie(competitieId),
+            ]);
 
-            setSessieId(sessieResponse.data.id);
-
-            setWedstrijdNaam(
-                sessieResponse.data.wedstrijden?.naam || "Onbekende koers"
-            );
-            const actieveSessieId = sessieResponse.data.id;
-            setSessieId(actieveSessieId);
-
-            const [rennersResponse, spelersResponse, teamsResponse, actieveSpelerResponse] =
-                await Promise.all([
-                    getBeschikbareRenners(actieveSessieId),
-                    getSpelers(actieveSessieId),
-                    getTeams(actieveSessieId),
-                    getActieveSpeler(actieveSessieId),
-                ]);
-
-            const rennersData = Array.isArray(rennersResponse.data)
-                ? rennersResponse.data
+            const sessies = Array.isArray(sessiesResponse.data)
+                ? sessiesResponse.data
                 : [];
 
-            const spelersData = Array.isArray(spelersResponse.data)
-                ? spelersResponse.data
-                : [];
+            const actieveSessie = actieveSessieResponse.data;
 
-            const teamsData = teamsResponse.data || {};
+            setDraftSessies(sessies);
+            setActieveSessieId(actieveSessie.id);
 
-            setRiders(rennersData);
-            setSpelers(spelersData);
-            setTeams(teamsData);
-
-            const tellerInit = {};
-            spelersData.forEach((speler) => {
-                const spelerTeam = teamsData[speler.naam] || [];
-                tellerInit[speler.id] = spelerTeam.length;
-            });
-
-            setGekozenTeller(tellerInit);
-
-            if (actieveSpelerResponse.data.klaar) {
-                setDraftKlaar(true);
-            } else {
-                setDraftKlaar(false);
-
-                const actieveIndex = spelersData.findIndex(
-                    (speler) => speler.id === actieveSpelerResponse.data.spelerId,
-                );
-
-                if (actieveIndex >= 0) {
-                    setActieveSpelerIndex(actieveIndex);
-                }
-            }
+            await laadSessieData(actieveSessie);
         } catch (err) {
             console.error("Fout bij ophalen draft data:", err);
             setMelding(
@@ -110,6 +76,79 @@ export default function DraftPage() {
             );
         } finally {
             setLadenPagina(false);
+        }
+    }
+
+    async function laadSessieData(sessie) {
+        const gekozenSessieId = sessie.id;
+
+        setBekekenSessie(sessie);
+        setSessieId(gekozenSessieId);
+
+        setWedstrijdNaam(
+            `${sessie.wedstrijden?.naam || "Onbekende koers"} ${sessie.wedstrijden?.jaar || ""}`
+        );
+
+        const [rennersResponse, spelersResponse, teamsResponse, actieveSpelerResponse] =
+            await Promise.all([
+                getBeschikbareRenners(gekozenSessieId),
+                getSpelers(gekozenSessieId),
+                getTeams(gekozenSessieId),
+                getActieveSpeler(gekozenSessieId),
+            ]);
+
+        const rennersData = Array.isArray(rennersResponse.data)
+            ? rennersResponse.data
+            : [];
+
+        const spelersData = Array.isArray(spelersResponse.data)
+            ? spelersResponse.data
+            : [];
+
+        const teamsData = teamsResponse.data || {};
+
+        setRiders(rennersData);
+        setSpelers(spelersData);
+        setTeams(teamsData);
+
+        const tellerInit = {};
+        spelersData.forEach((speler) => {
+            const spelerTeam = teamsData[speler.naam] || [];
+            tellerInit[speler.id] = spelerTeam.length;
+        });
+
+        setGekozenTeller(tellerInit);
+
+        if (actieveSpelerResponse.data.klaar) {
+            setDraftKlaar(true);
+        } else {
+            setDraftKlaar(false);
+
+            const actieveIndex = spelersData.findIndex(
+                (speler) => speler.id === actieveSpelerResponse.data.spelerId,
+            );
+
+            if (actieveIndex >= 0) {
+                setActieveSpelerIndex(actieveIndex);
+            }
+        }
+    }
+
+    async function handleSelectSessie(event) {
+        const gekozenId = Number(event.target.value);
+        const sessie = draftSessies.find((s) => Number(s.id) === gekozenId);
+
+        if (!sessie) return;
+
+        try {
+            setLoading(true);
+            setMelding("");
+            await laadSessieData(sessie);
+        } catch (err) {
+            console.error("Fout bij wisselen van sessie:", err);
+            setMelding("Kon deze draftsessie niet laden.");
+        } finally {
+            setLoading(false);
         }
     }
 
@@ -174,6 +213,8 @@ export default function DraftPage() {
 
     const actieveSpeler = spelers[actieveSpelerIndex] || null;
 
+    const isActieveBekekenSessie =
+        bekekenSessie && Number(bekekenSessie.id) === Number(actieveSessieId);
     const gefilterdeRenners = useMemo(() => {
         const term = normaliseer(zoekTerm.trim());
 
@@ -205,7 +246,7 @@ export default function DraftPage() {
     }, [alleSpelersKlaar, draftKlaar]);
 
     async function handleKiesRenner(rennerId, naam) {
-        if (!actieveSpeler || draftKlaar || !sessieId) return;
+        if (!isActieveBekekenSessie || !actieveSpeler || draftKlaar || !sessieId) return;
 
         try {
             setLoading(true);
@@ -277,8 +318,29 @@ export default function DraftPage() {
                 <div>
                     <h1>Live Draft Board</h1>
                     <p className="small-muted">
-                        Huidige koers: <strong>{wedstrijdNaam}</strong>
+                        Bekeken koers: <strong>{wedstrijdNaam}</strong>
                     </p>
+
+                    <select
+                        className="draft-session-select"
+                        value={sessieId || ""}
+                        onChange={handleSelectSessie}
+                        disabled={loading}
+                    >
+                        {draftSessies.map((sessie) => (
+                            <option key={sessie.id} value={sessie.id}>
+                                {sessie.is_actief ? "Actief · " : ""}
+                                {sessie.wedstrijden?.naam || "Onbekende koers"}{" "}
+                                {sessie.wedstrijden?.jaar || ""}
+                            </option>
+                        ))}
+                    </select>
+
+                    {!isActieveBekekenSessie && (
+                        <p className="small-muted">
+                            Historische draft: alleen bekijken, niet aanpassen.
+                        </p>
+                    )}
                 </div>
 
                 <span>Competitie #{competitieId}</span>
@@ -450,9 +512,9 @@ export default function DraftPage() {
                                 <button
                                     className="pill-btn"
                                     onClick={() => handleKiesRenner(rider.id, rider.naam)}
-                                    disabled={loading || draftKlaar || !actieveSpeler}
+                                    disabled={loading || draftKlaar || !actieveSpeler || !isActieveBekekenSessie}
                                 >
-                                    {loading ? "Bezig..." : `Kies `}
+                                    {isActieveBekekenSessie ? (loading ? "Bezig..." : "Kies") : "Alleen bekijken"}
                                 </button>
                             </div>
                         </div>
