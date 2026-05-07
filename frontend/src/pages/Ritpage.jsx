@@ -132,7 +132,7 @@ export default function RitPage() {
   return (
     <div className="rit-container">
       <button onClick={() => navigate("/races")} className="back-button">
-        ⬅ Terug naar klassiekers
+        ⬅ Terug naar rittenoverzicht
       </button>
 
       {scrapping && (

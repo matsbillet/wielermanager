@@ -63,7 +63,7 @@ export default function RaceDetailPage() {
       <div className="section-head">
         <h2>{wedstrijd.naam}</h2>
         <Link className="section-link" to="/races">
-          ← Terug naar klassiekers
+          ← Terug naar koersenoverzicht
         </Link>
       </div>
 
