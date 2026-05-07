@@ -341,8 +341,6 @@ export default function DraftPage() {
                         </p>
                     )}
                 </div>
-
-                <span>Competitie #{competitieId}</span>
             </div>
 
             <section className="draft-overview">

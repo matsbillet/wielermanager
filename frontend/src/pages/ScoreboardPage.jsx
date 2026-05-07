@@ -10,7 +10,11 @@ import {
     ResponsiveContainer,
     CartesianGrid,
 } from "recharts";
-import { getScoreboard } from "../services/api";
+import {
+    getScoreboard,
+    getScoreboardVoorSessie,
+    getDraftSessiesVoorCompetitie,
+} from "../services/api";
 import CountdownTimer from "../components/CountdownTimer";
 
 const kleuren = [
@@ -56,6 +60,8 @@ export default function ScoreboardPage() {
     const [truien, setTruien] = useState(null);
     const [loading, setLoading] = useState(true);
     const [melding, setMelding] = useState("");
+    const [draftSessies, setDraftSessies] = useState([]);
+    const [sessieId, setSessieId] = useState("");
 
     useEffect(() => {
         async function laadScoreboard() {
@@ -63,20 +69,19 @@ export default function ScoreboardPage() {
                 setLoading(true);
                 setMelding("");
 
-                const response = await getScoreboard(competitieId);
+                const [sessiesResponse, scoreboardResponse] = await Promise.all([
+                    getDraftSessiesVoorCompetitie(competitieId),
+                    getScoreboard(competitieId),
+                ]);
 
-                const scoreboardData = response.data.scoreboard || [];
-                const wedstrijdData = response.data.wedstrijd || null;
+                const sessies = Array.isArray(sessiesResponse.data)
+                    ? sessiesResponse.data
+                    : [];
 
-                const spelersMetKleur = scoreboardData.map((speler, index) => ({
-                    ...speler,
-                    kleur: kleuren[index % kleuren.length],
-                }));
+                setDraftSessies(sessies);
+                setSessieId(scoreboardResponse.data.sessieId);
 
-                setSpelers(spelersMetKleur);
-                setWedstrijd(wedstrijdData);
-                setTopRenners(response.data.topRenners || []);
-                setTruien(response.data.truien || null);
+                verwerkScoreboardData(scoreboardResponse.data);
             } catch (err) {
                 console.error("Fout bij ophalen scoreboard:", err);
                 setMelding(
@@ -91,6 +96,44 @@ export default function ScoreboardPage() {
 
         laadScoreboard();
     }, [competitieId]);
+
+    function verwerkScoreboardData(data) {
+        const scoreboardData = data.scoreboard || [];
+        const wedstrijdData = data.wedstrijd || null;
+
+        const spelersMetKleur = scoreboardData.map((speler, index) => ({
+            ...speler,
+            kleur: kleuren[index % kleuren.length],
+        }));
+
+        setSpelers(spelersMetKleur);
+        setWedstrijd(wedstrijdData);
+        setTopRenners(data.topRenners || []);
+        setTruien(data.truien || null);
+    }
+
+    async function handleSelectSessie(event) {
+        const gekozenSessieId = event.target.value;
+
+        try {
+            setLoading(true);
+            setMelding("");
+            setSessieId(gekozenSessieId);
+
+            const response = await getScoreboardVoorSessie(gekozenSessieId);
+
+            verwerkScoreboardData(response.data);
+        } catch (err) {
+            console.error("Fout bij wisselen scoreboard sessie:", err);
+            setMelding(
+                err.response?.data?.error ||
+                err.response?.data?.details ||
+                "Kon scoreboard voor deze koers niet laden.",
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
 
     if (loading) return <div>Laden van scoreboard...</div>;
     if (melding) return <div>{melding}</div>;
@@ -110,9 +153,23 @@ export default function ScoreboardPage() {
                     <p>Overzicht van alle spelers, ritpunten, truienpunten en totaalstand.</p>
                     <p>
                         {wedstrijd
-                            ? `Huidige koers: ${wedstrijd.naam}`
-                            : "Geen actieve koers gevonden"}
+                            ? `Bekeken koers: ${wedstrijd.naam}`
+                            : "Geen koers gevonden"}
                     </p>
+
+                    <select
+                        className="draft-session-select"
+                        value={sessieId}
+                        onChange={handleSelectSessie}
+                        disabled={loading}
+                    >
+                        {draftSessies.map((sessie) => (
+                            <option key={sessie.id} value={sessie.id}>
+                                {sessie.is_actief ? "Actief · " : ""}
+                                {sessie.wedstrijden?.naam || "Onbekende koers"}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="scoreboard-summary">

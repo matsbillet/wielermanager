@@ -69,25 +69,13 @@ async function maakScoreboardVoorSessie(sessie) {
     }
 
     function isRennerActiefVoorRit(spelerId, rennerId, ritNummer) {
-        const actieveStatus = teamStatus.some(
+        const statussenVoorDezeRenner = teamStatus.filter(
             (status) =>
                 Number(status.speler_id) === Number(spelerId) &&
-                Number(status.renner_id) === Number(rennerId) &&
-                status.status === "actief" &&
-                Number(status.actief_vanaf_rit) <= Number(ritNummer) &&
-                (
-                    status.actief_tot_rit === null ||
-                    Number(status.actief_tot_rit) >= Number(ritNummer)
-                )
+                Number(status.renner_id) === Number(rennerId)
         );
 
-        if (actieveStatus) return true;
-
-        const heeftStatusHistoriek = teamStatus.some(
-            (status) => Number(status.speler_id) === Number(spelerId)
-        );
-
-        if (!heeftStatusHistoriek) {
+        if (statussenVoorDezeRenner.length === 0) {
             return draft.some(
                 (keuze) =>
                     Number(keuze.speler_id) === Number(spelerId) &&
@@ -96,7 +84,15 @@ async function maakScoreboardVoorSessie(sessie) {
             );
         }
 
-        return false;
+        return statussenVoorDezeRenner.some(
+            (status) =>
+                status.status === "actief" &&
+                Number(status.actief_vanaf_rit) <= Number(ritNummer) &&
+                (
+                    status.actief_tot_rit === null ||
+                    Number(status.actief_tot_rit) >= Number(ritNummer)
+                )
+        );
     }
 
     const scoreboard = spelersData.map((spelerEntry) => {
@@ -209,6 +205,54 @@ async function maakScoreboardVoorSessie(sessie) {
     };
 }
 
+router.get("/sessie/:sessieId", async (req, res) => {
+    const { sessieId } = req.params;
+
+    try {
+        const { data: sessie, error: sessieError } = await supabase
+            .from("draft_sessies")
+            .select(`
+                id,
+                competitie_id,
+                wedstrijd_id,
+                Naam,
+                is_actief,
+                wedstrijden (
+                    id,
+                    naam,
+                    jaar,
+                    slug
+                )
+            `)
+            .eq("id", sessieId)
+            .single();
+
+        if (sessieError || !sessie) {
+            return res.status(404).json({
+                error: "Draftsessie niet gevonden.",
+            });
+        }
+
+        const resultaat = await maakScoreboardVoorSessie(sessie);
+
+        res.json({
+            sessieId: sessie.id,
+            sessieNaam: sessie.Naam,
+            isActief: sessie.is_actief,
+            wedstrijd: sessie.wedstrijden,
+            scoreboard: resultaat.scoreboard,
+            topRenners: resultaat.topRenners,
+            truien: resultaat.truien,
+        });
+    } catch (error) {
+        console.error("Fout bij ophalen scores voor sessie:", error);
+        res.status(500).json({
+            error: "Kon scores voor sessie niet ophalen",
+            details: error.message,
+        });
+    }
+});
+
 router.get("/competitie/:competitieId", async (req, res) => {
     const { competitieId } = req.params;
 
@@ -243,6 +287,7 @@ router.get("/competitie/:competitieId", async (req, res) => {
         res.json({
             sessieId: sessie.id,
             sessieNaam: sessie.Naam,
+            isActief: sessie.is_actief,
             wedstrijd: sessie.wedstrijden,
             scoreboard: resultaat.scoreboard,
             topRenners: resultaat.topRenners,

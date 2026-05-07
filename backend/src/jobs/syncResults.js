@@ -1,66 +1,110 @@
 const cron = require('node-cron');
 const { supabase } = require('../db/supabase');
 const scraper = require('../scraper/scraper');
+const { verwerkRitResultaat } = require('../routes/ritten');
 
-// ELKE AVOND OM 19:00 (Pas aan naar wens)
 cron.schedule('0 18 * * *', async () => {
     console.log('🤖 Start automatische rit-sync...');
 
     try {
-        // 1. Zoek ritten van VANDAAG die nog niet gescrapet zijn
         const vandaag = new Date().toISOString().split('T')[0];
-        const { data: ritten } = await supabase
+
+        const { data: ritten, error } = await supabase
             .from('ritten')
-            .select('*, wedstrijden(pcs_url, jaar, naam)')
+            .select(`
+                *,
+                wedstrijden (
+                    id,
+                    pcs_url,
+                    jaar,
+                    naam,
+                    is_eendagskoers
+                )
+            `)
             .eq('gescrapet', false)
-            .lte('datum', vandaag); // Alleen ritten tot en met vandaag
+            .lte('starttijd', `${vandaag}T23:59:59+02:00`);
+
+        if (error) throw error;
+
+        if (!ritten || ritten.length === 0) {
+            console.log('Geen ritten gevonden om te syncen.');
+            return;
+        }
 
         for (const rit of ritten) {
-            console.log(`Checking ${rit.wedstrijden.naam} - Rit ${rit.rit_nummer}`);
+            try {
+                console.log(`Checking ${rit.wedstrijden.naam} - Rit ${rit.rit_nummer}`);
 
-            const resultaten = await scraper.scrapeRitDetails(rit.wedstrijden.pcs_url, rit.rit_nummer);
+                const resultaat = await scraper.scrapeRitDetails(
+                    rit.wedstrijden.pcs_url,
+                    rit.rit_nummer,
+                    rit.wedstrijden.is_eendagskoers
+                );
 
-            if (resultaten && resultaten.uitslag.length > 0) {
-                // Sla uitslag op (jouw bestaande logica voor punten)
-                // ... verwerkPunten(rit.id, resultaten) ...
+                if (!resultaat?.uitslag?.length) {
+                    console.log(`📭 Geen uitslag gevonden voor rit ${rit.rit_nummer}.`);
+                    continue;
+                }
 
-                // Markeer als klaar
-                await supabase.from('ritten').update({ gescrapet: true }).eq('id', rit.id);
+                await verwerkRitResultaat(rit.id, resultaat);
+
                 console.log(`✅ Rit ${rit.rit_nummer} succesvol gesynchroniseerd.`);
+            } catch (ritError) {
+                console.error(`❌ Fout bij sync van rit ${rit.id}:`, ritError.message);
             }
         }
 
-        // 2. Check of de wedstrijd afgelopen is voor "Next Year" logica
         await checkAndScheduleNextYear();
-
     } catch (err) {
         console.error('❌ Fout tijdens auto-sync:', err);
     }
 });
 
 async function checkAndScheduleNextYear() {
-    // Zoek actieve wedstrijden
-    const { data: wedstrijden } = await supabase.from('wedstrijden').select('*');
+    const { data: wedstrijden, error } = await supabase
+        .from('wedstrijden')
+        .select('*');
 
-    for (const w of wedstrijden) {
-        const { count } = await supabase
+    if (error) {
+        console.error('❌ Fout bij ophalen wedstrijden:', error.message);
+        return;
+    }
+
+    for (const wedstrijd of wedstrijden || []) {
+        const { count, error: countError } = await supabase
             .from('ritten')
             .select('*', { count: 'exact', head: true })
-            .eq('wedstrijd_id', w.id)
+            .eq('wedstrijd_id', wedstrijd.id)
             .eq('gescrapet', false);
 
-        // Als alle ritten gescrapet zijn (count === 0)
-        if (count === 0) {
-            const volgendJaar = w.jaar + 1;
-            const nieuweUrl = w.pcs_url.replace(w.jaar.toString(), volgendJaar.toString());
+        if (countError) {
+            console.error(`❌ Fout bij tellen ritten voor ${wedstrijd.naam}:`, countError.message);
+            continue;
+        }
 
-            // Check of deze al bestaat
-            const { data: bestaatAl } = await supabase.from('wedstrijden').select('id').eq('pcs_url', nieuweUrl).single();
+        if (count === 0) {
+            const volgendJaar = Number(wedstrijd.jaar) + 1;
+
+            if (!wedstrijd.pcs_url) continue;
+
+            const nieuweUrl = wedstrijd.pcs_url.replace(
+                wedstrijd.jaar.toString(),
+                volgendJaar.toString()
+            );
+
+            const { data: bestaatAl } = await supabase
+                .from('wedstrijden')
+                .select('id')
+                .eq('pcs_url', nieuweUrl)
+                .maybeSingle();
 
             if (!bestaatAl) {
-                console.log(`📅 Nieuwe race gedetecteerd voor volgend jaar: ${nieuweUrl}`);
-                // Optioneel: Stuur jezelf een mail of initialiseer hem direct (voorzichtig hiermee!)
+                console.log(`📅 Nieuwe race mogelijk voor volgend jaar: ${nieuweUrl}`);
             }
         }
     }
 }
+
+module.exports = {
+    checkAndScheduleNextYear,
+};
