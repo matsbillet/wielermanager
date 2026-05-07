@@ -380,62 +380,7 @@ const createSlug = (text) => {
         .replace(/(^-|-$)+/g, '');    // Verwijder streepjes aan begin of eind
 };
 
-router.post('/import-volledige-wedstrijd', async (req, res) => {
-    const { url } = req.body;
 
-    try {
-        const structuur = await scraper.scrapeWedstrijdStructuur(url);
-
-        const { data: wedstrijd, error: wErr } = await supabase
-            .from('wedstrijden')
-            .insert([{
-                naam: structuur.naam,
-                pcs_url: url,
-                start_datum: structuur.startDate, // Direct uit de Info-sectie
-                eind_datum: structuur.endDate,   // Direct uit de Info-sectie
-                slug: createSlug(`${structuur.naam}-${structuur.jaar}`)
-            }])
-            .select().single();
-
-        if (wErr) throw wErr;
-
-        // --- STAP C: Startlijst en Tijd ophalen ---
-        let startlistUrl = structuur.is_eendagskoers
-            ? (url.endsWith('/') ? `${url}result` : `${url}/result`)
-            : (url.endsWith('/') ? `${url}startlist` : `${url}/startlist`);
-
-        const startResult = await scraper.importStartlist(startlistUrl, wedstrijd.id);
-        const tijd = startResult.gevondenTijd || "11:00";
-
-        // STAP D: Ritten toevoegen
-        const rittenToInsert = structuur.ritten.map(r => {
-            // Gebruik de rit-datum uit de tabel (bijv "10/03") of fallback naar startDate
-            let ritDatum = structuur.startDate;
-
-            if (r.datum && r.datum.includes('/')) {
-                const [dag, maand] = r.datum.split('/');
-                ritDatum = `${structuur.jaar}-${maand.padStart(2, '0')}-${dag.padStart(2, '0')}`;
-            }
-
-            return {
-                wedstrijd_id: wedstrijd.id,
-                rit_nummer: r.rit_nummer,
-                naam: r.naam,
-                starttijd: `${ritDatum} ${gevondenTijd}:00`, // Combineert datum met gescrapete tijd
-                gescrapet: false
-            };
-        });
-
-        const { error: rErr } = await supabase.from('ritten').insert(rittenToInsert);
-        if (rErr) throw rErr;
-
-        res.json({ success: true, message: `Geïmporteerd! Starttijd: ${tijd}` });
-
-    } catch (err) {
-        console.error("Super Import Fout:", err);
-        res.status(500).json({ error: err.message });
-    }
-});
 
 function formatDate(datumStr) {
     if (!datumStr) return null;
