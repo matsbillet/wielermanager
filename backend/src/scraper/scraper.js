@@ -285,7 +285,8 @@ async function importStartlist(pcsUrl, wedstrijdId) {
         return {
             success: true,
             count: scrapeData.finaleLijst.length,
-            gevondenTijd: scrapeData.gevondenTijd
+            gevondenTijd: scrapeData.gevondenTijd,
+            deelnemers: scrapeData.finaleLijst
         };
 
     } catch (err) {
@@ -296,105 +297,78 @@ async function importStartlist(pcsUrl, wedstrijdId) {
 /*
  * 1. HAAL RITTEN + DATUMS OP
  */
+/*
+ * 1. HAAL RITTEN + DATUMS OP (Nieuwe versie met Admin logica)
+ */
 async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
-    console.log(`🔎 Ritten ophalen voor: ${racePcsUrl}`);
-
-    const browser = await getBrowser();
+    console.log(`🔎 Ritten ophalen voor (Nieuwe methode): ${racePcsUrl}`);
 
     try {
-        const page = await browser.newPage();
+        // 1. Gebruik jouw JOUW perfecte admin functie!
+        const structuur = await scrapeWedstrijdStructuur(racePcsUrl);
 
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        );
-
-        await page.goto(racePcsUrl, {
-            waitUntil: 'networkidle2',
-            timeout: 60000,
-        });
-
-        const raceInfo = await page.evaluate(() => {
-            const bodyText = document.body.innerText;
-
-            const dateMatch =
-                bodyText.match(/Date:\s*([^\n]+)/i) ||
-                bodyText.match(/Race date:\s*([^\n]+)/i);
-
-            const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
-
-            const rittenMap = new Map();
-
-            stageLinks.forEach((link) => {
-                const href = link.getAttribute('href') || "";
-                const nrMatch = href.match(/stage-(\d+)/);
-                if (!nrMatch) return;
-
-                const rit_nummer = Number(nrMatch[1]);
-                const row = link.closest('tr');
-                const rowText = row?.innerText || link.parentElement?.innerText || link.innerText || "";
-
-                if (!rittenMap.has(rit_nummer)) {
-                    rittenMap.set(rit_nummer, {
-                        rit_nummer,
-                        naam: link.innerText.trim(),
-                        rowText,
-                    });
-                }
-            });
-
-            return {
-                datumTekst: dateMatch?.[1]?.trim() || null,
-                bodyText,
-                ritten: Array.from(rittenMap.values()),
-            };
-        });
-
-        const { data: wedstrijd, error: wedstrijdError } = await supabase
-            .from('wedstrijden')
-            .select('jaar')
-            .eq('id', wedstrijdId)
-            .single();
-
-        if (wedstrijdError) throw wedstrijdError;
-
-        const fallbackYear = wedstrijd?.jaar || haalJaarUitUrlOfTekst(racePcsUrl, raceInfo.bodyText || "");
-        const raceDatums = parsePcsDateRange(raceInfo.datumTekst, fallbackYear);
-
-        if (raceDatums.start_datum || raceDatums.eind_datum) {
+        // Update de datums van deze wedstrijd in Supabase
+        if (structuur.startDate) {
             await supabase
                 .from('wedstrijden')
-                .update(raceDatums)
+                .update({
+                    start_datum: structuur.startDate,
+                    eind_datum: structuur.endDate || structuur.startDate
+                })
                 .eq('id', wedstrijdId);
         }
 
-        const rittenMetDatum = [];
+        // 2. Haal de starttijd op (net als in admin.js)
+        let tijdUrl = structuur.is_eendagskoers
+            ? (racePcsUrl.endsWith('/') ? `${racePcsUrl}result` : `${racePcsUrl}/result`)
+            : (racePcsUrl.endsWith('/') ? `${racePcsUrl}stage-1` : `${racePcsUrl}/stage-1`);
 
-        for (const rit of raceInfo.ritten) {
-            let datum = null;
-            let starttijd = null;
+        let gevondenTijd = "11:00";
+        try {
+            // Roep importStartlist aan (die zit ook in dit bestand)
+            const startResult = await importStartlist(tijdUrl, wedstrijdId);
+            if (startResult && startResult.gevondenTijd) {
+                gevondenTijd = startResult.gevondenTijd;
+            }
+        } catch (e) {
+            console.log(`⚠️ Starttijd opzoeken mislukt voor volgend jaar, fallback naar 11:00.`);
+        }
 
-            const rowDateMatch = rit.rowText.match(/(\d{1,2}\s+[A-Za-z]{3}(?:\s+20\d{2})?)/);
-            const rowTimeMatch = rit.rowText.match(/(\d{1,2}:\d{2})/);
+        // 3. Jouw Ritten-Mapping en Fallback Logica!
+        const rittenToInsert = structuur.ritten.map((r) => {
+            let ritDatum = structuur.startDate;
 
-            if (rowDateMatch) {
-                datum = parsePcsDateToIso(rowDateMatch[1], fallbackYear);
-                starttijd = combineDateAndTime(datum, rowTimeMatch?.[1]);
+            if (r.datum && r.datum.includes('/')) {
+                const [dag, maand] = r.datum.split('/');
+                ritDatum = `${structuur.jaar}-${maand.padStart(2, '0')}-${dag.padStart(2, '0')}`;
             }
 
-            rittenMetDatum.push({
+            return {
                 wedstrijd_id: wedstrijdId,
-                rit_nummer: rit.rit_nummer,
-                naam: rit.naam,
-                starttijd,
+                rit_nummer: r.rit_nummer,
+                naam: r.naam,
+                starttijd: `${ritDatum} ${gevondenTijd}:00`, // De veilige timestamp!
+                gescrapet: false
+            };
+        });
+
+        if (structuur.is_eendagskoers && rittenToInsert.length === 0) {
+            rittenToInsert.push({
+                wedstrijd_id: wedstrijdId,
+                rit_nummer: 1,
+                naam: structuur.naam,
+                starttijd: `${structuur.startDate} ${gevondenTijd}:00`,
+                gescrapet: false
             });
         }
 
-        if (rittenMetDatum.length > 0) {
-            console.log(`📊 Scraper vond ${rittenMetDatum.length} ritten.`);
+        // 4. Ritten opslaan in de database
+        if (rittenToInsert.length > 0) {
+            console.log(`📊 Scraper vond ${rittenToInsert.length} ritten (MET geldige tijden!).`);
 
             const { error: upsertError } = await supabase
                 .from('ritten')
-                .upsert(rittenMetDatum, {
+                .upsert(rittenToInsert, {
                     onConflict: 'wedstrijd_id,rit_nummer',
                 });
 
@@ -403,134 +377,57 @@ async function scrapeStagesForRace(racePcsUrl, wedstrijdId) {
 
         return {
             success: true,
-            count: rittenMetDatum.length,
-            start_datum: raceDatums.start_datum,
-            eind_datum: raceDatums.eind_datum,
+            count: rittenToInsert.length,
+            start_datum: structuur.startDate,
+            eind_datum: structuur.endDate,
         };
-    } finally {
-        await browser.close();
+
+    } catch (err) {
+        console.error("❌ Fout in scrapeStagesForRace:", err);
+        throw err;
     }
 }
 
-/**
- * 2. VOLLEDIGE RACE INITIALISATIE
- */
+//2. VOLLEDIGE RACE INITIALISATIE(Nu een exacte kopie van je admin logica)
+
 async function scrapeFullRaceInfo(racePcsUrl) {
-    console.log(`🚀 Volledige initiële scrape gestart voor: ${racePcsUrl}`);
+    console.log(`🚀 Volledige scrape gestart via rollover: ${racePcsUrl}`);
 
-    const browser = await getBrowser();
+    // 1. Haal de structuur op met de functie die al perfect werkt in de admin
+    const structuur = await scrapeWedstrijdStructuur(racePcsUrl);
 
-    try {
-        const page = await browser.newPage();
+    // 2. Bepaal de URL voor de starttijd (exact zoals in admin.js)
+    let tijdUrl = structuur.is_eendagskoers
+        ? (racePcsUrl.endsWith('/') ? `${racePcsUrl}result` : `${racePcsUrl}/result`)
+        : (racePcsUrl.endsWith('/') ? `${racePcsUrl}stage-1` : `${racePcsUrl}/stage-1`);
 
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        );
+    // 3. Haal de starttijd EN de deelnemers in één klap op
+    const startResult = await importStartlist(tijdUrl, null);
+    const gevondenTijd = startResult.gevondenTijd || "11:00";
 
-        await page.goto(racePcsUrl, {
-            waitUntil: 'networkidle2',
-            timeout: 60000,
-        });
-
-        const raceDetails = await page.evaluate(() => {
-            const naam = document.querySelector('h1')?.innerText.trim() || "";
-            const bodyText = document.body.innerText;
-
-            const yearMatch = naam.match(/(20\d{2})/) || bodyText.match(/(20\d{2})/);
-            const jaar = yearMatch ? Number(yearMatch[1]) : null;
-
-            const dateMatch =
-                bodyText.match(/Date:\s*([^\n]+)/i) ||
-                bodyText.match(/Race date:\s*([^\n]+)/i);
-
-            const stageLinks = Array.from(document.querySelectorAll('a[href*="stage-"]'));
-            const rittenMap = new Map();
-
-            stageLinks.forEach((link) => {
-                const href = link.getAttribute('href') || "";
-                const nrMatch = href.match(/stage-(\d+)/);
-                if (!nrMatch) return;
-
-                const rit_nummer = Number(nrMatch[1]);
-                const row = link.closest('tr');
-                const rowText = row?.innerText || link.parentElement?.innerText || link.innerText || "";
-
-                if (!rittenMap.has(rit_nummer)) {
-                    rittenMap.set(rit_nummer, {
-                        rit_nummer,
-                        naam: link.innerText.trim(),
-                        rowText,
-                    });
-                }
-            });
-
-            return {
-                naam,
-                jaar,
-                datumTekst: dateMatch?.[1]?.trim() || null,
-                ritten: Array.from(rittenMap.values()),
-                aantal_ritten: rittenMap.size,
-            };
-        });
-
-        const fallbackYear = raceDetails.jaar || haalJaarUitUrlOfTekst(racePcsUrl, raceDetails.naam || "");
-        const raceDatums = parsePcsDateRange(raceDetails.datumTekst, fallbackYear);
-
-        const ritten = raceDetails.ritten.map((rit) => {
-            const rowDateMatch = rit.rowText.match(/(\d{1,2}\s+[A-Za-z]{3}(?:\s+20\d{2})?)/);
-            const rowTimeMatch = rit.rowText.match(/(\d{1,2}:\d{2})/);
-
-            const datum = rowDateMatch
-                ? parsePcsDateToIso(rowDateMatch[1], fallbackYear)
-                : null;
-
-            return {
-                rit_nummer: rit.rit_nummer,
-                naam: rit.naam,
-                starttijd: combineDateAndTime(datum, rowTimeMatch?.[1]),
-            };
-        });
-
-        const startlistUrl = racePcsUrl.endsWith('/')
-            ? `${racePcsUrl}startlist`
-            : `${racePcsUrl}/startlist`;
-
-        await page.goto(startlistUrl, {
-            waitUntil: 'networkidle2',
-            timeout: 60000,
-        });
-
-        const deelnemers = await page.evaluate(() => {
-            const list = [];
-            const riderLinks = Array.from(document.querySelectorAll('a[href^="rider/"]'));
-
-            riderLinks.forEach((a) => {
-                const naam = a.innerText.trim();
-                const href = a.getAttribute('href');
-
-                if (naam && naam.length > 3 && href && a.closest('li, tr, .rider-line')) {
-                    list.push({
-                        naam,
-                        slug: href.replace('rider/', '').trim(),
-                    });
-                }
-            });
-
-            return Array.from(new Map(list.map((r) => [r.slug, r])).values());
-        });
-
+    // 4. Bouw de ritten op (exact zoals in admin.js)
+    const ritten = structuur.ritten.map(r => {
+        let ritDatum = structuur.startDate;
+        if (r.datum && r.datum.includes('/')) {
+            const [dag, maand] = r.datum.split('/');
+            ritDatum = `${structuur.jaar}-${maand.padStart(2, '0')}-${dag.padStart(2, '0')}`;
+        }
         return {
-            naam: raceDetails.naam,
-            jaar: fallbackYear,
-            aantal_ritten: ritten.length,
-            start_datum: raceDatums.start_datum,
-            eind_datum: raceDatums.eind_datum,
-            ritten,
-            deelnemers,
+            rit_nummer: r.rit_nummer,
+            naam: r.naam,
+            starttijd: `${ritDatum} ${gevondenTijd}:00`
         };
-    } finally {
-        await browser.close();
-    }
+    });
+
+    return {
+        naam: structuur.naam,
+        jaar: structuur.jaar,
+        aantal_ritten: structuur.is_eendagskoers ? 1 : structuur.ritten.length,
+        start_datum: structuur.startDate,
+        eind_datum: structuur.endDate,
+        ritten: ritten,
+        deelnemers: startResult.deelnemers || []
+    };
 }
 
 /**

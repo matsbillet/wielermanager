@@ -38,90 +38,173 @@ async function getVolgendeWedstrijd(huidigeWedstrijd) {
 }
 
 async function syncStartlijstEnRitten(wedstrijd) {
+    console.log(`\n=============================================================`);
+    console.log(`▶️ START AUTOMATISCHE ROLLOVER VOOR: ${wedstrijd?.naam || 'Onbekend'} (ID: ${wedstrijd?.id})`);
+    console.log(`=============================================================`);
+
     if (!wedstrijd?.pcs_url) {
+        console.error("❌ FOUT: Wedstrijd heeft geen PCS URL.");
         throw new Error("Wedstrijd heeft geen PCS URL.");
     }
 
-    const raceData = await scraper.scrapeFullRaceInfo(wedstrijd.pcs_url);
+    const fullPcsUrl = wedstrijd.pcs_url.startsWith('http')
+        ? wedstrijd.pcs_url
+        : `https://www.procyclingstats.com/${wedstrijd.pcs_url.replace(/^\/+/, '')}`;
 
-    if (!raceData?.deelnemers || raceData.deelnemers.length === 0) {
-        throw new Error("Startlijst nog niet beschikbaar.");
-    }
+    console.log(`🔗 1. URL opgebouwd: ${fullPcsUrl}`);
 
-    if (raceData.ritten?.length > 0) {
-        const rittenRows = raceData.ritten.map((rit) => ({
-            wedstrijd_id: wedstrijd.id,
-            rit_nummer: rit.rit_nummer,
-            naam: rit.naam,
-            starttijd: rit.starttijd || null,
-        }));
+    try {
+        console.log(`🔎 2. Wedstrijdstructuur ophalen (datums en ritten)...`);
+        const structuur = await scraper.scrapeWedstrijdStructuur(fullPcsUrl);
+        console.log(`   ✅ Structuur succesvol!`);
+        console.log(`      - Type: ${structuur.is_eendagskoers ? 'Eendagskoers' : 'Etappekoers'}`);
+        console.log(`      - Aantal ritten: ${structuur.ritten?.length || 0}`);
+        console.log(`      - Startdatum: ${structuur.startDate}`);
+        console.log(`      - Einddatum: ${structuur.endDate}`);
 
-        const { error: rittenError } = await supabase
-            .from("ritten")
-            .upsert(rittenRows, {
-                onConflict: "wedstrijd_id,rit_nummer",
-            });
+        console.log(`💾 3. Wedstrijd updaten in de database met nieuwe datums...`);
+        const { error: wedstrijdUpdateError } = await supabase
+            .from("wedstrijden")
+            .update({
+                aantal_ritten: structuur.is_eendagskoers ? 1 : structuur.ritten.length,
+                start_datum: structuur.startDate,
+                eind_datum: structuur.endDate,
+                status: "upcoming",
+            })
+            .eq("id", wedstrijd.id);
 
-        if (rittenError) throw rittenError;
-    }
+        if (wedstrijdUpdateError) {
+            console.error(`   ❌ FOUT bij updaten wedstrijd:`, wedstrijdUpdateError.message);
+            throw wedstrijdUpdateError;
+        }
+        console.log(`   ✅ Wedstrijd succesvol geüpdatet.`);
 
-    const { data: opgeslagenRenners, error: rennersError } = await supabase
-        .from("renners")
-        .upsert(
-            raceData.deelnemers.map((renner) => ({
-                naam: renner.naam,
-                slug: renner.slug,
-                ploeg: renner.ploeg || null,
-            })),
-            { onConflict: "slug" }
-        )
-        .select("id, slug");
+        let tijdUrl = structuur.is_eendagskoers
+            ? (fullPcsUrl.endsWith('/') ? `${fullPcsUrl}result` : `${fullPcsUrl}/result`)
+            : (fullPcsUrl.endsWith('/') ? `${fullPcsUrl}startlist` : `${fullPcsUrl}/startlist`);
 
-    if (rennersError) throw rennersError;
+        let gevondenTijd = "11:00";
+        let deelnemersLijst = [];
 
-    const deelnemersRows = raceData.deelnemers
-        .map((renner) => {
-            const opgeslagenRenner = opgeslagenRenners.find(
-                (item) => item.slug === renner.slug
-            );
+        console.log(`⏱️ 4. Tijd en startlijst zoeken op: ${tijdUrl}`);
+        try {
+            const startResult = await scraper.importStartlist(tijdUrl, wedstrijd.id);
+            if (startResult) {
+                if (startResult.gevondenTijd) {
+                    gevondenTijd = startResult.gevondenTijd;
+                    console.log(`   ✅ Tijd gevonden op pagina: ${gevondenTijd}`);
+                }
+                if (startResult.deelnemers) {
+                    deelnemersLijst = startResult.deelnemers;
+                    console.log(`   ✅ ${deelnemersLijst.length} renners gevonden op startlijst.`);
+                }
+            } else {
+                console.log(`   ⚠️ importStartlist gaf niets terug.`);
+            }
+        } catch (e) {
+            console.warn(`   ⚠️ Waarschuwing: Startlijst/tijd ophalen mislukt (${e.message}). Fallback naar 11:00.`);
+        }
 
-            if (!opgeslagenRenner) return null;
+        console.log(`🗺️ 5. Ritten voorbereiden voor database...`);
+        const rittenRows = structuur.ritten.map((r) => {
+            let ritDatum = structuur.startDate;
 
+            if (r.datum && r.datum.includes('/')) {
+                const [dag, maand] = r.datum.split('/');
+                ritDatum = `${structuur.jaar}-${maand.padStart(2, '0')}-${dag.padStart(2, '0')}`;
+            }
+
+            const timestamp = `${ritDatum} ${gevondenTijd}:00`;
             return {
                 wedstrijd_id: wedstrijd.id,
-                renner_id: opgeslagenRenner.id,
-                ploeg: renner.ploeg || null,
-                status: "active",
+                rit_nummer: r.rit_nummer,
+                naam: r.naam,
+                starttijd: timestamp,
+                gescrapet: false
             };
-        })
-        .filter(Boolean);
-
-    const { error: deelnemersError } = await supabase
-        .from("wedstrijd_deelnemers")
-        .upsert(deelnemersRows, {
-            onConflict: "wedstrijd_id,renner_id",
         });
 
-    if (deelnemersError) throw deelnemersError;
+        if (structuur.is_eendagskoers && rittenRows.length === 0) {
+            rittenRows.push({
+                wedstrijd_id: wedstrijd.id,
+                rit_nummer: 1,
+                naam: structuur.naam,
+                starttijd: `${structuur.startDate} ${gevondenTijd}:00`,
+                gescrapet: false
+            });
+        }
 
-    const { error: wedstrijdUpdateError } = await supabase
-        .from("wedstrijden")
-        .update({
-            aantal_ritten: raceData.aantal_ritten || wedstrijd.aantal_ritten,
-            start_datum: raceData.start_datum || wedstrijd.start_datum,
-            eind_datum: raceData.eind_datum || wedstrijd.eind_datum,
-            status: "upcoming",
-        })
-        .eq("id", wedstrijd.id);
+        console.log(`   ℹ️ ${rittenRows.length} ritten gegenereerd. Voorbeeld starttijd rit 1: ${rittenRows[0]?.starttijd}`);
 
-    if (wedstrijdUpdateError) throw wedstrijdUpdateError;
+        console.log(`💾 6. Ritten opslaan in database...`);
+        if (rittenRows.length > 0) {
+            const { error: rittenError } = await supabase
+                .from("ritten")
+                .upsert(rittenRows, { onConflict: "wedstrijd_id,rit_nummer" });
 
-    return {
-        deelnemers: deelnemersRows.length,
-        ritten: raceData.ritten?.length || 0,
-    };
+            if (rittenError) {
+                console.error("   ❌ FOUT bij opslaan ritten in database:", rittenError.message);
+                throw rittenError;
+            }
+            console.log(`   ✅ Ritten succesvol opgeslagen.`);
+        } else {
+            console.log(`   ⚠️ Geen ritten om op te slaan.`);
+        }
+
+        console.log(`🔗 7. Renners proberen te koppelen...`);
+        let aantalGekoppeld = 0;
+        if (deelnemersLijst && deelnemersLijst.length > 0) {
+            try {
+                const slugs = deelnemersLijst.map(r => r.slug);
+                const { data: dbRenners, error: dbRennersError } = await supabase
+                    .from('renners')
+                    .select('id, slug')
+                    .in('slug', slugs);
+
+                if (dbRennersError) {
+                    console.error("   ❌ FOUT bij ophalen renners uit DB:", dbRennersError.message);
+                } else if (dbRenners) {
+                    const deelnemersRows = dbRenners.map(renner => ({
+                        wedstrijd_id: wedstrijd.id,
+                        renner_id: renner.id,
+                        status: "active"
+                    }));
+
+                    console.log(`   💾 ${deelnemersRows.length} renners koppelen in wedstrijd_deelnemers...`);
+                    const { error: koppelError } = await supabase
+                        .from('wedstrijd_deelnemers')
+                        .upsert(deelnemersRows, { onConflict: 'wedstrijd_id,renner_id' });
+
+                    if (koppelError) {
+                        console.error("   ❌ FOUT bij opslaan wedstrijd_deelnemers:", koppelError.message);
+                    } else {
+                        aantalGekoppeld = deelnemersRows.length;
+                        console.log(`   ✅ ${aantalGekoppeld} renners succesvol gekoppeld.`);
+                    }
+                }
+            } catch (dbErr) {
+                console.error("   ❌ CATCH FOUT tijdens renners koppelen:", dbErr.message);
+            }
+        } else {
+            console.log(`   ℹ️ Geen deelnemers om te koppelen (startlijst was leeg).`);
+        }
+
+        console.log(`=============================================================`);
+        console.log(`⏹️ EINDE AUTOMATISCHE ROLLOVER SUCCESVOL`);
+        console.log(`=============================================================`);
+
+        return {
+            deelnemers: aantalGekoppeld,
+            ritten: rittenRows.length,
+        };
+
+    } catch (hoofdFout) {
+        console.error(`\n🚨 FATALE FOUT TIJDENS ROLLOVER:`, hoofdFout.message);
+        console.error(hoofdFout.stack);
+        console.log(`=============================================================`);
+        throw hoofdFout;
+    }
 }
-
 async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
     const { data: bestaandeSessie, error: bestaandeError } = await supabase
         .from("draft_sessies")
