@@ -77,6 +77,6 @@ export const getDashboardStats = () => api.get("/dashboard/me");
 // Voeg dit toe aan je bestaande api.js
 export const importVolledigeWedstrijd = (url) => api.post("/admin/import-volledige-wedstrijd", { url });
 
-export const importKlassiekerAlsRit = (pcsUrl) => api.post("/admin/import-klassieker-als-rit", { url: pcsUrl });
+export const importKlassiekerAlsRit = (pcsUrl) => api.post("/admin/klassieker", { url: pcsUrl });
 
 export default api;

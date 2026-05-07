@@ -444,4 +444,51 @@ router.post('/sync-wedstrijd/:id', async (req, res) => {
     }
 });
 
+// Voeg dit toe onderaan in admin.js, net boven module.exports = router;
+router.post('/klassieker', async (req, res) => {
+    const { url } = req.body;
+
+    try {
+        // 1. Zoek het ID van de "Voorjaarsklassiekers" op via de slug
+        const { data: wedstrijd, error: wErr } = await supabase
+            .from('wedstrijden')
+            .select('id')
+            .eq('slug', 'voorjaarsklassiekers')
+            .single();
+
+        if (wErr || !wedstrijd) {
+            return res.status(404).json({ error: "Wedstrijd 'voorjaarsklassiekers' niet gevonden. Maak deze eerst aan!" });
+        }
+
+        // 2. Gebruik de scraper om de naam en datum van de koers op te halen
+        const structuur = await scraper.scrapeWedstrijdStructuur(url);
+
+        // 3. Bepaal het volgende rit_nummer
+        const { count } = await supabase
+            .from('ritten')
+            .select('*', { count: 'exact', head: true })
+            .eq('wedstrijd_id', wedstrijd.id);
+
+        const volgendNummer = (count || 0) + 1;
+
+        // 4. Voeg de klassieker toe als nieuwe rit
+        const { error: rErr } = await supabase
+            .from('ritten')
+            .insert([{
+                wedstrijd_id: wedstrijd.id,
+                rit_nummer: volgendNummer,
+                naam: structuur.naam,
+                starttijd: `${structuur.startDate} 11:00:00`, // Default tijd, scraper kan dit later verfijnen
+                gescrapet: false
+            }]);
+
+        if (rErr) throw rErr;
+
+        res.json({ success: true, message: `✅ ${structuur.naam} toegevoegd als rit ${volgendNummer}!` });
+    } catch (err) {
+        console.error("Fout bij klassieker import:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
