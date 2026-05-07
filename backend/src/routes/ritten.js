@@ -192,10 +192,17 @@ router.post('/:id/auto-scrape', async (req, res) => {
             throw new Error("Wedstrijdgegevens konden niet worden opgehaald.");
         }
 
+        // Bepaal de juiste URL: Heeft de rit een eigen URL? Gebruik die. Anders de URL van de tour.
+        const targetUrl = rit.pcs_url ? rit.pcs_url : rit.wedstrijden.pcs_url;
+
+        // Als de rit een eigen URL heeft (zoals een klassieker), moet de scraper 
+        // dit behandelen als een eendagskoers (die zoekt op /result in plaats van /stage-X)
+        const isEendag = rit.pcs_url ? true : rit.wedstrijden.is_eendagskoers;
+
         const resultaat = await scraper.scrapeRitDetails(
-            rit.wedstrijden.pcs_url,
+            targetUrl,
             rit.rit_nummer,
-            rit.wedstrijden.is_eendagskoers
+            isEendag
         );
 
         await verwerkRitResultaat(id, resultaat);

@@ -41,16 +41,7 @@ export default function RacesPage() {
 
   const sortedYears = Object.keys(groupedRaces).sort((a, b) => b - a);
 
-  const yearsWithGroups = sortedYears.map((jaar) => {
-    const races = groupedRaces[jaar];
-    const klassiekers = races.filter(
-      (race) => race.is_eendagskoers || race.aantal_ritten === 1,
-    );
-    const multiDayRaces = races.filter(
-      (race) => !(race.is_eendagskoers || race.aantal_ritten === 1),
-    );
-    return { jaar, klassiekers, multiDayRaces };
-  });
+
 
   // 2. Helper functie voor kleuren en afbeeldingen
   const getRaceTheme = (slug = "") => {
@@ -88,49 +79,23 @@ export default function RacesPage() {
 
       {melding && <div className="error-msg">{melding}</div>}
 
-      {yearsWithGroups.map(({ jaar, multiDayRaces, klassiekers }) => (
-        <div
-          key={jaar}
-          className="year-section"
-          style={{ marginBottom: "4rem" }}
-        >
+      {sortedYears.map((jaar) => (
+        <div key={jaar} className="year-section" style={{ marginBottom: "4rem" }}>
+
           {/* Jaar Header */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "1.5rem",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "1.8rem",
-                fontWeight: "bold",
-                color: "#fff",
-                marginRight: "1rem",
-              }}
-            >
+          <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem" }}>
+            <h2 style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#fff", marginRight: "1rem" }}>
               {jaar}
             </h2>
-
-            <div
-              style={{
-                flexGrow: 1,
-                height: "2px",
-                backgroundColor: "rgba(255,255,255,0.1)",
-              }}
-            />
+            <div style={{ flexGrow: 1, height: "2px", backgroundColor: "rgba(255,255,255,0.1)" }} />
           </div>
 
           <section
             className="team-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-              gap: "1.5rem",
-            }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.5rem" }}
           >
-            {multiDayRaces
+            {/* Hier laden we nu gewoon ALLE wedstrijden (zowel grote rondes als voorjaarsklassiekers) */}
+            {groupedRaces[jaar]
               .slice()
               .sort((a, b) => getRaceOrder(a.slug) - getRaceOrder(b.slug))
               .map((wedstrijd) => {
@@ -148,66 +113,23 @@ export default function RacesPage() {
                       overflow: "hidden",
                       transition: "transform 0.2s",
                     }}
-                    onMouseOver={(e) =>
-                      (e.currentTarget.style.transform = "scale(1.02)")
-                    }
-                    onMouseOut={(e) =>
-                      (e.currentTarget.style.transform = "scale(1)")
-                    }
+                    onMouseOver={(e) => (e.currentTarget.style.transform = "scale(1.02)")}
+                    onMouseOut={(e) => (e.currentTarget.style.transform = "scale(1)")}
                   >
-                    <div
-                      className="race-card-image"
-                      style={{
-                        height: "160px",
-                        overflow: "hidden",
-                        position: "relative",
-                      }}
-                    >
-                      <img
-                        src={theme.img}
-                        alt={wedstrijd.naam}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
+                    <div className="race-card-image" style={{ height: "160px", overflow: "hidden", position: "relative" }}>
+                      <img src={theme.img} alt={wedstrijd.naam} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
 
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "10px",
-                          right: "10px",
-                          backgroundColor: theme.color,
-                          color: "#000",
-                          padding: "2px 8px",
-                          borderRadius: "4px",
-                          fontSize: "0.8rem",
-                          fontWeight: "bold",
-                        }}
-                      >
+                      <div style={{ position: "absolute", top: "10px", right: "10px", backgroundColor: theme.color, color: "#000", padding: "2px 8px", borderRadius: "4px", fontSize: "0.8rem", fontWeight: "bold" }}>
                         {theme.label}
                       </div>
                     </div>
 
-                    <div
-                      className="race-card-body"
-                      style={{ padding: "1.2rem" }}
-                    >
-                      <h3
-                        style={{ margin: "0 0 0.5rem 0", fontSize: "1.2rem" }}
-                      >
+                    <div className="race-card-body" style={{ padding: "1.2rem" }}>
+                      <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.2rem" }}>
                         {wedstrijd.naam}
                       </h3>
 
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          opacity: 0.7,
-                          fontSize: "0.9rem",
-                        }}
-                      >
+                      <div style={{ display: "flex", justifyContent: "space-between", opacity: 0.7, fontSize: "0.9rem" }}>
                         <span>🏁 {wedstrijd.aantal_ritten} etappes</span>
                         <span>📅 {wedstrijd.jaar}</span>
                       </div>
@@ -215,80 +137,6 @@ export default function RacesPage() {
                   </Link>
                 );
               })}
-
-            {klassiekers.length > 0 && (
-              <Link
-                key={`klassiekers-${jaar}`}
-                to={`/races/klassiekers/${jaar}`}
-                className="race-card card"
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  borderTop: `4px solid #cccccc`,
-                  overflow: "hidden",
-                  transition: "transform 0.2s",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.transform = "scale(1.02)")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.transform = "scale(1)")
-                }
-              >
-                <div
-                  className="race-card-image"
-                  style={{
-                    height: "160px",
-                    overflow: "hidden",
-                    position: "relative",
-                  }}
-                >
-                  <img
-                    src={klassiekerImg}
-                    alt={`Klassiekers ${jaar}`}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "10px",
-                      right: "10px",
-                      backgroundColor: "#cccccc",
-                      color: "#000",
-                      padding: "2px 8px",
-                      borderRadius: "4px",
-                      fontSize: "0.8rem",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Klassiekers
-                  </div>
-                </div>
-
-                <div className="race-card-body" style={{ padding: "1.2rem" }}>
-                  <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.2rem" }}>
-                    Klassiekers {jaar}
-                  </h3>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      opacity: 0.7,
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    <span>🏁 {klassiekers.length} klassiekers</span>
-                    <span>📅 {jaar}</span>
-                  </div>
-                </div>
-              </Link>
-            )}
           </section>
         </div>
       ))}

@@ -478,13 +478,46 @@ router.post('/klassieker', async (req, res) => {
                 wedstrijd_id: wedstrijd.id,
                 rit_nummer: volgendNummer,
                 naam: structuur.naam,
-                starttijd: `${structuur.startDate} 11:00:00`, // Default tijd, scraper kan dit later verfijnen
-                gescrapet: false
+                starttijd: `${structuur.startDate} 11:00:00`, // Default tijd
+                gescrapet: false,
+                pcs_url: url
             }]);
 
         if (rErr) throw rErr;
 
-        res.json({ success: true, message: `✅ ${structuur.naam} toegevoegd als rit ${volgendNummer}!` });
+        // --- 5. NIEUW: HAAL METEEN DE STARTLIJST OP EN SLA DE RENNERS OP ---
+        console.log(`[Backend] Startlijst scrapen voor klassieker: ${url}`);
+        const raceData = await scraper.scrapeFullRaceInfo(url);
+
+        let rennersToegevoegd = 0;
+
+        if (raceData && raceData.deelnemers && raceData.deelnemers.length > 0) {
+            // Map de data naar de juiste database kolommen
+            const rennersData = raceData.deelnemers.map(r => ({
+                naam: r.naam,
+                slug: r.slug
+                // Voeg hier 'team: r.team' toe als je scraper dat ook meestuurt
+            }));
+
+            // Upsert (toevoegen of updaten als de renner al bestaat via de slug)
+            const { error: upErr } = await supabase
+                .from('renners')
+                .upsert(rennersData, { onConflict: 'slug' });
+
+            if (upErr) {
+                console.error("❌ Fout bij opslaan renners:", upErr.message);
+            } else {
+                rennersToegevoegd = raceData.deelnemers.length;
+                console.log(`[Backend] ✅ ${rennersToegevoegd} renners toegevoegd!`);
+            }
+        }
+
+        // 6. Stuur een succesbericht terug naar de frontend
+        res.json({
+            success: true,
+            message: `✅ ${structuur.naam} toegevoegd als rit ${volgendNummer} én ${rennersToegevoegd} renners geïmporteerd!`
+        });
+
     } catch (err) {
         console.error("Fout bij klassieker import:", err);
         res.status(500).json({ error: err.message });
