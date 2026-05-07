@@ -74,7 +74,10 @@ export const previewRaceLifecycle = () => api.get("/admin/race-lifecycle/preview
 export const runRaceLifecycle = () => api.post("/admin/race-lifecycle/run", { bevestiging: "START" });
 export const getDashboardStats = () => api.get("/dashboard/me");
 
-// Voeg dit toe aan je bestaande api.js
+export const scrapePastRitten = async (wedstrijdId) => {
+    return await api.post(`/ritten/wedstrijd/${wedstrijdId}/scrape-past`);
+};
+
 export const importVolledigeWedstrijd = (url) => api.post("/admin/import-volledige-wedstrijd", { url });
 
 export const importKlassiekerAlsRit = (pcsUrl) => api.post("/admin/klassieker", { url: pcsUrl });

@@ -168,6 +168,88 @@ router.get('/wedstrijd/:slug', async (req, res) => {
     }
 });
 
+router.post('/wedstrijd/:wedstrijdId/scrape-past', async (req, res) => {
+    const { wedstrijdId } = req.params;
+
+    try {
+        const nu = new Date();
+        const nuIso = nu.toISOString();
+
+        console.log(`\n--- 🔍 DEBUG BULK SCRAPE ---`);
+        console.log(`Huidige tijd (UTC): ${nuIso}`);
+        console.log(`Zoeken naar ritten voor wedstrijd ID: ${wedstrijdId}`);
+
+        // 1. Haal EERST alle ongescrapete ritten op zonder de tijdfilter 
+        // om te kijken wat er in de database staat.
+        const { data: alleRitten, error: checkErr } = await supabase
+            .from('ritten')
+            .select('id, rit_nummer, starttijd, gescrapet')
+            .eq('wedstrijd_id', wedstrijdId)
+            .eq('gescrapet', false);
+
+        if (checkErr) throw checkErr;
+
+        // Filter nu handmatig in JS om exact te zien wat er gebeurt
+        const rittenToScrape = alleRitten.filter(rit => {
+            if (!rit.starttijd) return false;
+            const ritTijd = new Date(rit.starttijd);
+            return ritTijd <= nu;
+        }).sort((a, b) => a.rit_nummer - b.rit_nummer);
+
+        console.log(`Gevonden ongescrapete ritten in totaal: ${alleRitten.length}`);
+        console.log(`Ritten die volgens de logica al gereden zijn: ${rittenToScrape.length}`);
+
+        if (alleRitten.length > 0 && rittenToScrape.length === 0) {
+            console.log("⚠️ WAARSCHUWING: Er zijn ritten, maar de starttijd ligt in de toekomst.");
+            console.log(`Voorbeeld starttijd uit DB: ${alleRitten[0].starttijd}`);
+        }
+
+        if (rittenToScrape.length === 0) {
+            return res.json({
+                success: true,
+                message: "Geen ongescrapete ritten gevonden die al gereden zijn (volgens de starttijd).",
+                count: 0
+            });
+        }
+
+        // 2. Haal de benodigde extra data (URL) op voor de te scrapen ritten
+        const { data: rittenMetUrl, error: urlErr } = await supabase
+            .from('ritten')
+            .select('*, wedstrijden(pcs_url, is_eendagskoers)')
+            .in('id', rittenToScrape.map(r => r.id))
+            .order('rit_nummer', { ascending: true });
+
+        if (urlErr) throw urlErr;
+
+        let successCount = 0;
+        for (const rit of rittenMetUrl) {
+            console.log(`🚴 Scrapen van rit ${rit.rit_nummer}...`);
+            try {
+                const resultaat = await scraper.scrapeRitDetails(
+                    rit.wedstrijden.pcs_url,
+                    rit.rit_nummer,
+                    rit.wedstrijden.is_eendagskoers
+                );
+                await verwerkRitResultaat(rit.id, resultaat);
+                successCount++;
+                await new Promise(res => setTimeout(res, 1000));
+            } catch (err) {
+                console.error(`❌ Fout bij rit ${rit.rit_nummer}:`, err.message);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `✅ ${successCount} ritten succesvol ingehaald!`,
+            count: successCount
+        });
+
+    } catch (err) {
+        console.error("Fout bij bulk scrape:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.post('/:id/auto-scrape', async (req, res) => {
     const { id } = req.params;
 
