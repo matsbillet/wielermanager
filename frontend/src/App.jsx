@@ -1,26 +1,20 @@
-import {
-  BrowserRouter,
-  NavLink,
-  Route,
-  Routes,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import UserMenu from "./components/UserMenu";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import ScoreboardPage from "./pages/ScoreboardPage";
 import DraftPage from "./pages/DraftPage";
-import RitPage from "./pages/RitPage";
+import RitPage from "./pages/Ritpage";
 import AdminPage from "./pages/AdminPage";
 import RacesPage from "./pages/RacesPage";
 import RaceDetailPage from "./pages/RaceDetailPage";
-import KlassiekerYearPage from "./pages/KlassiekerYearPage";
 import CompetitiesPage from "./pages/CompetitiePage";
 import TeamsPage from "./pages/TeamsPage";
 import TeamDetailPage from "./pages/TeamDetailPage";
-import DashboardPage from "./pages/DashboardPage";
+import DashboardPage from './pages/DashboardPage';
 
 import logo from "./img/fietsimgneon.png";
 
@@ -28,16 +22,16 @@ function Layout() {
   const location = useLocation();
   const token = localStorage.getItem("token");
   const gebruiker = JSON.parse(localStorage.getItem("gebruiker"));
-  const isLoginPage = location.pathname === "/";
+  const isPublicPage = location.pathname === "/" || location.pathname === "/login";
 
   return (
     <div className="app-shell">
-      {!isLoginPage && token && (
+      {!isPublicPage && token && (
         <header className="topbar">
-          <NavLink to="/dashboard" className="brand">
+          <div className="brand">
             <img src={logo} alt="Wielermanager logo" className="logo" />
             <span className="brand-text">WIELER MANAGER</span>
-          </NavLink>
+          </div>
 
           <nav className="main-nav">
             <NavLink to="/dashboard">Dashboard</NavLink>
@@ -54,7 +48,8 @@ function Layout() {
 
       <main className="page-shell">
         <Routes>
-          <Route path="/" element={<LoginPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
 
           <Route
             path="/scoreboard/:competitieId"
@@ -120,15 +115,6 @@ function Layout() {
           />
 
           <Route
-            path="/races/klassiekers/:jaar"
-            element={
-              <ProtectedRoute>
-                <KlassiekerYearPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
             path="/races/:slug"
             element={
               <ProtectedRoute>
@@ -155,14 +141,11 @@ function Layout() {
             }
           />
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          } />
         </Routes>
       </main>
     </div>
