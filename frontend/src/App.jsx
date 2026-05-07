@@ -1,4 +1,10 @@
-import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import UserMenu from "./components/UserMenu";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
@@ -10,73 +16,74 @@ import RitPage from "./pages/RitPage";
 import AdminPage from "./pages/AdminPage";
 import RacesPage from "./pages/RacesPage";
 import RaceDetailPage from "./pages/RaceDetailPage";
+import KlassiekerYearPage from "./pages/KlassiekerYearPage";
 import CompetitiesPage from "./pages/CompetitiePage";
 import TeamsPage from "./pages/TeamsPage";
 import TeamDetailPage from "./pages/TeamDetailPage";
-import DashboardPage from './pages/DashboardPage';
+import DashboardPage from "./pages/DashboardPage";
 
 import logo from "./img/fietsimgneon.png";
 
 function Layout() {
-    const location = useLocation();
-    const token = localStorage.getItem("token");
-    const gebruiker = JSON.parse(localStorage.getItem("gebruiker"));
-    const isLoginPage = location.pathname === "/";
+  const location = useLocation();
+  const token = localStorage.getItem("token");
+  const gebruiker = JSON.parse(localStorage.getItem("gebruiker"));
+  const isLoginPage = location.pathname === "/";
 
-    return (
-        <div className="app-shell">
-            {!isLoginPage && token && (
-                <header className="topbar">
-                    <NavLink to="/dashboard" className="brand">
-                        <img src={logo} alt="Wielermanager logo" className="logo" />
-                        <span className="brand-text">WIELER MANAGER</span>
-                    </NavLink>
+  return (
+    <div className="app-shell">
+      {!isLoginPage && token && (
+        <header className="topbar">
+          <NavLink to="/dashboard" className="brand">
+            <img src={logo} alt="Wielermanager logo" className="logo" />
+            <span className="brand-text">WIELER MANAGER</span>
+          </NavLink>
 
-                    <nav className="main-nav">
-                        <NavLink to="/dashboard">Dashboard</NavLink>
-                        <NavLink to="/scoreboard/1">Scorebord</NavLink>
-                        <NavLink to="/draft/1">Draft</NavLink>
-                        <NavLink to="/teams/1">Teams</NavLink>
-                        <NavLink to="/races">Koersen</NavLink>
-                        {gebruiker?.is_admin && <NavLink to="/admin">Admin</NavLink>}
-                    </nav>
+          <nav className="main-nav">
+            <NavLink to="/dashboard">Dashboard</NavLink>
+            <NavLink to="/scoreboard/1">Scorebord</NavLink>
+            <NavLink to="/draft/1">Draft</NavLink>
+            <NavLink to="/teams/1">Teams</NavLink>
+            <NavLink to="/races">Koersen</NavLink>
+            {gebruiker?.is_admin && <NavLink to="/admin">Admin</NavLink>}
+          </nav>
 
-                    <UserMenu />
-                </header>
-            )}
+          <UserMenu />
+        </header>
+      )}
 
-            <main className="page-shell">
-                <Routes>
-                    <Route path="/" element={<LoginPage />} />
+      <main className="page-shell">
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
 
-                    <Route
-                        path="/scoreboard/:competitieId"
-                        element={
-                            <ProtectedRoute>
-                                <ScoreboardPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/scoreboard/:competitieId"
+            element={
+              <ProtectedRoute>
+                <ScoreboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    <Route
-                        path="/scoreboard"
-                        element={
-                            <ProtectedRoute>
-                                <ScoreboardPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/scoreboard"
+            element={
+              <ProtectedRoute>
+                <ScoreboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    <Route
-                        path="/draft/:competitieId"
-                        element={
-                            <ProtectedRoute>
-                                <DraftPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/draft/:competitieId"
+            element={
+              <ProtectedRoute>
+                <DraftPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    {/* <Route
+          {/* <Route
                         path="/competities"
                         element={
                             <ProtectedRoute>
@@ -85,75 +92,87 @@ function Layout() {
                         }
                     /> */}
 
-                    <Route
-                        path="/rit/:id"
-                        element={
-                            <ProtectedRoute>
-                                <RitPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/rit/:id"
+            element={
+              <ProtectedRoute>
+                <RitPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    <Route
-                        path="/admin"
-                        element={
-                            <AdminRoute>
-                                <AdminPage />
-                            </AdminRoute>
-                        }
-                    />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            }
+          />
 
-                    <Route
-                        path="/races"
-                        element={
-                            <ProtectedRoute>
-                                <RacesPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/races"
+            element={
+              <ProtectedRoute>
+                <RacesPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    <Route
-                        path="/races/:slug"
-                        element={
-                            <ProtectedRoute>
-                                <RaceDetailPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/races/klassiekers/:jaar"
+            element={
+              <ProtectedRoute>
+                <KlassiekerYearPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    <Route
-                        path="/teams/:competitieId"
-                        element={
-                            <ProtectedRoute>
-                                <TeamsPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/races/:slug"
+            element={
+              <ProtectedRoute>
+                <RaceDetailPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    <Route
-                        path="/teams/:competitieId/:sessieId/:spelerId"
-                        element={
-                            <ProtectedRoute>
-                                <TeamDetailPage />
-                            </ProtectedRoute>
-                        }
-                    />
+          <Route
+            path="/teams/:competitieId"
+            element={
+              <ProtectedRoute>
+                <TeamsPage />
+              </ProtectedRoute>
+            }
+          />
 
-                    <Route path="/dashboard" element={
-                        <ProtectedRoute>
-                            <DashboardPage />
-                        </ProtectedRoute>
-                    } />
-                </Routes>
-            </main>
-        </div>
-    );
+          <Route
+            path="/teams/:competitieId/:sessieId/:spelerId"
+            element={
+              <ProtectedRoute>
+                <TeamDetailPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </main>
+    </div>
+  );
 }
 
 export default function App() {
-    return (
-        <BrowserRouter>
-            <Layout />
-        </BrowserRouter>
-    );
+  return (
+    <BrowserRouter>
+      <Layout />
+    </BrowserRouter>
+  );
 }
