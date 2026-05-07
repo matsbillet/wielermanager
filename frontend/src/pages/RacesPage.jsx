@@ -41,6 +41,17 @@ export default function RacesPage() {
 
   const sortedYears = Object.keys(groupedRaces).sort((a, b) => b - a);
 
+  const yearsWithGroups = sortedYears.map((jaar) => {
+    const races = groupedRaces[jaar];
+    const klassiekers = races.filter(
+      (race) => race.is_eendagskoers || race.aantal_ritten === 1,
+    );
+    const multiDayRaces = races.filter(
+      (race) => !(race.is_eendagskoers || race.aantal_ritten === 1),
+    );
+    return { jaar, klassiekers, multiDayRaces };
+  });
+
   // 2. Helper functie voor kleuren en afbeeldingen
   const getRaceTheme = (slug = "") => {
     const veiligeSlug = slug || "";
@@ -77,7 +88,7 @@ export default function RacesPage() {
 
       {melding && <div className="error-msg">{melding}</div>}
 
-      {sortedYears.map((jaar) => (
+      {yearsWithGroups.map(({ jaar, multiDayRaces, klassiekers }) => (
         <div
           key={jaar}
           className="year-section"
@@ -119,7 +130,7 @@ export default function RacesPage() {
               gap: "1.5rem",
             }}
           >
-            {groupedRaces[jaar]
+            {multiDayRaces
               .slice()
               .sort((a, b) => getRaceOrder(a.slug) - getRaceOrder(b.slug))
               .map((wedstrijd) => {
@@ -204,6 +215,80 @@ export default function RacesPage() {
                   </Link>
                 );
               })}
+
+            {klassiekers.length > 0 && (
+              <Link
+                key={`klassiekers-${jaar}`}
+                to={`/races/klassiekers/${jaar}`}
+                className="race-card card"
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  borderTop: `4px solid #cccccc`,
+                  overflow: "hidden",
+                  transition: "transform 0.2s",
+                }}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.transform = "scale(1.02)")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.transform = "scale(1)")
+                }
+              >
+                <div
+                  className="race-card-image"
+                  style={{
+                    height: "160px",
+                    overflow: "hidden",
+                    position: "relative",
+                  }}
+                >
+                  <img
+                    src={klassiekerImg}
+                    alt={`Klassiekers ${jaar}`}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "10px",
+                      right: "10px",
+                      backgroundColor: "#cccccc",
+                      color: "#000",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      fontSize: "0.8rem",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Klassiekers
+                  </div>
+                </div>
+
+                <div className="race-card-body" style={{ padding: "1.2rem" }}>
+                  <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.2rem" }}>
+                    Klassiekers {jaar}
+                  </h3>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      opacity: 0.7,
+                      fontSize: "0.9rem",
+                    }}
+                  >
+                    <span>🏁 {klassiekers.length} klassiekers</span>
+                    <span>📅 {jaar}</span>
+                  </div>
+                </div>
+              </Link>
+            )}
           </section>
         </div>
       ))}
