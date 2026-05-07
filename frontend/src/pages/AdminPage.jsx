@@ -219,6 +219,37 @@ export default function AdminPage() {
         }
     };
 
+    const handleSyncSingleRace = async (id) => {
+        if (!window.confirm("Wil je de datums en starttijden van deze wedstrijd opnieuw ophalen en updaten?")) return;
+
+        try {
+            // Haal je token op (kijk even hoe je dit normaal in je app doet, vaak is het 'token' of 'jwt')
+            const token = localStorage.getItem('token');
+
+            const response = await fetch(`http://localhost:3000/api/admin/sync-wedstrijd/${id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // <--- DEZE REGEL FIXT HET PROBLEEM
+                }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Er ging iets mis bij het synchroniseren.');
+            }
+
+            alert(data.message || '✅ Wedstrijd succesvol gesynchroniseerd!');
+
+            // Ververs je data in het scherm
+            // fetchWedstrijden(); // (Of hoe jouw functie ook heet)
+
+        } catch (error) {
+            console.error("Fout bij sync:", error);
+            alert("Fout bij synchroniseren: " + error.message);
+        }
+    };
     const handleImportStartlist = async () => {
         if (!wedstrijden || wedstrijden.length === 0) {
             alert('Geen wedstrijden gevonden.');
@@ -586,10 +617,49 @@ export default function AdminPage() {
                                         <td><strong>{w.naam}</strong></td>
                                         <td>{w.jaar}</td>
                                         <td>{w.is_eendagskoers ? '🏁 Eendagskoers' : '🚴 Meerdaagse'}</td>
-                                        <td style={{ textAlign: 'right' }}>
-                                            {/* Je kunt hier een deleteWedstrijd functie koppelen */}
+                                        <td style={{ textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '15px', alignItems: 'center' }}>
+
+                                            {/* DE NIEUWE SYNC KNOP */}
+                                            <button
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '34px',
+                                                    height: '34px',
+                                                    backgroundColor: 'transparent',
+                                                    border: 'none',
+                                                    borderRadius: '50%',
+                                                    color: '#3b82f6', // Mooi fris blauw
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease-in-out',
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.backgroundColor = '#eff6ff'; // Lichtblauwe cirkel op hover
+                                                    e.currentTarget.querySelector('svg').style.transform = 'rotate(180deg)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                    e.currentTarget.querySelector('svg').style.transform = 'rotate(0deg)';
+                                                }}
+                                                onClick={() => handleSyncSingleRace(w.id)}
+                                                title="Synchroniseer datums en starttijden"
+                                            >
+                                                <svg
+                                                    style={{ transition: 'transform 0.4s ease' }}
+                                                    width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                                >
+                                                    {/* Een soepeler, moderner 'Refresh' icoon */}
+                                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                                    <path d="M3 3v5h5" />
+                                                </svg>
+                                            </button>
+
+                                            {/* JE BESTAANDE DELETE KNOP */}
                                             <button className="admin-delete-icon-btn" onClick={() => handleDelete(w.id)}>
-                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
+                                                </svg>
                                             </button>
                                         </td>
                                     </tr>

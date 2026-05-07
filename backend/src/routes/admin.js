@@ -380,13 +380,68 @@ const createSlug = (text) => {
         .replace(/(^-|-$)+/g, '');    // Verwijder streepjes aan begin of eind
 };
 
+// Sync starttijden voor één specifieke wedstrijd
+router.post('/sync-wedstrijd/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        console.log(`🔄 Handmatige sync gestart voor wedstrijd ID: ${id}`);
 
+        const { data: wedstrijd, error: wedErr } = await supabase
+            .from('wedstrijden')
+            .select('*')
+            .eq('id', id)
+            .single();
 
-function formatDate(datumStr) {
-    if (!datumStr) return null;
-    // Pak alleen het YYYY-MM-DD deel mochten er spaties omheen zitten
-    const match = datumStr.match(/\d{4}-\d{2}-\d{2}/);
-    return match ? match[0] : null;
-}
+        if (wedErr || !wedstrijd) throw new Error("Wedstrijd niet gevonden.");
+
+        // Gebruik je scraper logica
+        const structuur = await scraper.scrapeWedstrijdStructuur(wedstrijd.pcs_url);
+
+        let tijdUrl = structuur.is_eendagskoers
+            ? (wedstrijd.pcs_url.endsWith('/') ? `${wedstrijd.pcs_url}result` : `${wedstrijd.pcs_url}/result`)
+            : (wedstrijd.pcs_url.endsWith('/') ? `${wedstrijd.pcs_url}startlist` : `${wedstrijd.pcs_url}/startlist`);
+
+        let gevondenTijd = "11:00";
+        const startResult = await scraper.importStartlist(tijdUrl, wedstrijd.id).catch(() => null);
+        if (startResult && startResult.gevondenTijd) {
+            gevondenTijd = startResult.gevondenTijd;
+        }
+
+        const rittenUpdates = structuur.ritten.map((r) => {
+            let ritDatum = structuur.startDate;
+            if (r.datum && r.datum.includes('/')) {
+                const [dag, maand] = r.datum.split('/');
+                ritDatum = `${structuur.jaar}-${maand.padStart(2, '0')}-${dag.padStart(2, '0')}`;
+            }
+            return {
+                wedstrijd_id: wedstrijd.id,
+                rit_nummer: r.rit_nummer,
+                starttijd: `${ritDatum} ${gevondenTijd}:00`
+            };
+        });
+
+        // Voer de updates uit
+        for (const update of rittenUpdates) {
+            await supabase
+                .from('ritten')
+                .update({ starttijd: update.starttijd })
+                .match({ wedstrijd_id: update.wedstrijd_id, rit_nummer: update.rit_nummer });
+        }
+
+        await supabase
+            .from('wedstrijden')
+            .update({
+                start_datum: structuur.startDate,
+                eind_datum: structuur.endDate,
+                aantal_ritten: structuur.is_eendagskoers ? 1 : structuur.ritten.length
+            })
+            .eq('id', id);
+
+        res.json({ success: true, message: `✅ ${wedstrijd.naam} is succesvol gesynchroniseerd!` });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 module.exports = router;
