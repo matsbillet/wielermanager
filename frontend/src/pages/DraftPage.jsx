@@ -86,7 +86,7 @@ export default function DraftPage() {
         setSessieId(gekozenSessieId);
 
         setWedstrijdNaam(
-            `${sessie.wedstrijden?.naam || "Onbekende koers"} ${sessie.wedstrijden?.jaar || ""}`
+            sessie.wedstrijden?.naam || "Onbekende koers"
         );
 
         const [rennersResponse, spelersResponse, teamsResponse, actieveSpelerResponse] =
@@ -330,8 +330,7 @@ export default function DraftPage() {
                         {draftSessies.map((sessie) => (
                             <option key={sessie.id} value={sessie.id}>
                                 {sessie.is_actief ? "Actief · " : ""}
-                                {sessie.wedstrijden?.naam || "Onbekende koers"}{" "}
-                                {sessie.wedstrijden?.jaar || ""}
+                                {sessie.wedstrijden?.naam || "Onbekende koers"}
                             </option>
                         ))}
                     </select>
