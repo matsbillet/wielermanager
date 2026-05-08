@@ -27,22 +27,30 @@ const kleuren = [
     "#03a9f4",
     "#e91e63",
 ];
-
 function maakGrafiekData(spelers) {
     if (!spelers.length) return [];
 
-    const maxRitten = Math.max(
-        ...spelers.map((speler) => speler.per_rit?.length || 0),
-    );
+    const geredenRitNummers = [
+        ...new Set(
+            spelers.flatMap((speler) =>
+                (speler.per_rit || [])
+                    .filter((rit) => rit.gescrapet)
+                    .map((rit) => rit.rit_nummer)
+            )
+        ),
+    ].sort((a, b) => a - b);
 
-    return Array.from({ length: maxRitten }, (_, index) => {
-        const ritNummer = index + 1;
+    return geredenRitNummers.map((ritNummer) => {
         const punt = { rit: `Rit ${ritNummer}` };
 
         spelers.forEach((speler) => {
-            const totaalTotNu = speler.per_rit
-                .filter((rit) => rit.rit_nummer <= ritNummer)
-                .reduce((som, rit) => som + rit.punten, 0);
+            const totaalTotNu = (speler.per_rit || [])
+                .filter(
+                    (rit) =>
+                        rit.gescrapet &&
+                        Number(rit.rit_nummer) <= Number(ritNummer)
+                )
+                .reduce((som, rit) => som + Number(rit.punten || 0), 0);
 
             punt[speler.speler] = totaalTotNu;
         });
