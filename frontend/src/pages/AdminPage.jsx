@@ -15,7 +15,8 @@ import {
     syncStartlijst,
     importKlassiekerAlsRit,
     previewRaceLifecycle,
-    runRaceLifecycle
+    runRaceLifecycle,
+    forceAutoSync
 } from '../services/api';
 
 function normaliseer(text = "") {
@@ -414,6 +415,26 @@ export default function AdminPage() {
         }
     };
 
+    const [forcingSync, setForcingSync] = useState(false);
+    const [systeemMelding, setSysteemMelding] = useState("");
+
+    async function handleForceSync() {
+        setForcingSync(true);
+        setSysteemMelding("⚙️ Automatische motor is gestart op de achtergrond! Check de terminal.");
+
+        try {
+            await forceAutoSync();
+            setTimeout(() => {
+                setForcingSync(false);
+                setSysteemMelding("");
+            }, 4000);
+        } catch (err) {
+            console.error(err);
+            setSysteemMelding("❌ Fout bij het starten van de sync.");
+            setForcingSync(false);
+        }
+    }
+
     return (
         <div className="page-shell admin-page">
             <div className="section-head">
@@ -430,19 +451,59 @@ export default function AdminPage() {
 
             {activeTab === 'scraper' && (
                 <section className="panel card">
-                    <div style={{ marginBottom: '15px' }}>
-                        <button
-                            className="pill-btn"
-                            onClick={handleRaceLifecycle}
-                            disabled={loading}
-                            style={{ background: '#4CAF50', color: 'white' }}
-                        >
-                            ➡️ Preview volgende koers
-                        </button>
+
+                    {/* --- NIEUW: Systeem Acties Sectie --- */}
+                    <div style={{ marginBottom: '25px', paddingBottom: '20px', borderBottom: '1px solid #334155' }}>
+                        <h3>Systeem Acties (Achtergrond)</h3>
+                        <p className="small-muted" style={{ marginBottom: '15px' }}>
+                            Forceer de automatische scraper of controleer de status van actieve koersen.
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {/* De Nieuwe Forceer Sync Knop */}
+                            <button
+                                onClick={handleForceSync}
+                                className="pill-btn"
+                                disabled={forcingSync}
+                                style={{
+                                    backgroundColor: forcingSync ? "#475569" : "#10b981",
+                                    color: "white",
+                                    fontWeight: "bold",
+                                    cursor: forcingSync ? "not-allowed" : "pointer",
+                                    opacity: forcingSync ? 0.7 : 1,
+                                }}
+                            >
+                                {forcingSync ? "🚀 Aan het scrapen..." : "⚙️ Forceer Auto-Sync"}
+                            </button>
+
+                            {/* Bestaande Lifecycle Preview Knop */}
+                            <button
+                                className="pill-btn"
+                                onClick={handleRaceLifecycle}
+                                disabled={loading}
+                                style={{ background: '#3b82f6', color: 'white' }}
+                            >
+                                ➡️ Preview volgende koers
+                            </button>
+                        </div>
+
+                        {/* Melding specifiek voor de Force Sync */}
+                        {systeemMelding && (
+                            <div style={{
+                                marginTop: "15px", padding: "10px", borderRadius: "4px",
+                                backgroundColor: systeemMelding.includes("❌") ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)",
+                                color: systeemMelding.includes("❌") ? "#ef4444" : "#10b981",
+                                borderLeft: `4px solid ${systeemMelding.includes("❌") ? "#ef4444" : "#10b981"}`
+                            }}>
+                                {systeemMelding}
+                            </div>
+                        )}
                     </div>
+                    {/* --- EINDE Systeem Acties Sectie --- */}
+
                     <div className="admin-header-flex">
                         <div>
-                            <h3>Automatische Rit Scraper</h3>
+                            <h3>Handmatige Rit Scraper</h3>
                             <p className="small-muted">De uitslag wordt gezocht op basis van het ritnummer.</p>
                         </div>
                         <div className="filter-group">
@@ -496,7 +557,6 @@ export default function AdminPage() {
                                 onChange={(e) => setZoekTerm(e.target.value)}
                                 style={{ margin: 0, maxWidth: "250px" }}
                             />
-                            {/* Knop styling gelijkgetrokken met Drafts tab */}
                             <button className="pill-btn" onClick={verwijderAlleRenners} style={{ background: 'var(--red)', color: 'white' }}>
                                 🗑️ Alles Leegmaken
                             </button>
@@ -520,7 +580,6 @@ export default function AdminPage() {
                                         <td>{r.team}</td>
                                         <td>{r.prijs}</td>
                                         <td style={{ textAlign: 'right' }}>
-                                            {/* Zorg dat deleteItem goed wordt aangeroepen */}
                                             <button className="admin-delete-icon-btn" onClick={() => deleteItem('renners', r.id)}>
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
                                             </button>
@@ -547,7 +606,6 @@ export default function AdminPage() {
 
                     <div className="super-import-container">
                         <div className="super-import-header">
-
                             <div>
                                 <h4>wedstrijd Import</h4>
                                 <p>Voer de PCS Overview URL in voor een volledige automatische configuratie.</p>
@@ -572,7 +630,6 @@ export default function AdminPage() {
                         </div>
                     </div>
 
-                    {/* --- NIEUW: Import voor Klassiekers --- */}
                     <div className="super-import-container" style={{ marginBottom: "2rem", borderTop: "1px solid #334155", paddingTop: "2rem" }}>
                         <div className="super-import-header">
                             <div>
@@ -599,7 +656,6 @@ export default function AdminPage() {
                             </button>
                         </div>
                     </div>
-                    {/* --- EINDE NIEUW BLOK --- */}
 
                     <div className="table-wrap">
                         <table className="table">
@@ -619,7 +675,6 @@ export default function AdminPage() {
                                         <td>{w.is_eendagskoers ? '🏁 Eendagskoers' : '🚴 Meerdaagse'}</td>
                                         <td style={{ textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '15px', alignItems: 'center' }}>
 
-                                            {/* DE NIEUWE SYNC KNOP */}
                                             <button
                                                 style={{
                                                     display: 'inline-flex',
@@ -630,12 +685,12 @@ export default function AdminPage() {
                                                     backgroundColor: 'transparent',
                                                     border: 'none',
                                                     borderRadius: '50%',
-                                                    color: '#3b82f6', // Mooi fris blauw
+                                                    color: '#3b82f6',
                                                     cursor: 'pointer',
                                                     transition: 'all 0.2s ease-in-out',
                                                 }}
                                                 onMouseEnter={(e) => {
-                                                    e.currentTarget.style.backgroundColor = '#eff6ff'; // Lichtblauwe cirkel op hover
+                                                    e.currentTarget.style.backgroundColor = '#eff6ff';
                                                     e.currentTarget.querySelector('svg').style.transform = 'rotate(180deg)';
                                                 }}
                                                 onMouseLeave={(e) => {
@@ -649,13 +704,11 @@ export default function AdminPage() {
                                                     style={{ transition: 'transform 0.4s ease' }}
                                                     width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                                                 >
-                                                    {/* Een soepeler, moderner 'Refresh' icoon */}
                                                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                                                     <path d="M3 3v5h5" />
                                                 </svg>
                                             </button>
 
-                                            {/* JE BESTAANDE DELETE KNOP */}
                                             <button className="admin-delete-icon-btn" onClick={() => handleDelete(w.id)}>
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                     <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
@@ -670,64 +723,61 @@ export default function AdminPage() {
                 </section>
             )}
 
-            {
-                activeTab === 'drafts' && (
-                    <section className="panel card">
-                        <div className="admin-header-flex" style={{ marginBottom: '20px' }}>
-                            <h3>Actieve Drafts ({drafts.length})</h3>
+            {activeTab === 'drafts' && (
+                <section className="panel card">
+                    <div className="admin-header-flex" style={{ marginBottom: '20px' }}>
+                        <h3>Actieve Drafts ({drafts.length})</h3>
 
-                            <select
-                                className="admin-select-custom"
-                                value={selectedWedstrijd}
-                                onChange={(e) => setSelectedWedstrijd(e.target.value)}
-                                style={{ marginLeft: "1rem" }}
+                        <select
+                            className="admin-select-custom"
+                            value={selectedWedstrijd}
+                            onChange={(e) => setSelectedWedstrijd(e.target.value)}
+                            style={{ marginLeft: "1rem" }}
+                        >
+                            <option value="">Kies wedstrijd</option>
+                            {wedstrijden.map((w) => (
+                                <option key={w.id} value={w.id}>
+                                    {w.naam} ({w.jaar})
+                                </option>
+                            ))}
+                        </select>
+                        <button className="pill-btn" onClick={handleDeleteAllDrafts} style={{ background: 'var(--red)', color: 'white' }}>🗑️ Alles Leegmaken</button>
+                        <div style={{ marginBottom: "1rem" }}>
+                            <button
+                                className="pill-btn"
+                                onClick={() => handleSyncStartlijst(selectedWedstrijd)}
+                                disabled={!selectedWedstrijd}
                             >
-                                <option value="">Kies wedstrijd</option>
-                                {wedstrijden.map((w) => (
-                                    <option key={w.id} value={w.id}>
-                                        {w.naam} ({w.jaar})
-                                    </option>
-                                ))}
-                            </select>
-                            <button className="pill-btn" onClick={handleDeleteAllDrafts} style={{ background: 'var(--red)', color: 'white' }}>🗑️ Alles Leegmaken</button>
-                            <div style={{ marginBottom: "1rem" }}>
-                                <button
-                                    className="pill-btn"
-                                    onClick={() => handleSyncStartlijst(selectedWedstrijd)}
-                                    disabled={!selectedWedstrijd}
-                                >
-                                    Sync startlijst voor deze koers
-                                </button>
-                            </div>
+                                Sync startlijst voor deze koers
+                            </button>
                         </div>
-                        <div className="table-wrap" style={{ maxHeight: '500px' }}>
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>Gebruiker</th>
-                                        <th>Renner</th>
-                                        <th style={{ textAlign: 'right' }}>Actie</th>
+                    </div>
+                    <div className="table-wrap" style={{ maxHeight: '500px' }}>
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Gebruiker</th>
+                                    <th>Renner</th>
+                                    <th style={{ textAlign: 'right' }}>Actie</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {drafts.map((d) => (
+                                    <tr key={d.id}>
+                                        <td>{d.speler_id || d.username || 'Onbekend'}</td>
+                                        <td>{d.renners?.naam || `ID: ${d.renner_id}`}</td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            <button className="admin-delete-icon-btn" onClick={() => deleteDraft(d.id)}>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
+                                            </button>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {drafts.map((d) => (
-                                        <tr key={d.id}>
-                                            <td>{d.speler_id || d.username || 'Onbekend'}</td>
-                                            <td>{d.renners?.naam || `ID: ${d.renner_id}`}</td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <button className="admin-delete-icon-btn" onClick={() => deleteDraft(d.id)}>
-                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" /></svg>
-                                                </button>
-
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-                )
-            }
-        </div >
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
+        </div>
     );
 }
