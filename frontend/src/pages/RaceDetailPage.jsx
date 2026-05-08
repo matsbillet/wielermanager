@@ -111,7 +111,12 @@ export default function RaceDetailPage() {
   const { wedstrijd, ritten } = wedstrijdData;
 
   const gesorteerdeRitten = [...ritten].sort((a, b) => {
-    return new Date(a.starttijd) - new Date(b.starttijd);
+    // Sorteer klassiekers op datum
+    if (wedstrijd.slug === "voorjaarsklassiekers") {
+      return new Date(a.starttijd) - new Date(b.starttijd);
+    }
+    // Sorteer alle andere koersen (Tour, Giro, etc.) altijd netjes op rit nummer (1 t/m 21)
+    return a.rit_nummer - b.rit_nummer;
   });
 
   return (

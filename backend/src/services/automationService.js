@@ -1,68 +1,86 @@
+const cron = require('node-cron');
 const { supabase } = require('../db/supabase');
 const scraper = require('../scraper/scraper');
+const { verwerkRitResultaat } = require('../routes/ritten');
+const { verwerkRaceLifecycle } = require('./raceLifecycleService'); // Lifecycle toegevoegd!
 
-async function syncNieuweResultaten() {
-    console.log('🤖 Controle op onverwerkte ritten gestart...');
+/**
+ * 1. DE UITSLAG SCRAPER (Meerdere keren per dag tijdens koers-uren)
+ */
+async function runAutoSync() {
+    console.log(`\n🤖 [${new Date().toLocaleTimeString()}] Automatische controle gestart...`);
 
-    // 1. Zoek ritten die nog niet gescrapet zijn
-    // We pakken ook de pcs_url van de bijbehorende wedstrijd erbij via een join
-    const { data: ritten, error } = await supabase
-        .from('ritten')
-        .select(`
-            id, 
-            rit_nummer, 
-            naam, 
-            gescrapet,
-            wedstrijden (
-                id,
-                pcs_url,
-                naam
-            )
-        `)
-        .eq('gescrapet', false);
+    try {
+        const nu = new Date();
 
-    if (error) {
-        console.error('❌ Fout bij ophalen ritten:', error);
-        return;
-    }
+        const { data: ritten, error } = await supabase
+            .from('ritten')
+            .select('*, wedstrijden(id, pcs_url, jaar, naam, is_eendagskoers)')
+            .eq('gescrapet', false)
+            .lte('starttijd', nu.toISOString())
+            .order('starttijd', { ascending: true });
 
-    if (ritten.length === 0) {
-        console.log('Slapende honden... Alle ritten zijn al verwerkt. ✅');
-        return;
-    }
+        if (error) throw error;
 
-    console.log(`📊 Gevonden: ${ritten.length} ritten om te controleren.`);
-
-    for (const rit of ritten) {
-        const raceUrl = rit.wedstrijden.pcs_url;
-        const ritNr = rit.rit_nummer;
-
-        console.log(`🔎 Scrapen: ${rit.wedstrijden.naam} - Rit ${ritNr}...`);
-
-        try {
-            const resultaat = await scraper.scrapeRitDetails(raceUrl, ritNr);
-
-            // Controleer of er daadwerkelijk een uitslag is (rit moet gefinisht zijn)
-            if (resultaat && resultaat.uitslag && resultaat.uitslag.length > 0) {
-                console.log(`✅ Uitslag gevonden voor rit ${ritNr}. Bezig met verwerken...`);
-
-                // HIER roep je jouw bestaande functie aan die de punten berekent en opslaat
-                // Bijvoorbeeld: await verwerkRitPunten(rit.id, resultaat);
-
-                // Update de rit status zodat we hem de volgende keer overslaan
-                await supabase
-                    .from('ritten')
-                    .update({ gescrapet: true })
-                    .eq('id', rit.id);
-
-                console.log(`✨ Rit ${ritNr} succesvol afgerond.`);
-            } else {
-                console.log(`⏳ Rit ${ritNr} heeft nog geen uitslag op PCS. Overslaan...`);
-            }
-        } catch (err) {
-            console.error(`❌ Fout bij verwerken rit ${ritNr}:`, err.message);
+        if (!ritten || ritten.length === 0) {
+            console.log('😴 Geen actieve ritten gevonden die verwerkt moeten worden.');
+            return;
         }
+
+        for (const rit of ritten) {
+            console.log(`🧐 Controleren: ${rit.wedstrijden.naam} - Rit ${rit.rit_nummer}`);
+
+            const resultaat = await scraper.scrapeRitDetails(
+                rit.wedstrijden.pcs_url,
+                rit.rit_nummer,
+                rit.wedstrijden.is_eendagskoers
+            );
+
+            if (resultaat?.uitslag?.length > 0) {
+                console.log(`✅ Uitslag gevonden! Verwerken...`);
+                await verwerkRitResultaat(rit.id, resultaat);
+            } else {
+                console.log(`⏳ Nog geen uitslag voor ${rit.wedstrijden.naam}.`);
+            }
+        }
+    } catch (err) {
+        console.error('🚨 Fout tijdens Automation Service:', err.message);
     }
 }
 
-module.exports = { syncNieuweResultaten };
+/**
+ * 2. DE LIFECYCLE CHECK (Rollover naar volgend jaar / Nieuwe Drafts)
+ */
+async function runLifecycleCheck() {
+    console.log(`\n♻️ [${new Date().toLocaleTimeString()}] Automatische race lifecycle check gestart...`);
+    try {
+        const resultaat = await verwerkRaceLifecycle();
+        console.log('Race lifecycle resultaat:', resultaat);
+    } catch (error) {
+        console.error('Race lifecycle fout:', error.message);
+    }
+}
+
+
+// ============================================================================
+// 🕒 DE CRON PLANNING (De "Wekkers" van je server)
+// ============================================================================
+
+// A. Check Uitslagen: Elke 30 minuten tussen 15:00 en 22:00
+cron.schedule('0 */30 15-22 * * *', () => {
+    runAutoSync();
+});
+
+// B. Check Uitslagen: Extra check om 10:00 (Voor nachtkoersen)
+cron.schedule('0 10 * * *', () => {
+    runAutoSync();
+});
+
+// C. Check Lifecycle (Oude timer uit app.js): Elke 6 uur (00:00, 06:00, 12:00, 18:00)
+cron.schedule('0 */6 * * *', () => {
+    runLifecycleCheck();
+});
+
+runAutoSync();
+
+module.exports = { runAutoSync, runLifecycleCheck };

@@ -1,9 +1,9 @@
 const express = require('express');
 const cors = require('cors');
-const cron = require('node-cron');
 require('dotenv').config();
 
-const { verwerkRaceLifecycle } = require('./services/raceLifecycleService');
+// 1. Importeer de centrale Automation Motor
+require('./services/automationService');
 
 const app = express();
 
@@ -48,19 +48,9 @@ app.get('/', (req, res) => {
     res.json({ bericht: 'Wielermanager API werkt!' });
 });
 
-cron.schedule('0 */6 * * *', async () => {
-    console.log('Automatische race lifecycle check gestart...');
-
-    try {
-        const resultaat = await verwerkRaceLifecycle();
-        console.log('Race lifecycle resultaat:', resultaat);
-    } catch (error) {
-        console.error('Race lifecycle fout:', error.message);
-    }
-});
-
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log(`Server draait op http://localhost:${PORT}`);
+    console.log(`🚀 Server draait op http://localhost:${PORT}`);
+    console.log(`⚙️ Automation Service is succesvol opgestart op de achtergrond.`);
 });
