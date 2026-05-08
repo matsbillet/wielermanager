@@ -30,17 +30,34 @@ async function runAutoSync() {
         for (const rit of ritten) {
             console.log(`🧐 Controleren: ${rit.wedstrijden.naam} - Rit ${rit.rit_nummer}`);
 
-            const resultaat = await scraper.scrapeRitDetails(
-                rit.wedstrijden.pcs_url,
-                rit.rit_nummer,
-                rit.wedstrijden.is_eendagskoers
-            );
+            // 1. BEPAAL DE JUISTE URL
+            // Kijk eerst of de rit zélf een url heeft (voor klassiekers), 
+            // pak anders de url van de overkoepelende wedstrijd.
+            const targetUrl = rit.pcs_url || rit.wedstrijden?.pcs_url;
 
-            if (resultaat?.uitslag?.length > 0) {
-                console.log(`✅ Uitslag gevonden! Verwerken...`);
-                await verwerkRitResultaat(rit.id, resultaat);
-            } else {
-                console.log(`⏳ Nog geen uitslag voor ${rit.wedstrijden.naam}.`);
+            // 2. CHECK OF URL BESTAAT
+            if (!targetUrl) {
+                console.log(`⚠️ Geen PCS URL gevonden voor deze rit of wedstrijd. Scrapen overgeslagen.`);
+                continue; // Stop met deze rit, maar ga rustig door naar de volgende!
+            }
+
+            // 3. START DE SCRAPER
+            try {
+                const resultaat = await scraper.scrapeRitDetails(
+                    targetUrl,
+                    rit.rit_nummer,
+                    rit.wedstrijden.is_eendagskoers
+                );
+
+                if (resultaat?.uitslag?.length > 0) {
+                    console.log(`✅ Uitslag gevonden! Verwerken...`);
+                    await verwerkRitResultaat(rit.id, resultaat);
+                } else {
+                    console.log(`⏳ Nog geen uitslag voor ${rit.wedstrijden.naam}.`);
+                }
+            } catch (scrapeErr) {
+                // Vang specifieke scraper fouten op zodat de hele motor niet uitvalt
+                console.error(`❌ Fout tijdens scrapen van Rit ${rit.rit_nummer}:`, scrapeErr.message);
             }
         }
     } catch (err) {
@@ -80,7 +97,5 @@ cron.schedule('0 10 * * *', () => {
 cron.schedule('0 */6 * * *', () => {
     runLifecycleCheck();
 });
-
-runAutoSync();
 
 module.exports = { runAutoSync, runLifecycleCheck };
