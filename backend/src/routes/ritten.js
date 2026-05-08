@@ -262,6 +262,24 @@ router.post('/wedstrijd/:wedstrijdId/scrape-past', async (req, res) => {
     }
 });
 
+// --- FORCEER AUTOMATISCHE SYNC ---
+router.post('/force-sync', (req, res) => {
+    try {
+        console.log("🚀 Handmatige Force Sync getriggerd via dashboard!");
+
+        // LAZY LOAD: We halen de functie hier pas op. 
+        // Dit doorbreekt de circulaire afhankelijkheid!
+        const { runAutoSync } = require('../services/automationService');
+
+        runAutoSync();
+
+        res.json({ success: true, message: "Automatische sync is op de achtergrond gestart." });
+    } catch (err) {
+        console.error("❌ Fout bij forceren sync:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.post('/:id/auto-scrape', async (req, res) => {
     const { id } = req.params;
 
