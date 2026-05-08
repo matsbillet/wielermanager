@@ -7,7 +7,7 @@ export default function UserMenu() {
     function handleLogout() {
         localStorage.removeItem('token');
         localStorage.removeItem('gebruiker');
-        navigate('/');
+        navigate('/login');
     }
 
     if (!gebruiker) return null;
