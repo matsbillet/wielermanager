@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getRittenVanWedstrijd, syncStartlijst, scrapePastRitten } from "../services/api"; // Voeg scrapePastRitten toe
+// Zorg dat resetAllRitten en resetRit hier geïmporteerd worden!
+import { getRittenVanWedstrijd, syncStartlijst, scrapePastRitten, resetAllRitten, resetRit } from "../services/api";
 
 export default function RaceDetailPage() {
   const { slug } = useParams();
   const [wedstrijdData, setWedstrijdData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Aparte loading states voor de twee knoppen
+  // Aparte loading states voor de knoppen
   const [syncingStartlist, setSyncingStartlist] = useState(false);
   const [scrapingPast, setScrapingPast] = useState(false);
+  const [resetingAll, setResetingAll] = useState(false);
 
   const [melding, setMelding] = useState("");
 
@@ -48,7 +50,7 @@ export default function RaceDetailPage() {
     }
   }
 
-  // NIEUWE FUNCTIE: Verleden ritten in bulk scrapen
+  // Functie: Verleden ritten in bulk scrapen
   async function handleScrapePastRitten() {
     if (!wedstrijdData?.wedstrijd?.id) return;
     const bevestig = window.confirm(`Wil je alle ritten die al gereden zijn (maar nog niet gescrapet) nu inladen? Dit kan even duren.`);
@@ -59,13 +61,47 @@ export default function RaceDetailPage() {
     try {
       const res = await scrapePastRitten(wedstrijdData.wedstrijd.id);
       setMelding(res.data.message || "✅ Ritten succesvol ingehaald!");
-      // Herlaad de ritten om de groene vinkjes/status te updaten
       await laadRitten();
     } catch (err) {
       console.error("Scrape fout:", err);
       setMelding("❌ Fout bij het scrapen van de ritten.");
     } finally {
       setScrapingPast(false);
+    }
+  }
+
+  // Functie: Alle ritten in één keer resetten
+  async function handleResetAll() {
+    if (!wedstrijdData?.wedstrijd?.id) return;
+    const bevestig = window.confirm("⚠️ Weet je dit zeker? ALLE uitslagen van deze wedstrijd worden gewist. Dit is perfect voor de demo.");
+    if (!bevestig) return;
+
+    setResetingAll(true);
+    setMelding("");
+    try {
+      await resetAllRitten(wedstrijdData.wedstrijd.id);
+      setMelding("✅ Alle ritten zijn gereset. Klaar voor de demo!");
+      await laadRitten(); // Ververs de lijst zodat alles op 'pending' springt
+    } catch (err) {
+      setMelding("❌ Fout bij het resetten van de wedstrijd.");
+    } finally {
+      setResetingAll(false);
+    }
+  }
+
+  // Functie: Één specifieke rit resetten
+  async function handleResetEnkeleRit(ritId, ritNaamWeergave) {
+    const bevestig = window.confirm(`Weet je zeker dat je de uitslag van ${ritNaamWeergave} wilt wissen?`);
+    if (!bevestig) return;
+
+    setMelding("");
+    try {
+      await resetRit(ritId);
+      setMelding(`✅ ${ritNaamWeergave} is succesvol gereset!`);
+      await laadRitten();
+    } catch (err) {
+      console.error("Fout bij resetten enkele rit:", err);
+      setMelding(`❌ Fout bij het wissen van ${ritNaamWeergave}.`);
     }
   }
 
@@ -123,20 +159,38 @@ export default function RaceDetailPage() {
             </button>
           </div>
 
-          {/* NIEUW: Bulk Scrape Knop */}
+          {/* Bulk Scrape Knop */}
           <div>
             <button
               onClick={handleScrapePastRitten}
               className="pill-btn"
               disabled={scrapingPast || syncingStartlist}
               style={{
-                backgroundColor: scrapingPast ? "#475569" : "#f59e0b", // Een mooie oranje/amber kleur voor deze actie
+                backgroundColor: scrapingPast ? "#475569" : "#f59e0b",
                 color: "#0f172a", fontWeight: "bold",
                 cursor: (scrapingPast || syncingStartlist) ? "not-allowed" : "pointer",
                 opacity: (scrapingPast || syncingStartlist) ? 0.7 : 1,
               }}
             >
               {scrapingPast ? "⏳ Ritten scrapen..." : "⚡ Haal Gereden Ritten In"}
+            </button>
+          </div>
+
+          {/* RESET KNOP VOOR DEMO */}
+          <div>
+            <button
+              onClick={handleResetAll}
+              className="pill-btn"
+              disabled={resetingAll || syncingStartlist || scrapingPast}
+              style={{
+                backgroundColor: resetingAll ? "#475569" : "#ef4444", // Rood
+                color: "white",
+                fontWeight: "bold",
+                cursor: (resetingAll || syncingStartlist || scrapingPast) ? "not-allowed" : "pointer",
+                opacity: (resetingAll || syncingStartlist || scrapingPast) ? 0.7 : 1,
+              }}
+            >
+              {resetingAll ? "⏳ Wissen..." : "🗑️ Reset Alle Ritten (Demo)"}
             </button>
           </div>
 
@@ -151,15 +205,50 @@ export default function RaceDetailPage() {
       </div>
 
       <section className="rit-grid">
-        {gesorteerdeRitten.map((rit) => (
-          <Link
-            key={rit.id}
-            to={`/rit/${rit.id}`}
-            className={`rit-link ${rit.gescrapet ? "" : "pending"}`}
-          >
-            {wedstrijd.slug === "voorjaarsklassiekers" ? rit.naam : `Rit ${rit.rit_nummer}`}
-          </Link>
-        ))}
+        {gesorteerdeRitten.map((rit) => {
+          // Bepaal de naam dynamisch, zodat we deze ook in de alert kunnen gebruiken
+          const ritNaamWeergave = wedstrijd.slug === "voorjaarsklassiekers" ? rit.naam : `Rit ${rit.rit_nummer}`;
+
+          return (
+            <div key={rit.id} style={{ display: 'flex', alignItems: 'stretch', gap: '8px' }}>
+              <Link
+                to={`/rit/${rit.id}`}
+                className={`rit-link ${rit.gescrapet ? "" : "pending"}`}
+                style={{ flex: 1, margin: 0 }}
+              >
+                {ritNaamWeergave}
+              </Link>
+
+              {/* Individuele Reset Knop (alleen als gescrapet) */}
+              {rit.gescrapet && (
+                <button
+                  onClick={() => handleResetEnkeleRit(rit.id, ritNaamWeergave)}
+                  title={`Wis uitslag van ${ritNaamWeergave}`}
+                  style={{
+                    background: "rgba(239, 68, 68, 0.1)",
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    color: "#ef4444",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    padding: "0 12px",
+                    fontSize: "1.1rem",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#ef4444";
+                    e.currentTarget.style.color = "white";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                    e.currentTarget.style.color = "#ef4444";
+                  }}
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
+          );
+        })}
       </section>
     </div>
   );
