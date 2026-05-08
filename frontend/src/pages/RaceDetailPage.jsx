@@ -74,6 +74,10 @@ export default function RaceDetailPage() {
 
   const { wedstrijd, ritten } = wedstrijdData;
 
+  const gesorteerdeRitten = [...ritten].sort((a, b) => {
+    return new Date(a.starttijd) - new Date(b.starttijd);
+  });
+
   return (
     <div>
       <div className="section-head">
@@ -147,13 +151,13 @@ export default function RaceDetailPage() {
       </div>
 
       <section className="rit-grid">
-        {ritten.map((rit) => (
+        {gesorteerdeRitten.map((rit) => (
           <Link
             key={rit.id}
             to={`/rit/${rit.id}`}
             className={`rit-link ${rit.gescrapet ? "" : "pending"}`}
           >
-            Rit {rit.rit_nummer}
+            {wedstrijd.slug === "voorjaarsklassiekers" ? rit.naam : `Rit ${rit.rit_nummer}`}
           </Link>
         ))}
       </section>
