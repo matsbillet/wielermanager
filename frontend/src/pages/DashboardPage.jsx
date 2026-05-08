@@ -58,6 +58,62 @@ export default function DashboardPage() {
             }}
         >
             <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr",
+                    gap: isMobile ? "2rem" : "2rem",
+                    alignItems: "start",
+                    marginBottom: isMobile ? "2rem" : "4rem",
+                }}
+            >
+                <section>
+                    <div className="section-head">
+                        <h2>Snelle Acties</h2>
+                    </div>
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                            gap: "1rem",
+                        }}
+                    >
+                        <ActionLink
+                            to="/teams/1"
+                            title="Mijn Team"
+                            desc="Bekijk je team"
+                            icon="👥"
+                        />
+
+                        <ActionLink
+                            to="/races"
+                            title="Kalender"
+                            desc="Bekijk alle ritten"
+                            icon="📅"
+                        />
+                    </div>
+                </section>
+
+                <aside>
+                    <div className="section-head">
+                        <h2>Live Status</h2>
+                    </div>
+
+                    <div
+                        className="card"
+                        style={{
+                            display: "flex",
+                            width: "100%",
+                            minWidth: 0,
+                            padding: "1.25rem",
+                        }}
+                    >
+                        <CountdownTimer />
+                    </div>
+                </aside>
+            </div>
+
+            <div
                 className="section-head"
                 style={{
                     display: isMobile ? "block" : "flex",
@@ -71,8 +127,6 @@ export default function DashboardPage() {
                 >
                     Welkom terug, {stats.naam}! 👋
                 </h1>
-
-
             </div>
 
             <div
@@ -143,61 +197,6 @@ export default function DashboardPage() {
                     />
                 </div>
             </div>
-
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr",
-                    gap: isMobile ? "2rem" : "2rem",
-                    alignItems: "start",
-                }}
-            >
-                <section>
-                    <div className="section-head">
-                        <h2>Snelle Acties</h2>
-                    </div>
-
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                            gap: "1rem",
-                        }}
-                    >
-                        <ActionLink
-                            to="/teams/1"
-                            title="Mijn Team"
-                            desc="Bekijk je team"
-                            icon="👥"
-                        />
-
-                        <ActionLink
-                            to="/races"
-                            title="Kalender"
-                            desc="Bekijk alle ritten"
-                            icon="📅"
-                        />
-                    </div>
-                </section>
-
-                <aside>
-                    <div className="section-head">
-                        <h2>Live Status</h2>
-                    </div>
-
-                    <div
-                        className="card"
-                        style={{
-                            display: "flex",
-                            width: "100%",
-                            minWidth: 0,
-                            padding: "1.25rem",
-                        }}
-                    >
-                        <CountdownTimer />
-                    </div>
-                </aside>
-            </div>
         </div>
     );
 }
@@ -232,7 +231,11 @@ function JerseyCard({ title, data, color, emoji }) {
             <div style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>{emoji}</div>
             <div style={{ opacity: 0.7, fontSize: "0.85rem" }}>{title}</div>
             <div
-                style={{ fontSize: "1.2rem", fontWeight: "bold", marginTop: "0.25rem" }}
+                style={{
+                    fontSize: "1.2rem",
+                    fontWeight: "bold",
+                    marginTop: "0.25rem",
+                }}
             >
                 {data?.naam || "-"}
             </div>
