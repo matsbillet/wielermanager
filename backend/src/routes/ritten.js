@@ -383,6 +383,86 @@ router.post('/:id/auto-scrape', async (req, res) => {
     }
 });
 
+// --- RESET ALLE RITTEN VAN EEN WEDSTRIJD ---
+router.post('/wedstrijd/:wedstrijdId/reset-all', async (req, res) => {
+    const { wedstrijdId } = req.params;
+
+    try {
+        console.log(`🧹 Bulk reset gestart voor wedstrijd ID: ${wedstrijdId}`);
+
+        // 1. Haal alle ritten van deze wedstrijd op
+        const { data: ritten } = await supabase
+            .from('ritten')
+            .select('id')
+            .eq('wedstrijd_id', wedstrijdId);
+
+        if (ritten && ritten.length > 0) {
+            const ritIds = ritten.map(r => r.id);
+
+            // 2. Verwijder alle resultaten voor deze ritten
+            await supabase
+                .from('ritresultaten')
+                .delete()
+                .in('rit_id', ritIds);
+
+            // 3. Zet alle ritten terug op ongescrapet
+            await supabase
+                .from('ritten')
+                .update({
+                    gescrapet: false,
+                    leider_algemeen: null,
+                    leider_punten: null,
+                    leider_berg: null,
+                    leider_jongeren: null
+                })
+                .in('id', ritIds);
+        }
+
+        res.json({ success: true, message: "Alle ritten succesvol gereset!" });
+    } catch (err) {
+        console.error("Fout bij bulk reset:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+// --- RESET ÉÉN SPECIFIEKE RIT ---
+router.post('/:id/reset', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        console.log(`🔄 Reset aangevraagd voor individuele rit ID: ${id}`);
+
+        // 1. Verwijder alle uitslagen voor deze ene rit
+        const { error: deleteError } = await supabase
+            .from('ritresultaten')
+            .delete()
+            .eq('rit_id', id);
+
+        if (deleteError) throw deleteError;
+
+        // 2. Zet de rit status terug naar ongescrapet en wis de truidragers
+        const { error: updateError } = await supabase
+            .from('ritten')
+            .update({
+                gescrapet: false,
+                leider_algemeen: null,
+                leider_punten: null,
+                leider_berg: null,
+                leider_jongeren: null
+            })
+            .eq('id', id);
+
+        if (updateError) throw updateError;
+
+        res.json({ success: true, message: "Rit is succesvol leeggemaakt en gereset!" });
+    } catch (err) {
+        console.error("❌ Fout bij resetten individuele rit:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
 router.post('/:id/sync-startlijst', async (req, res) => {
     const { id } = req.params;
 

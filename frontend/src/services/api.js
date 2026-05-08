@@ -78,6 +78,15 @@ export const scrapePastRitten = async (wedstrijdId) => {
     return await api.post(`/ritten/wedstrijd/${wedstrijdId}/scrape-past`);
 };
 
+export const resetAllRitten = async (wedstrijdId) => {
+    return await api.post(`/ritten/wedstrijd/${wedstrijdId}/reset-all`);
+};
+
+// Rit resetten
+export const resetRit = async (ritId) => {
+    return await api.post(`/ritten/${ritId}/reset`);
+};
+
 export const importVolledigeWedstrijd = (url) => api.post("/admin/import-volledige-wedstrijd", { url });
 
 export const importKlassiekerAlsRit = (pcsUrl) => api.post("/admin/klassieker", { url: pcsUrl });
