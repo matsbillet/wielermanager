@@ -84,6 +84,7 @@ a {
     color: var(--text);
     flex-shrink: 1;
     min-width: 0;
+    text-decoration: none;
 }
 
 .brand-text {
