@@ -153,6 +153,14 @@ export default function ScoreboardPage() {
         ...spelers.map((speler) => speler.per_rit?.length || 0),
     );
 
+    const aantalGeredenRitten = new Set(
+        spelers.flatMap((speler) =>
+            (speler.per_rit || [])
+                .filter((rit) => rit.gescrapet)
+                .map((rit) => rit.rit_nummer)
+        )
+    ).size;
+
     return (
         <div className="scoreboard-page">
             <section className="scoreboard-header">
@@ -182,7 +190,7 @@ export default function ScoreboardPage() {
 
                 <div className="scoreboard-summary">
                     <span>{spelers.length} spelers</span>
-                    <strong>{aantalRitten} ritten</strong>
+                    <strong>{aantalGeredenRitten} / {aantalRitten} ritten</strong>
                 </div>
             </section>
 
