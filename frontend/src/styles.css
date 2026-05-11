@@ -495,7 +495,7 @@ a {
 }
 
 .rit-link.pending {
-    color: var(--muted);
+    color: #00F5D4;
 }
 
 /* LISTS */
