@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-// Zorg dat resetAllRitten en resetRit hier geïmporteerd worden!
-import { getRittenVanWedstrijd, syncStartlijst, scrapePastRitten, resetAllRitten, resetRit } from "../services/api";
+import {
+  getRittenVanWedstrijd,
+  syncStartlijst,
+  scrapePastRitten,
+  resetAllRitten,
+} from "../services/api";
 
 export default function RaceDetailPage() {
   const { slug } = useParams();
@@ -34,7 +38,9 @@ export default function RaceDetailPage() {
   // Functie: Startlijst Syncen
   async function handleSyncStartlist() {
     if (!wedstrijdData?.wedstrijd?.id) return;
-    const bevestig = window.confirm(`Wil je de startlijst voor ${wedstrijdData.wedstrijd.naam} ophalen of bijwerken?`);
+    const bevestig = window.confirm(
+      `Wil je de startlijst voor ${wedstrijdData.wedstrijd.naam} ophalen of bijwerken?`,
+    );
     if (!bevestig) return;
 
     setSyncingStartlist(true);
@@ -53,7 +59,9 @@ export default function RaceDetailPage() {
   // Functie: Verleden ritten in bulk scrapen
   async function handleScrapePastRitten() {
     if (!wedstrijdData?.wedstrijd?.id) return;
-    const bevestig = window.confirm(`Wil je alle ritten die al gereden zijn (maar nog niet gescrapet) nu inladen? Dit kan even duren.`);
+    const bevestig = window.confirm(
+      `Wil je alle ritten die al gereden zijn (maar nog niet gescrapet) nu inladen? Dit kan even duren.`,
+    );
     if (!bevestig) return;
 
     setScrapingPast(true);
@@ -73,7 +81,9 @@ export default function RaceDetailPage() {
   // Functie: Alle ritten in één keer resetten
   async function handleResetAll() {
     if (!wedstrijdData?.wedstrijd?.id) return;
-    const bevestig = window.confirm("⚠️ Weet je dit zeker? ALLE uitslagen van deze wedstrijd worden gewist. Dit is perfect voor de demo.");
+    const bevestig = window.confirm(
+      "⚠️ Weet je dit zeker? ALLE uitslagen van deze wedstrijd worden gewist. Dit is perfect voor de demo.",
+    );
     if (!bevestig) return;
 
     setResetingAll(true);
@@ -90,21 +100,6 @@ export default function RaceDetailPage() {
   }
 
   // Functie: Één specifieke rit resetten
-  async function handleResetEnkeleRit(ritId, ritNaamWeergave) {
-    const bevestig = window.confirm(`Weet je zeker dat je de uitslag van ${ritNaamWeergave} wilt wissen?`);
-    if (!bevestig) return;
-
-    setMelding("");
-    try {
-      await resetRit(ritId);
-      setMelding(`✅ ${ritNaamWeergave} is succesvol gereset!`);
-      await laadRitten();
-    } catch (err) {
-      console.error("Fout bij resetten enkele rit:", err);
-      setMelding(`❌ Fout bij het wissen van ${ritNaamWeergave}.`);
-    }
-  }
-
   if (loading) return <div>Laden van ritten...</div>;
   if (!wedstrijdData) return <div>Geen wedstrijdgegevens gevonden.</div>;
 
@@ -129,11 +124,17 @@ export default function RaceDetailPage() {
       </div>
 
       {melding && (
-        <div style={{
-          marginBottom: "1rem", padding: "1rem", borderRadius: "4px",
-          backgroundColor: melding.includes("✅") ? "rgba(34, 211, 238, 0.1)" : "rgba(239, 68, 68, 0.1)",
-          borderLeft: `4px solid ${melding.includes("✅") ? "#22d3ee" : "#ef4444"}`
-        }}>
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "1rem",
+            borderRadius: "4px",
+            backgroundColor: melding.includes("✅")
+              ? "rgba(34, 211, 238, 0.1)"
+              : "rgba(239, 68, 68, 0.1)",
+            borderLeft: `4px solid ${melding.includes("✅") ? "#22d3ee" : "#ef4444"}`,
+          }}
+        >
           {melding}
         </div>
       )}
@@ -145,8 +146,14 @@ export default function RaceDetailPage() {
         </div>
 
         {/* Knoppen Groep */}
-        <div style={{ marginTop: "1.5rem", display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-
+        <div
+          style={{
+            marginTop: "1.5rem",
+            display: "flex",
+            gap: "1rem",
+            flexWrap: "wrap",
+          }}
+        >
           {/* Startlijst Knop */}
           <div>
             <button
@@ -155,9 +162,11 @@ export default function RaceDetailPage() {
               disabled={syncingStartlist || scrapingPast}
               style={{
                 backgroundColor: syncingStartlist ? "#475569" : "#22d3ee",
-                color: "#0f172a", fontWeight: "bold",
-                cursor: (syncingStartlist || scrapingPast) ? "not-allowed" : "pointer",
-                opacity: (syncingStartlist || scrapingPast) ? 0.7 : 1,
+                color: "#0f172a",
+                fontWeight: "bold",
+                cursor:
+                  syncingStartlist || scrapingPast ? "not-allowed" : "pointer",
+                opacity: syncingStartlist || scrapingPast ? 0.7 : 1,
               }}
             >
               {syncingStartlist ? "⏳ Bezig..." : "👥 Importeer Startlijst"}
@@ -172,12 +181,16 @@ export default function RaceDetailPage() {
               disabled={scrapingPast || syncingStartlist}
               style={{
                 backgroundColor: scrapingPast ? "#475569" : "#f59e0b",
-                color: "#0f172a", fontWeight: "bold",
-                cursor: (scrapingPast || syncingStartlist) ? "not-allowed" : "pointer",
-                opacity: (scrapingPast || syncingStartlist) ? 0.7 : 1,
+                color: "#0f172a",
+                fontWeight: "bold",
+                cursor:
+                  scrapingPast || syncingStartlist ? "not-allowed" : "pointer",
+                opacity: scrapingPast || syncingStartlist ? 0.7 : 1,
               }}
             >
-              {scrapingPast ? "⏳ Ritten scrapen..." : "⚡ Haal Gereden Ritten In"}
+              {scrapingPast
+                ? "⏳ Ritten scrapen..."
+                : "⚡ Haal Gereden Ritten In"}
             </button>
           </div>
 
@@ -191,17 +204,22 @@ export default function RaceDetailPage() {
                 backgroundColor: resetingAll ? "#475569" : "#ef4444", // Rood
                 color: "white",
                 fontWeight: "bold",
-                cursor: (resetingAll || syncingStartlist || scrapingPast) ? "not-allowed" : "pointer",
-                opacity: (resetingAll || syncingStartlist || scrapingPast) ? 0.7 : 1,
+                cursor:
+                  resetingAll || syncingStartlist || scrapingPast
+                    ? "not-allowed"
+                    : "pointer",
+                opacity:
+                  resetingAll || syncingStartlist || scrapingPast ? 0.7 : 1,
               }}
             >
               {resetingAll ? "⏳ Wissen..." : "🗑️ Reset Alle Ritten (Demo)"}
             </button>
           </div>
-
         </div>
         <p style={{ fontSize: "0.8rem", marginTop: "1rem", opacity: 0.7 }}>
-          Gebruik "Importeer Startlijst" om renners in te laden. Gebruik "Haal Gereden Ritten In" om ontbrekende uitslagen van eerdere dagen automatisch op te halen.
+          Gebruik "Importeer Startlijst" om renners in te laden. Gebruik "Haal
+          Gereden Ritten In" om ontbrekende uitslagen van eerdere dagen
+          automatisch op te halen.
         </p>
       </section>
 
@@ -212,10 +230,16 @@ export default function RaceDetailPage() {
       <section className="rit-grid">
         {gesorteerdeRitten.map((rit) => {
           // Bepaal de naam dynamisch, zodat we deze ook in de alert kunnen gebruiken
-          const ritNaamWeergave = wedstrijd.slug === "voorjaarsklassiekers" ? rit.naam : `Rit ${rit.rit_nummer}`;
+          const ritNaamWeergave =
+            wedstrijd.slug === "voorjaarsklassiekers"
+              ? rit.naam
+              : `Rit ${rit.rit_nummer}`;
 
           return (
-            <div key={rit.id} style={{ display: 'flex', alignItems: 'stretch', gap: '8px' }}>
+            <div
+              key={rit.id}
+              style={{ display: "flex", alignItems: "stretch", gap: "8px" }}
+            >
               <Link
                 to={`/rit/${rit.id}`}
                 className={`rit-link ${rit.gescrapet ? "" : "pending"}`}
@@ -223,34 +247,6 @@ export default function RaceDetailPage() {
               >
                 {ritNaamWeergave}
               </Link>
-
-              {/* Individuele Reset Knop (alleen als gescrapet) */}
-              {rit.gescrapet && (
-                <button
-                  onClick={() => handleResetEnkeleRit(rit.id, ritNaamWeergave)}
-                  title={`Wis uitslag van ${ritNaamWeergave}`}
-                  style={{
-                    background: "rgba(239, 68, 68, 0.1)",
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                    color: "#ef4444",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    padding: "0 12px",
-                    fontSize: "1.1rem",
-                    transition: "all 0.2s"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#ef4444";
-                    e.currentTarget.style.color = "white";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                    e.currentTarget.style.color = "#ef4444";
-                  }}
-                >
-                  🗑️
-                </button>
-              )}
             </div>
           );
         })}
