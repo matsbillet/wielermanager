@@ -2,6 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import CountdownTimer from "../components/CountdownTimer";
 import logo from "../img/fietsimgneon.png";
 import heroImg from "../img/mainfoto.jpg";
+import UserMenu from "../components/UserMenu";
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -31,13 +32,7 @@ export default function HomePage() {
 
         {/* Navigatieknoppen verwijderd */}
 
-        <button
-          type="button"
-          className="home-login"
-          onClick={handleLogout}
-        >
-          Uitloggen
-        </button>
+        <UserMenu homeStyle />
       </header>
 
       <section

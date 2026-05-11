@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 
-export default function UserMenu() {
+
+
+export default function UserMenu({ homeStyle = false }) {
     const navigate = useNavigate();
     const gebruiker = JSON.parse(localStorage.getItem('gebruiker'));
+
 
     function handleLogout() {
         localStorage.removeItem('token');
@@ -15,7 +18,7 @@ export default function UserMenu() {
     return (
         <div className="user-menu">
             <span className="user-name">👤 {gebruiker.naam}</span>
-            <button className="logout-btn" onClick={handleLogout}>
+            <button className={homeStyle ? "home-login" : "logout-btn"} onClick={handleLogout}>
                 Uitloggen
             </button>
         </div>
