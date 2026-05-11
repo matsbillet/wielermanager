@@ -56,6 +56,8 @@ export const getDraftSessiesVoorCompetitie = (competitieId) =>
 export const getScoreboardVoorSessie = (sessieId) =>
     api.get(`/scores/sessie/${sessieId}`);
 
+export const getUitvallers = (wedstrijdId) => api.get(`/wedstrijden/${wedstrijdId}/uitvallers`);
+
 export const vervangRennerVoorStart = (data) =>
     api.post("/transfer/voor-start", data);
 export const blessureWissel = (data) => api.post("/transfer/blessure", data);

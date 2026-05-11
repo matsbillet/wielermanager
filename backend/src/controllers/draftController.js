@@ -315,9 +315,27 @@ const getTeamVanSpeler = async (req, res) => {
             .order("is_bank", { ascending: true })
             .order("ronde", { ascending: true });
 
-        if (error) throw error;
+        if (draftError) throw draftError;
 
-        const team = data.map((keuze) => ({
+        // 3. Haal de statussen (DNF/DNS) op uit wedstrijd_deelnemers voor deze specifieke wedstrijd
+        const rennerIds = draftData.map(d => d.renner_id).filter(id => id !== null);
+
+        const { data: statusData, error: statusError } = await supabase
+            .from("wedstrijd_deelnemers")
+            .select("renner_id, status")
+            .eq("wedstrijd_id", wedstrijdId)
+            .in("renner_id", rennerIds);
+
+        if (statusError) throw statusError;
+
+        // Maak een handige opzoeklijst (map) van de statussen
+        const statusMap = {};
+        statusData.forEach(s => {
+            statusMap[s.renner_id] = s.status;
+        });
+
+        // 4. Combineer alles tot één mooi team-object voor de frontend
+        const team = draftData.map((keuze) => ({
             draftId: keuze.id,
             spelerId: Number(spelerId),
             gebruikerId: spelerData.gebruiker_id,
@@ -326,10 +344,12 @@ const getTeamVanSpeler = async (req, res) => {
             ploeg: keuze.renners?.ploeg || "",
             ronde: keuze.ronde,
             isBank: keuze.is_bank,
+            status: statusMap[keuze.renner_id] || "active" // <-- DIT IS DE KEY!
         }));
 
         res.json(team);
     } catch (error) {
+        console.error("Fout bij ophalen team:", error);
         res.status(500).json({
             error: "Kon team van speler niet ophalen",
             details: error.message,

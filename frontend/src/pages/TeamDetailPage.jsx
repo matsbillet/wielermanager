@@ -42,6 +42,8 @@ export default function TeamDetailPage() {
 
             const wId = sessieResponse.data.wedstrijd_id || sessieResponse.data.wedstrijden?.id;
 
+            console.log("Dashboard zoekt uitvallers voor Wedstrijd ID:", wId);
+
             if (wId) {
                 const dlResponse = await fetch(`http://localhost:3000/api/ritten/deadlines/${wId}`);
                 const dlData = await dlResponse.json();
@@ -177,22 +179,36 @@ export default function TeamDetailPage() {
             <section className="team-columns">
                 <div className="card">
                     <h2>Actief team</h2>
-                    {actieveRenners.map((renner) => (
-                        <div key={renner.draftId} className="team-row">
-                            <strong>{renner.naam}</strong>
-                            <span>{renner.ploeg}</span>
-                        </div>
-                    ))}
+                    {actieveRenners.map((renner) => {
+                        // Bepaal of de renner uitgevallen is
+                        const isUitgevallen = renner.status && renner.status !== "active";
+
+                        return (
+                            <div key={renner.draftId} className="team-row">
+                                <strong style={{ color: isUitgevallen ? "#ef4444" : "inherit" }}>
+                                    {renner.naam} {isUitgevallen && `🚑 (${renner.status})`}
+                                </strong>
+                                <span>{renner.ploeg}</span>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div className="card">
                     <h2>Bank</h2>
-                    {bankRenners.map((renner) => (
-                        <div key={renner.draftId} className="team-row bank">
-                            <strong>{renner.naam}</strong>
-                            <span>{renner.ploeg}</span>
-                        </div>
-                    ))}
+                    {bankRenners.map((renner) => {
+                        // Bepaal of de renner uitgevallen is
+                        const isUitgevallen = renner.status && renner.status !== "active";
+
+                        return (
+                            <div key={renner.draftId} className="team-row bank">
+                                <strong style={{ color: isUitgevallen ? "#ef4444" : "inherit" }}>
+                                    {renner.naam} {isUitgevallen && `🚑 (${renner.status})`}
+                                </strong>
+                                <span>{renner.ploeg}</span>
+                            </div>
+                        );
+                    })}
                 </div>
             </section>
 

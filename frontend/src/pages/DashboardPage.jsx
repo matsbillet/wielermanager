@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getDashboardStats } from "../services/api";
+import {
+    getDashboardStats,
+    getSessieVoorCompetitie,
+    getUitvallers
+} from "../services/api";
 import CountdownTimer from "../components/CountdownTimer";
 
 export default function DashboardPage() {
@@ -17,6 +21,7 @@ export default function DashboardPage() {
         },
     });
 
+    const [uitvallers, setUitvallers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -34,8 +39,20 @@ export default function DashboardPage() {
     useEffect(() => {
         async function laadDashboard() {
             try {
+                // 1. Laad de standaard statistieken
                 const response = await getDashboardStats();
                 setStats(response.data);
+
+                // 2. Haal de actieve wedstrijd op (om te weten van welke koers we de uitvallers moeten hebben)
+                const sessieResponse = await getSessieVoorCompetitie(1);
+                const wId = sessieResponse.data?.wedstrijd_id || sessieResponse.data?.wedstrijden?.id;
+
+                // 3. Als er een actieve koers is, haal het medisch bulletin op!
+                if (wId) {
+                    const uitvallersResponse = await getUitvallers(wId);
+                    setUitvallers(uitvallersResponse.data || []);
+                }
+
             } catch (error) {
                 console.error("Dashboard laden mislukt:", error);
             } finally {
@@ -106,6 +123,7 @@ export default function DashboardPage() {
                             width: "100%",
                             minWidth: 0,
                             padding: "1.25rem",
+                            marginBottom: "2rem"
                         }}
                     >
                         <CountdownTimer />
@@ -161,6 +179,10 @@ export default function DashboardPage() {
             </div>
 
             <div style={{ marginBottom: isMobile ? "2rem" : "4rem" }}>
+
+                {/* =======================================================
+                TRUI-STATISTIEKEN (TIJDELIJK IN COMMENTAAR VOOR DE KLANT)
+                =======================================================
                 <div className="section-head">
                     <h2>Trui-statistieken</h2>
                 </div>
@@ -170,36 +192,70 @@ export default function DashboardPage() {
                         display: "grid",
                         gridTemplateColumns: isMobile ? "1fr" : "repeat(4, 1fr)",
                         gap: "1rem",
+                        marginBottom: "4rem"
                     }}
                 >
-                    <JerseyCard
-                        title="Geel"
-                        data={stats.topTruien?.algemeen}
-                        color="#fbbf24"
-                        emoji="🟡"
-                    />
+                    <JerseyCard title="Geel" data={stats.topTruien?.algemeen} color="#fbbf24" emoji="🟡" />
+                    <JerseyCard title="Groen" data={stats.topTruien?.punten} color="#22c55e" emoji="🟢" />
+                    <JerseyCard title="Bollen" data={stats.topTruien?.berg} color="#ef4444" emoji="🔴" />
+                    <JerseyCard title="Wit" data={stats.topTruien?.jongeren} color="#ffffff" emoji="⚪" />
+                </div> 
+                */}
 
-                    <JerseyCard
-                        title="Groen"
-                        data={stats.topTruien?.punten}
-                        color="#22c55e"
-                        emoji="🟢"
-                    />
-
-                    <JerseyCard
-                        title="Bollen"
-                        data={stats.topTruien?.berg}
-                        color="#ef4444"
-                        emoji="🔴"
-                    />
-
-                    <JerseyCard
-                        title="Wit"
-                        data={stats.topTruien?.jongeren}
-                        color="#ffffff"
-                        emoji="⚪"
-                    />
+                {/* NIEUWE POSITIE: MEDISCH BULLETIN */}
+                <div className="section-head">
+                    <h2>🚑 Medisch Overzicht</h2>
                 </div>
+
+                <div
+                    className="card"
+                    style={{
+                        padding: "1.25rem",
+                        maxHeight: "350px", // Iets hoger gemaakt nu het over de hele breedte staat
+                        overflowY: "auto",
+                        backgroundColor: "rgba(239, 68, 68, 0.05)",
+                        border: "1px solid rgba(239, 68, 68, 0.2)"
+                    }}
+                >
+                    {uitvallers.length > 0 ? (
+                        <div style={{
+                            display: "grid",
+                            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", // Twee kolommen op desktop voor beter ruimtegebruik
+                            gap: "1rem"
+                        }}>
+                            {uitvallers.map((u, i) => (
+                                <div key={i} style={{
+                                    padding: "0.75rem 1rem",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    backgroundColor: "rgba(255, 255, 255, 0.03)",
+                                    borderRadius: "8px"
+                                }}>
+                                    <div style={{ display: "flex", flexDirection: "column" }}>
+                                        <strong style={{ fontSize: "1.1rem" }}>{u.renners?.naam}</strong>
+                                        <span style={{ opacity: 0.6, fontSize: "0.85rem" }}>{u.renners?.ploeg}</span>
+                                    </div>
+                                    <span style={{
+                                        backgroundColor: "#ef4444",
+                                        color: "white",
+                                        padding: "4px 10px",
+                                        borderRadius: "4px",
+                                        fontWeight: "bold",
+                                        fontSize: "0.9rem"
+                                    }}>
+                                        {u.status}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{ opacity: 0.7, textAlign: "center", padding: "2rem 0", fontSize: "1.1rem" }}>
+                            Geen uitvallers bekend in de huidige koers.
+                        </div>
+                    )}
+                </div>
+
             </div>
         </div>
     );
@@ -230,6 +286,8 @@ function StatCard({ title, value, icon, color }) {
     );
 }
 
+// Zelfs als je het component 'JerseyCard' hieronder nog in de code hebt staan, 
+// doet het geen kwaad. Als de klant het ooit terug wil, werkt het direct weer!
 function JerseyCard({ title, data, color, emoji }) {
     return (
         <div
