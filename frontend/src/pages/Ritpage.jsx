@@ -3,6 +3,40 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getRit, triggerScrape, getAdminDrafts } from "../services/api";
 
+// Bepaal de juiste styling met een 'Greedy Search' over alle data
+function getTruiStijl(ritData) {
+  // Zet letterlijk ALLES wat we van de rit weten om naar kleine letters
+  const alles = JSON.stringify(ritData || {}).toLowerCase();
+
+  // Zit het woord 'giro' ergens in de naam, slug, of pcs-link?
+  if (alles.includes("giro")) {
+    return {
+      algemeen: { bg: "#E40071", text: "#FFFFFF", border: "1px solid #E40071", label: "Roze" },
+      punten: { bg: "#6A1C7A", text: "#FFFFFF", border: "1px solid #6A1C7A", label: "Paars" },
+      berg: { bg: "#0072CE", text: "#FFFFFF", border: "1px solid #0072CE", label: "Blauw" },
+      jongeren: { bg: "#FFFFFF", text: "#0f172a", border: "1px solid #cbd5e1", label: "Wit" }
+    };
+  }
+
+  // Zit het woord 'vuelta' ergens in de data?
+  if (alles.includes("vuelta")) {
+    return {
+      algemeen: { bg: "#D70014", text: "#FFFFFF", border: "1px solid #D70014", label: "Rood" },
+      punten: { bg: "#008B47", text: "#FFFFFF", border: "1px solid #008B47", label: "Groen" },
+      berg: { bg: "#FFFFFF", text: "#0072CE", border: "2px dashed #0072CE", label: "Bollen (Blauw)" },
+      jongeren: { bg: "#FFFFFF", text: "#0f172a", border: "1px solid #cbd5e1", label: "Wit" }
+    };
+  }
+
+  // Zo niet, dan is het de Tour de France (of een klassieker)
+  return {
+    algemeen: { bg: "#FCD116", text: "#0f172a", border: "1px solid #FCD116", label: "Geel" },
+    punten: { bg: "#009144", text: "#FFFFFF", border: "1px solid #009144", label: "Groen" },
+    berg: { bg: "#FFFFFF", text: "#D70014", border: "2px dashed #D70014", label: "Bollen (Rood)" },
+    jongeren: { bg: "#FFFFFF", text: "#0f172a", border: "1px solid #cbd5e1", label: "Wit" }
+  };
+}
+
 export default function RitPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -143,6 +177,16 @@ export default function RitPage() {
       </div>
     );
 
+  // We zoeken op meerdere plekken voor de zekerheid (afhankelijk van hoe je backend het precies noemt)
+  const koersNaam = rit?.wedstrijden?.naam ||
+    rit?.wedstrijden?.slug ||
+    rit?.wedstrijd?.naam ||
+    "";
+
+  // Handig om even te checken in je F12 console wat hij precies binnenkrijgt!
+  console.log("Dynamische koersnaam gedetecteerd:", koersNaam);
+
+  const truiStijlen = getTruiStijl(rit);
   return (
     <div className="rit-container">
       <button onClick={() => navigate("/races")} className="back-button">
@@ -190,23 +234,23 @@ export default function RitPage() {
         {rit.gescrapet && (
           <div className="jersey-row">
             {rit.leider_algemeen && (
-              <div className="jersey yellow">
-                <b>🟡 Algemeen:</b> {formatName(rit.leider_algemeen)}
+              <div className="jersey" style={{ backgroundColor: truiStijlen.algemeen.bg, color: truiStijlen.algemeen.text, border: truiStijlen.algemeen.border }}>
+                <b>{truiStijlen.algemeen.label}:</b> {formatName(rit.leider_algemeen)}
               </div>
             )}
             {rit.leider_punten && (
-              <div className="jersey green">
-                <b>🟢 Punten:</b> {formatName(rit.leider_punten)}
+              <div className="jersey" style={{ backgroundColor: truiStijlen.punten.bg, color: truiStijlen.punten.text, border: truiStijlen.punten.border }}>
+                <b>{truiStijlen.punten.label}:</b> {formatName(rit.leider_punten)}
               </div>
             )}
             {rit.leider_berg && (
-              <div className="jersey polka">
-                <b>🔴 Berg:</b> {formatName(rit.leider_berg)}
+              <div className="jersey" style={{ backgroundColor: truiStijlen.berg.bg, color: truiStijlen.berg.text, border: truiStijlen.berg.border }}>
+                <b>{truiStijlen.berg.label}:</b> {formatName(rit.leider_berg)}
               </div>
             )}
             {rit.leider_jongeren && (
-              <div className="jersey white">
-                <b>⚪ Jong:</b> {formatName(rit.leider_jongeren)}
+              <div className="jersey" style={{ backgroundColor: truiStijlen.jongeren.bg, color: truiStijlen.jongeren.text, border: truiStijlen.jongeren.border }}>
+                <b>{truiStijlen.jongeren.label}:</b> {formatName(rit.leider_jongeren)}
               </div>
             )}
           </div>
@@ -323,8 +367,6 @@ export default function RitPage() {
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 .jersey-row { display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
                 .jersey { padding: 10px 18px; border-radius: 50px; font-size: 14px; color: #000; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-                .yellow { background: #ffd700; } .green { background: #2e8b57; color: #fff; }
-                .polka { background: #fff; border: 2px dashed red; } .white { background: #fff; border: 1px solid #ddd; }
                 .table-card { background: #161616; border-radius: 12px; padding: 25px; border: 1px solid #222; }
                 .results-table { width: 100%; border-collapse: collapse; }
                 .results-table th { text-align: left; padding: 15px; border-bottom: 2px solid #22d3ee; color: #888; font-size: 0.8rem; text-transform: uppercase; }

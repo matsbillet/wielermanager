@@ -170,6 +170,28 @@ async function verwerkRitResultaat(ritId, resultaat, wedstrijdNaam = "") {
     }
 }
 
+// Voorbeeld van hoe je backend route eruit zou moeten zien:
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('ritten')
+            // LET OP: we voegen wedstrijden(naam, slug) toe aan de select!
+            .select(`
+                *,
+                ritresultaten(*, renners(*)),
+                wedstrijden(naam, slug) 
+            `)
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.get('/deadlines/:wedstrijd_id', rittenController.getDeadlines);
 router.get('/volgende', rittenController.getVolgendeRit);
 
