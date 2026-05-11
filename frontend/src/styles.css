@@ -2271,6 +2271,213 @@ textarea:focus {
     line-height: 1.55;
 }
 
+.light-mode {
+    --bg: #f3f5f7;
+    --panel: #ffffff;
+    --panel-2: #f8fafc;
+    --border: #d7dde5;
+
+    --text: #111827;
+    --muted: #5b6472;
+
+    --yellow: #00cbb0;
+    --green: #16a34a;
+    --red: #dc2626;
+
+    --dark: #ffffff;
+}
+
+.light-mode body {
+    background: radial-gradient(circle at top left, rgba(0, 203, 176, .08), transparent 25%), var(--bg);
+    color: var(--text);
+}
+
+.light-mode .topbar {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+}
+
+.light-mode .logout-btn,
+.light-mode .theme-toggle-btn {
+    background: #ffffff;
+    color: #111827;
+    border: 1px solid #cbd5e1;
+}
+
+.light-mode .logout-btn:hover,
+.light-mode .theme-toggle-btn:hover {
+    color: var(--yellow);
+    border-color: var(--yellow);
+    box-shadow: 0 0 14px rgba(0, 203, 176, .18);
+}
+
+.light-mode .user-name {
+    color: #111827;
+}
+
+.light-mode input,
+.light-mode select,
+.light-mode textarea {
+    background: #ffffff;
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.light-mode .card,
+.light-mode .panel,
+.light-mode .scoreboard-summary,
+.light-mode .klassement-row,
+.light-mode .team-card {
+    background: #ffffff;
+    color: #111827;
+    border-color: #d7dde5;
+}
+
+.light-mode .ritpunten-table th:first-child,
+.light-mode .ritpunten-table td:first-child {
+    background: #ffffff;
+}
+
+.light-mode .draft-overview,
+.light-mode .draft-player-card,
+.light-mode .draft-search-input {
+    background: #ffffff;
+    color: #111827;
+    border-color: #d7dde5;
+}
+
+.light-mode .draft-player-header,
+.light-mode .draft-team-list-item,
+.light-mode .trui-row,
+.light-mode .team-row {
+    border-color: #d7dde5;
+}
+
+.light-mode .draft-team-list-item,
+.light-mode .draft-player-info-row,
+.light-mode .draft-team-section-title,
+.light-mode .draft-empty-bank {
+    color: #5b6472;
+}
+
+.light-mode .rit-link {
+    background: #ffffff;
+    color: #111827;
+    border-color: #d7dde5;
+}
+
+.light-mode .admin-select-custom {
+    background: #ffffff;
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.light-mode .super-import-container,
+.light-mode .super-import-input {
+    background: #ffffff;
+    color: #111827;
+    border-color: #d7dde5;
+}
+
+.light-mode .home-login,
+.light-mode .btn-secondary {
+    background: #ffffff;
+    color: #111827;
+    border-color: #cbd5e1;
+}
+
+.theme-toggle-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.7rem;
+    border-radius: 10px;
+    color: var(--text);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.light-mode .quick-action-card strong,
+.light-mode .dashboard-action-card strong,
+.light-mode .status-card strong,
+.light-mode .dashboard-card strong {
+    color: #111827;
+}
+
+.light-mode .quick-action-card span,
+.light-mode .dashboard-action-card span,
+.light-mode .status-card span,
+.light-mode .dashboard-card span {
+    color: #5b6472;
+}
+
+.action-card-title {
+    font-weight: bold;
+    color: var(--text);
+}
+
+.action-card-desc {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    color: var(--text);
+}
+
+.countdown-timer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    text-align: left;
+    width: 100%;
+}
+
+.countdown-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.countdown-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.countdown-title {
+    font-weight: 800;
+    color: var(--text);
+}
+
+.countdown-subtitle {
+    font-size: 0.8rem;
+    opacity: 0.75;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.countdown-time {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #22d3ee;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.countdown-time-muted {
+    color: var(--muted);
+}
+
+.countdown-time-live {
+    color: #f87171;
+}
+
+.countdown-live-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background-color: #f87171;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #f87171;
+}
+
 @media (max-width: 980px) {
 
     .home-topbar,

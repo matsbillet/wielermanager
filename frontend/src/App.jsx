@@ -5,6 +5,7 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 import UserMenu from "./components/UserMenu";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -18,14 +19,13 @@ import RitPage from "./pages/Ritpage";
 import AdminPage from "./pages/AdminPage";
 import RacesPage from "./pages/RacesPage";
 import RaceDetailPage from "./pages/RaceDetailPage";
-import CompetitiesPage from "./pages/CompetitiePage";
 import TeamsPage from "./pages/TeamsPage";
 import TeamDetailPage from "./pages/TeamDetailPage";
 import DashboardPage from "./pages/DashboardPage";
 
 import logo from "./img/fietsimgneon.png";
 
-function Layout() {
+function Layout({ theme, toggleTheme }) {
   const location = useLocation();
   const token = localStorage.getItem("token");
   const gebruiker = JSON.parse(localStorage.getItem("gebruiker"));
@@ -37,17 +37,8 @@ function Layout() {
     <div className="app-shell">
       {!isPublicPage && token && (
         <header className="topbar">
-
-          {/* LOGO + TEKST KLIKBAAR */}
-          <NavLink
-            to="/"
-            className="brand"
-          >
-            <img
-              src={logo}
-              alt="Wielermanager logo"
-              className="logo"
-            />
+          <NavLink to="/" className="brand">
+            <img src={logo} alt="Wielermanager logo" className="logo" />
 
             <span className="brand-text">
               WIELER MANAGER
@@ -55,53 +46,30 @@ function Layout() {
           </NavLink>
 
           <nav className="main-nav">
-            <NavLink to="/dashboard">
-              Dashboard
-            </NavLink>
-
-            <NavLink to="/scoreboard/1">
-              Scorebord
-            </NavLink>
-
-            <NavLink to="/draft/1">
-              Draft
-            </NavLink>
-
-            <NavLink to="/teams/1">
-              Teams
-            </NavLink>
-
-            <NavLink to="/races">
-              Koersen
-            </NavLink>
+            <NavLink to="/dashboard">Dashboard</NavLink>
+            <NavLink to="/scoreboard/1">Scorebord</NavLink>
+            <NavLink to="/draft/1">Draft</NavLink>
+            <NavLink to="/teams/1">Teams</NavLink>
+            <NavLink to="/races">Koersen</NavLink>
 
             {gebruiker?.is_admin && (
-              <NavLink to="/admin">
-                Admin
-              </NavLink>
+              <NavLink to="/admin">Admin</NavLink>
             )}
           </nav>
 
-          <UserMenu />
+          <UserMenu theme={theme} toggleTheme={toggleTheme} />
         </header>
       )}
 
       <main className="page-shell">
         <Routes>
-
-          {/* HOMEPAGE */}
           <Route
             path="/"
-            element={<HomePage />}
+            element={<HomePage theme={theme} toggleTheme={toggleTheme} />}
           />
 
-          {/* LOGIN */}
-          <Route
-            path="/login"
-            element={<LoginPage />}
-          />
+          <Route path="/login" element={<LoginPage />} />
 
-          {/* SCOREBOARD */}
           <Route
             path="/scoreboard/:competitieId"
             element={
@@ -120,7 +88,6 @@ function Layout() {
             }
           />
 
-          {/* DRAFT */}
           <Route
             path="/draft/:competitieId"
             element={
@@ -130,19 +97,6 @@ function Layout() {
             }
           />
 
-          {/* COMPETITIES */}
-          {/*
-          <Route
-            path="/competities"
-            element={
-              <ProtectedRoute>
-                <CompetitiesPage />
-              </ProtectedRoute>
-            }
-          />
-          */}
-
-          {/* RIT DETAIL */}
           <Route
             path="/rit/:id"
             element={
@@ -152,7 +106,6 @@ function Layout() {
             }
           />
 
-          {/* ADMIN */}
           <Route
             path="/admin"
             element={
@@ -162,7 +115,6 @@ function Layout() {
             }
           />
 
-          {/* KOERSEN */}
           <Route
             path="/races"
             element={
@@ -181,7 +133,6 @@ function Layout() {
             }
           />
 
-          {/* TEAMS */}
           <Route
             path="/teams/:competitieId"
             element={
@@ -200,7 +151,6 @@ function Layout() {
             }
           />
 
-          {/* DASHBOARD */}
           <Route
             path="/dashboard"
             element={
@@ -209,7 +159,6 @@ function Layout() {
               </ProtectedRoute>
             }
           />
-
         </Routes>
       </main>
     </div>
@@ -217,9 +166,24 @@ function Layout() {
 }
 
 export default function App() {
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "dark";
+  });
+
+  useEffect(() => {
+    document.body.classList.toggle("light-mode", theme === "light");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme((vorigeTheme) =>
+      vorigeTheme === "dark" ? "light" : "dark"
+    );
+  }
+
   return (
     <BrowserRouter>
-      <Layout />
+      <Layout theme={theme} toggleTheme={toggleTheme} />
     </BrowserRouter>
   );
 }

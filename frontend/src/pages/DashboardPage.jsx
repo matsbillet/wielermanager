@@ -177,18 +177,21 @@ export default function DashboardPage() {
                         color="#fbbf24"
                         emoji="🟡"
                     />
+
                     <JerseyCard
                         title="Groen"
                         data={stats.topTruien?.punten}
                         color="#22c55e"
                         emoji="🟢"
                     />
+
                     <JerseyCard
                         title="Bollen"
                         data={stats.topTruien?.berg}
                         color="#ef4444"
                         emoji="🔴"
                     />
+
                     <JerseyCard
                         title="Wit"
                         data={stats.topTruien?.jongeren}
@@ -211,9 +214,17 @@ function StatCard({ title, value, icon, color }) {
                 minWidth: 0,
             }}
         >
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>{icon}</div>
-            <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>{title}</div>
-            <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>{value}</div>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>
+                {icon}
+            </div>
+
+            <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>
+                {title}
+            </div>
+
+            <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>
+                {value}
+            </div>
         </div>
     );
 }
@@ -228,8 +239,14 @@ function JerseyCard({ title, data, color, emoji }) {
                 minWidth: 0,
             }}
         >
-            <div style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>{emoji}</div>
-            <div style={{ opacity: 0.7, fontSize: "0.85rem" }}>{title}</div>
+            <div style={{ fontSize: "1.8rem", marginBottom: "0.5rem" }}>
+                {emoji}
+            </div>
+
+            <div style={{ opacity: 0.7, fontSize: "0.85rem" }}>
+                {title}
+            </div>
+
             <div
                 style={{
                     fontSize: "1.2rem",
@@ -239,8 +256,11 @@ function JerseyCard({ title, data, color, emoji }) {
             >
                 {data?.naam || "-"}
             </div>
+
             <div style={{ opacity: 0.75, marginTop: "0.35rem" }}>
-                {data?.aantal > 0 ? `${data.aantal} keer` : "Nog geen winnaar"}
+                {data?.aantal > 0
+                    ? `${data.aantal} keer`
+                    : "Nog geen winnaar"}
             </div>
         </div>
     );
@@ -261,11 +281,18 @@ function ActionLink({ to, title, desc, icon }) {
                 minWidth: 0,
             }}
         >
-            <div style={{ fontSize: "1.5rem", flexShrink: 0 }}>{icon}</div>
+            <div style={{ fontSize: "1.5rem", flexShrink: 0 }}>
+                {icon}
+            </div>
 
             <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: "bold", color: "#fff" }}>{title}</div>
-                <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>{desc}</div>
+                <div className="action-card-title">
+                    {title}
+                </div>
+
+                <div className="action-card-desc">
+                    {desc}
+                </div>
             </div>
         </Link>
     );
