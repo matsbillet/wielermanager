@@ -442,35 +442,30 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
         const page = await browser.newPage();
 
         let stageUrl;
+        let baseStageUrl; // Bijv: https://www.procyclingstats.com/race/giro-d-italia/2026/stage-2
+
         const cleanBase = racePcsUrl.endsWith('/') ? racePcsUrl.slice(0, -1) : racePcsUrl;
 
         if (isEendagskoers) {
             stageUrl = `${cleanBase}/result`;
         } else {
-            const baseUrl = bouwStageUrl(racePcsUrl, ritNummer);
-            stageUrl = baseUrl.endsWith('/') ? `${baseUrl}results` : `${baseUrl}/results`;
+            baseStageUrl = bouwStageUrl(racePcsUrl, ritNummer);
+            // Haal de eventuele trailing slash eraf voor de truien-urls
+            baseStageUrl = baseStageUrl.endsWith('/') ? baseStageUrl.slice(0, -1) : baseStageUrl;
+            stageUrl = `${baseStageUrl}/results`;
         }
 
         console.log(`🔗 Scrapen van uitslag via: ${stageUrl}`);
 
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        );
-
-        await page.goto(stageUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+        await page.goto(stageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
         const data = await page.evaluate(() => {
-            const results = {
-                uitslag: [],
-                truien: {},
-                uitvallers: [], // <-- NIEUW: Array voor DNF/DNS
-                starttijdTekst: null,
-            };
+            const results = { uitslag: [], uitvallers: [], starttijdTekst: null };
 
             const bodyText = document.body.innerText;
             const dateMatch = bodyText.match(/Date:\s*([^\n]+)/i);
             const timeMatch = bodyText.match(/Starttime:\s*([0-9]{1,2}:[0-9]{2})/i) || bodyText.match(/Start time:\s*([0-9]{1,2}:[0-9]{2})/i);
-
             results.starttijdTekst = dateMatch?.[1] ? `${dateMatch[1]} ${timeMatch?.[1] || ""}`.trim() : null;
 
             const tables = Array.from(document.querySelectorAll('table'));
@@ -479,7 +474,7 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
             if (resultTable) {
                 const allRows = Array.from(resultTable.querySelectorAll('tbody tr'));
 
-                // 1. Pak de Top 25 voor de normale punten
+                // 1. Top 25
                 const top25Rows = allRows.slice(0, 25);
                 results.uitslag = top25Rows.map((row, i) => {
                     const a = row.querySelector('a[href^="rider/"]');
@@ -488,13 +483,11 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
                     return { positie: i + 1, naam: a?.innerText.trim(), slug: slug || null };
                 }).filter(r => r.slug);
 
-                // 2. NIEUW: Loop door ALLE rijen om uitvallers (DNF, DNS, OTL) te zoeken
+                // 2. Uitvallers (DNF/DNS/OTL/DSQ)
                 const uitvallerCodes = ['DNF', 'DNS', 'OTL', 'DSQ'];
                 allRows.forEach(row => {
-                    // PCS zet de positie (of DNF) in de 1e of 2e kolom afhankelijk van de koers
                     const posText1 = row.querySelector('td:nth-child(1)')?.innerText.trim().toUpperCase();
                     const posText2 = row.querySelector('td:nth-child(2)')?.innerText.trim().toUpperCase();
-
                     const code = uitvallerCodes.find(c => c === posText1 || c === posText2);
 
                     if (code) {
@@ -507,24 +500,66 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
                     }
                 });
             }
-
-            const getLeaderSlug = (headerText) => {
-                const targetTable = tables.find(t => t.previousElementSibling?.innerText.includes(headerText) || t.innerText.includes(headerText));
-                const a = targetTable?.querySelector('a[href^="rider/"]');
-                return a?.getAttribute('href')?.replace('rider/', '').split('/')[0] || null;
-            };
-
-            results.truien = {
-                algemeen: getLeaderSlug('GC'),
-                punten: getLeaderSlug('Points'),
-                berg: getLeaderSlug('KOM'),
-                jongeren: getLeaderSlug('Youth'),
-            };
-
             return results;
         });
 
+        // 3. NIEUWE TRUIEN LOGICA: Gebruik specifieke URL's
+        data.truien = { algemeen: null, punten: null, berg: null, jongeren: null };
+
+        if (!isEendagskoers && baseStageUrl) {
+            console.log(`👕 Scrapen van specifieke truien URL's...`);
+
+            // Helper functie om de nummer 1 te halen van een specifieke PCS pagina
+            const scrapeLeiderVanUrl = async (suffix) => {
+                const truiUrl = `${baseStageUrl}-${suffix}`;
+                console.log(`\n▶️ [Scraper Truien] Zoeken naar: ${suffix.toUpperCase()} via ${truiUrl}`);
+
+                const truiPage = await browser.newPage();
+                try {
+                    await truiPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+
+                    // domcontentloaded is super snel en we wachten maximaal 30 sec
+                    await truiPage.goto(truiUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+                    const leaderSlug = await truiPage.evaluate(() => {
+                        // Haal alle tabellen op
+                        const allTables = Array.from(document.querySelectorAll('table.results'));
+
+                        // Zoek de tabel die daadwerkelijk ZICHTBAAR is op het scherm
+                        // (PCS verbergt andere tabellen met display: none, wat resulteert in offsetWidth === 0)
+                        const visibleTable = allTables.find(t => t.offsetWidth > 0 && t.offsetHeight > 0);
+
+                        if (!visibleTable) return "GEEN_ZICHTBARE_TABEL";
+
+                        // We pakken de eerste rij van de body
+                        const firstRowLink = visibleTable.querySelector('tbody tr:first-child a[href^="rider/"]');
+
+                        if (!firstRowLink) return "GEEN_RENNER_LINK_GEVONDEN";
+
+                        return firstRowLink.getAttribute('href').replace('rider/', '').split('/')[0];
+                    });
+
+                    console.log(`✅ Resultaat gevonden voor ${suffix}: ${leaderSlug}`);
+                    return leaderSlug;
+
+                } catch (e) {
+                    console.log(`❌ Fout bij het laden van ${suffix}:`, e.message);
+                    return null;
+                } finally {
+                    await truiPage.close();
+                }
+            };
+            // Haal ze netjes één voor één op om PCS niet te overbelasten
+            data.truien.algemeen = await scrapeLeiderVanUrl('gc');
+            data.truien.punten = await scrapeLeiderVanUrl('points');
+            data.truien.berg = await scrapeLeiderVanUrl('kom');
+            data.truien.jongeren = await scrapeLeiderVanUrl('youth');
+        }
+
         return data;
+    } catch (error) {
+        console.error("❌ Fout in scrapeRitDetails:", error);
+        throw error;
     } finally {
         await browser.close();
     }
