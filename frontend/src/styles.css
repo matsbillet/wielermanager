@@ -467,7 +467,7 @@ a {
 .rit-link {
     background: #121620;
     border: 1px solid var(--border);
-    color: var(--text);
+    color: #00F5D4;
     padding: 1rem;
     text-decoration: none;
     border-radius: 14px;
@@ -495,7 +495,7 @@ a {
 }
 
 .rit-link.pending {
-    color: #00F5D4;
+    color: #ffffff;
 }
 
 /* LISTS */
@@ -2411,8 +2411,15 @@ textarea:focus {
 }
 
 .light-mode .rit-link {
+    background: #00F5D4;
+    color: #ffffff;
+    border-color: #00F5D4;
+}
+
+.light-mode .rit-link.pending {
     background: #ffffff;
-    border-color: #d7dde5;
+    color: #00F5D4;
+    border-color: #00F5D4;
 }
 
 .light-mode .admin-select-custom {
