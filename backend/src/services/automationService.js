@@ -34,20 +34,26 @@ async function runAutoSync() {
         for (const rit of ritten) {
             console.log(`🧐 Controleren: ${rit.wedstrijden.naam} - Rit ${rit.rit_nummer}`);
 
+            // 1. BEPAAL DE JUISTE URL & TYPE KOERS
             const targetUrl = rit.pcs_url || rit.wedstrijden?.pcs_url;
 
+            // FIX: Als de rit een eigen URL heeft, is het een losse klassieker. 
+            // Forceer dan 'true' zodat de scraper netjes '/result' gebruikt!
+            const isEendag = rit.pcs_url ? true : rit.wedstrijden.is_eendagskoers;
+
+            // 2. CHECK OF URL BESTAAT
             if (!targetUrl) {
                 console.log(`⚠️ Geen PCS URL gevonden. Scrapen overgeslagen.`);
                 continue;
             }
 
+            // 3. START DE SCRAPER
             try {
                 const resultaat = await scraper.scrapeRitDetails(
                     targetUrl,
                     rit.rit_nummer,
-                    rit.wedstrijden.is_eendagskoers
+                    isEendag // <--- Gebruik de slimme variabele
                 );
-
                 if (resultaat?.uitslag?.length > 0) {
                     console.log(`✅ Uitslag gevonden! Verwerken...`);
                     // We geven de naam mee voor de slimme Grote Ronde truien-check
