@@ -76,15 +76,51 @@ async function berekenTruiWinnaars(wedstrijdId) {
   const { data: ritten, error } = await supabase
     .from("ritten")
     .select("id, leider_algemeen, leider_punten, leider_berg, leider_jongeren")
-    .eq("wedstrijd_id", wedstrijdId);
+    .eq("wedstrijd_id", wedstrijdId)
+    .eq("gescrapet", true);
 
   if (error) throw error;
 
+  return telTruiWinnaarsUitRitten(ritten || []);
+}
+async function berekenTruiWinnaarsVoorCompetities(competitieIds) {
+  const { data: sessies, error: sessiesError } = await supabase
+    .from("draft_sessies")
+    .select("wedstrijd_id")
+    .in("competitie_id", competitieIds);
+
+  if (sessiesError) throw sessiesError;
+
+  const wedstrijdIds = [
+    ...new Set((sessies || []).map((sessie) => sessie.wedstrijd_id).filter(Boolean)),
+  ];
+
+  if (wedstrijdIds.length === 0) {
+    return {
+      algemeen: { naam: "-", aantal: 0 },
+      punten: { naam: "-", aantal: 0 },
+      berg: { naam: "-", aantal: 0 },
+      jongeren: { naam: "-", aantal: 0 },
+    };
+  }
+
+  const { data: ritten, error } = await supabase
+    .from("ritten")
+    .select("id, leider_algemeen, leider_punten, leider_berg, leider_jongeren")
+    .in("wedstrijd_id", wedstrijdIds)
+    .eq("gescrapet", true);
+
+  if (error) throw error;
+
+  return telTruiWinnaarsUitRitten(ritten || []);
+}
+
+async function telTruiWinnaarsUitRitten(ritten) {
   const truiTypes = [
-    { field: "leider_algemeen", key: "algemeen", kleur: "Geel" },
-    { field: "leider_punten", key: "punten", kleur: "Groen" },
-    { field: "leider_berg", key: "berg", kleur: "Bollen" },
-    { field: "leider_jongeren", key: "jongeren", kleur: "Wit" },
+    { field: "leider_algemeen", key: "algemeen" },
+    { field: "leider_punten", key: "punten" },
+    { field: "leider_berg", key: "berg" },
+    { field: "leider_jongeren", key: "jongeren" },
   ];
 
   const counts = {
@@ -93,18 +129,22 @@ async function berekenTruiWinnaars(wedstrijdId) {
     berg: {},
     jongeren: {},
   };
+
   const slugs = new Set();
 
-  (ritten || []).forEach((rit) => {
+  ritten.forEach((rit) => {
     truiTypes.forEach(({ field, key }) => {
       const waarde = rit[field];
-      if (!waarde) return;
+
+      if (!waarde || waarde === "-") return;
+
       counts[key][waarde] = (counts[key][waarde] || 0) + 1;
       slugs.add(waarde);
     });
   });
 
   const slugList = Array.from(slugs);
+
   const { data: renners } = slugList.length
     ? await supabase.from("renners").select("slug, naam").in("slug", slugList)
     : { data: [] };
@@ -117,6 +157,7 @@ async function berekenTruiWinnaars(wedstrijdId) {
   return truiTypes.reduce(
     (result, { key }) => {
       const items = Object.entries(counts[key] || {});
+
       if (items.length === 0) {
         result[key] = { naam: "-", aantal: 0 };
         return result;
@@ -221,11 +262,11 @@ router.get("/me", async (req, res) => {
         typeof topTruien !== "undefined"
           ? topTruien
           : {
-              algemeen: { naam: "-", aantal: 0 },
-              punten: { naam: "-", aantal: 0 },
-              berg: { naam: "-", aantal: 0 },
-              jongeren: { naam: "-", aantal: 0 },
-            },
+            algemeen: { naam: "-", aantal: 0 },
+            punten: { naam: "-", aantal: 0 },
+            berg: { naam: "-", aantal: 0 },
+            jongeren: { naam: "-", aantal: 0 },
+          },
     });
   } catch (error) {
     console.error("Dashboard stats fout:", error);
