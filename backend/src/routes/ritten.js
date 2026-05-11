@@ -110,7 +110,7 @@ async function verwerkRitResultaat(ritId, resultaat, wedstrijdNaam = "") {
         }
     }
 
-    // --- NIEUWE LOGICA: Controleer of het een grote ronde is en de trui ontbreekt ---
+    // --- LOGICA: Controleer of het een grote ronde is en de trui ontbreekt ---
     const naamLower = wedstrijdNaam.toLowerCase();
     const isGrandTour = naamLower.includes('tour de france') || naamLower.includes('giro') || naamLower.includes('vuelta');
     const heeftAlgemeneTrui = !!resultaat.truien?.algemeen;
@@ -125,7 +125,7 @@ async function verwerkRitResultaat(ritId, resultaat, wedstrijdNaam = "") {
             leider_punten: resultaat.truien?.punten || null,
             leider_berg: resultaat.truien?.berg || null,
             leider_jongeren: resultaat.truien?.jongeren || null,
-            gescrapet: magAfgevinktWorden, // Hier bepalen we of hij open blijft staan!
+            gescrapet: magAfgevinktWorden,
         })
         .eq('id', ritId);
 
@@ -133,6 +133,40 @@ async function verwerkRitResultaat(ritId, resultaat, wedstrijdNaam = "") {
 
     if (isGrandTour && !heeftAlgemeneTrui) {
         console.log(`⚠️ Uitslag verwerkt, maar PCS heeft de leiderstrui nog niet ingevuld. Rit blijft op 'ongescrapet' staan voor latere retry.`);
+    }
+
+    // ============================================================================
+    // --- NIEUWE LOGICA: VERWERK UITVALLERS (DNF/DNS/OTL/DSQ) ---
+    // ============================================================================
+    if (resultaat.uitvallers && resultaat.uitvallers.length > 0) {
+        // Haal het wedstrijd_id op via het ritId
+        const { data: ritData, error: ritFout } = await supabase
+            .from('ritten')
+            .select('wedstrijd_id')
+            .eq('id', ritId)
+            .single();
+
+        if (ritData && ritData.wedstrijd_id) {
+            console.log(`🚑 ${resultaat.uitvallers.length} uitvallers gevonden in de uitslag! Status updaten...`);
+
+            for (const uitvaller of resultaat.uitvallers) {
+                const rennerUitvallerId = await zoekRennerIdOpSlug(uitvaller.slug);
+
+                if (rennerUitvallerId) {
+                    const { error: uitvallerError } = await supabase
+                        .from('wedstrijd_deelnemers')
+                        .update({ status: uitvaller.reden }) // Zet status naar 'DNF', 'DNS', etc.
+                        .eq('wedstrijd_id', ritData.wedstrijd_id)
+                        .eq('renner_id', rennerUitvallerId);
+
+                    if (uitvallerError) {
+                        console.error(`❌ Fout bij updaten uitvaller ${uitvaller.slug}:`, uitvallerError.message);
+                    } else {
+                        console.log(`   🩸 Renner ${uitvaller.slug} staat nu op status: ${uitvaller.reden}`);
+                    }
+                }
+            }
+        }
     }
 }
 

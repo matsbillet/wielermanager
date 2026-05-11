@@ -1,5 +1,5 @@
 import {
-  BrowserRouter,
+  HashRouter,
   NavLink,
   Route,
   Routes,
@@ -186,8 +186,8 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout theme={theme} toggleTheme={toggleTheme} />
-    </BrowserRouter>
+    </HashRouter>
   );
 }

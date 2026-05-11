@@ -1,5 +1,48 @@
 {
+  "name": "wielermanager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build-exe": "electron-builder --win"
+  },
   "dependencies": {
     "cors": "^2.8.6"
-  }
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.wielermanager.app",
+    "productName": "Wielermanager",
+    "asar": false,
+    "artifactName": "Wielermanager.exe",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "backend/**/*",
+      "backend/.env",
+      "frontend/dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Wielermanager"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matsbillet/wielermanager.git"
+  },
+  "license": "ISC"
 }

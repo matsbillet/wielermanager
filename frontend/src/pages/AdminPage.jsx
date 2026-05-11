@@ -741,8 +741,10 @@ export default function AdminPage() {
                                 </option>
                             ))}
                         </select>
-                        <button className="pill-btn" onClick={handleDeleteAllDrafts} style={{ background: 'var(--red)', color: 'white' }}>🗑️ Alles Leegmaken</button>
-                        <div style={{ marginBottom: "1rem" }}>
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <button className="pill-btn" onClick={handleDeleteAllDrafts} style={{ background: 'var(--red)', color: 'white' }}>
+                                🗑️ Alles Leegmaken
+                            </button>
                             <button
                                 className="pill-btn"
                                 onClick={() => handleSyncStartlijst(selectedWedstrijd)}
