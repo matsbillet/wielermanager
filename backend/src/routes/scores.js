@@ -189,6 +189,7 @@ async function maakScoreboardVoorSessie(sessie) {
             punten: laatsteGescrapeteRit.leider_punten || "-",
             berg: laatsteGescrapeteRit.leider_berg || "-",
             jongeren: laatsteGescrapeteRit.leider_jongeren || "-",
+            wedstrijdNaam: sessie.wedstrijden?.naam || "",
         }
         : {
             rit_nummer: null,

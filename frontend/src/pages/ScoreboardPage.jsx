@@ -288,22 +288,45 @@ export default function ScoreboardPage() {
 
                     <div className="truien-list">
                         <div className="trui-row">
-                            <span>Roze / geel</span>
+                            <span
+                                className={`trui-label ${truien?.wedstrijdNaam?.includes("Giro")
+                                        ? "roze"
+                                        : truien?.wedstrijdNaam?.includes("Vuelta")
+                                            ? "rood"
+                                            : "geel"
+                                    }`}
+                            >
+                                {truien?.wedstrijdNaam?.includes("Giro")
+                                    ? "Roze"
+                                    : truien?.wedstrijdNaam?.includes("Vuelta")
+                                        ? "Rood"
+                                        : "Geel"}
+                            </span>
+
                             <strong>{truien?.algemeen || "-"}</strong>
                         </div>
 
                         <div className="trui-row">
-                            <span>Punten</span>
+                            <span className="trui-label punten">
+                                Punten
+                            </span>
+
                             <strong>{truien?.punten || "-"}</strong>
                         </div>
 
                         <div className="trui-row">
-                            <span>Berg</span>
+                            <span className="trui-label berg">
+                                Berg
+                            </span>
+
                             <strong>{truien?.berg || "-"}</strong>
                         </div>
 
                         <div className="trui-row">
-                            <span>Jongeren</span>
+                            <span className="trui-label jongeren">
+                                Jongeren
+                            </span>
+
                             <strong>{truien?.jongeren || "-"}</strong>
                         </div>
 
