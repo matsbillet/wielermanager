@@ -45,17 +45,17 @@ export default function HomePage({ theme = "dark", toggleTheme }) {
           backgroundImage:
             theme === "light"
               ? `linear-gradient(
-            90deg,
-            rgba(255,255,255,.92) 0%,
-            rgba(255,255,255,.70) 42%,
-            rgba(255,255,255,.18) 100%
-          ), url(${heroImg})`
+        90deg,
+        rgba(0,0,0,.72) 0%,
+        rgba(0,0,0,.46) 42%,
+        rgba(0,0,0,.12) 100%
+      ), url(${heroImg})`
               : `linear-gradient(
-            90deg,
-            rgba(41,55,61,.96) 0%,
-            rgba(41,55,61,.78) 42%,
-            rgba(41,55,61,.18) 100%
-          ), url(${heroImg})`,
+        90deg,
+        rgba(41,55,61,.96) 0%,
+        rgba(41,55,61,.78) 42%,
+        rgba(41,55,61,.18) 100%
+      ), url(${heroImg})`
         }}
       >
         <div className="hero-content">

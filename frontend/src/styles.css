@@ -2727,6 +2727,23 @@ textarea:focus {
     color: #5b6472;
 }
 
+.light-mode .home-page {
+    background: #f3f5f7;
+}
+
+.light-mode .home-topbar {
+    background: transparent;
+}
+
+.light-mode .hero-content h1,
+.light-mode .hero-content p {
+    color: #ffffff;
+}
+
+.light-mode .home-brand {
+    text-shadow: none;
+}
+
 @media (max-width: 980px) {
 
     .home-topbar,
