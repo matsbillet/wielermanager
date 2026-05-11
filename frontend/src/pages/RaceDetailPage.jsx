@@ -5,6 +5,7 @@ import {
   syncStartlijst,
   scrapePastRitten,
   resetAllRitten,
+  resetRit // Zorg dat deze goed in je api.js staat!
 } from "../services/api";
 
 export default function RaceDetailPage() {
@@ -99,7 +100,22 @@ export default function RaceDetailPage() {
     }
   }
 
-  // Functie: Één specifieke rit resetten
+  // Functie: Één specifieke rit resetten (voor testen DNF's etc.)
+  async function handleResetRit(ritId, ritNaam) {
+    const bevestig = window.confirm(`Weet je zeker dat je ${ritNaam} wilt leegmaken en resetten?`);
+    if (!bevestig) return;
+
+    setMelding("");
+    try {
+      await resetRit(ritId);
+      setMelding(`✅ ${ritNaam} succesvol gereset!`);
+      await laadRitten(); // Ververs de lijst zodat hij weer op 'pending' springt
+    } catch (err) {
+      console.error("Fout bij resetten rit:", err);
+      setMelding(`❌ Kon ${ritNaam} niet resetten.`);
+    }
+  }
+
   if (loading) return <div>Laden van ritten...</div>;
   if (!wedstrijdData) return <div>Geen wedstrijdgegevens gevonden.</div>;
 
@@ -247,6 +263,30 @@ export default function RaceDetailPage() {
               >
                 {ritNaamWeergave}
               </Link>
+
+              {/* DE NIEUWE VERWIJDER / RESET KNOP */}
+              <button
+                onClick={() => handleResetRit(rit.id, ritNaamWeergave)}
+                title={`${ritNaamWeergave} resetten`}
+                style={{
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  padding: "0 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ef4444",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
+                </svg>
+              </button>
             </div>
           );
         })}

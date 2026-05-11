@@ -441,16 +441,12 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
     try {
         const page = await browser.newPage();
 
-        // Dynamische URL opbouw op basis van het type wedstrijd
         let stageUrl;
         const cleanBase = racePcsUrl.endsWith('/') ? racePcsUrl.slice(0, -1) : racePcsUrl;
 
         if (isEendagskoers) {
-            // Voor eendagskoersen (zoals Amstel Gold Race) eindigt de URL op /result
             stageUrl = `${cleanBase}/result`;
         } else {
-            // Voor etappekoersen (zoals Paris-Nice) gebruiken we de stage URL + 's'
-            // De helper bouwStageUrl maakt meestal .../stage-1, PCS uitslagen staan op .../stage-1/results
             const baseUrl = bouwStageUrl(racePcsUrl, ritNummer);
             stageUrl = baseUrl.endsWith('/') ? `${baseUrl}results` : `${baseUrl}/results`;
         }
@@ -461,64 +457,59 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         );
 
-        await page.goto(stageUrl, {
-            waitUntil: 'networkidle2',
-            timeout: 60000,
-        });
+        await page.goto(stageUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
         const data = await page.evaluate(() => {
             const results = {
                 uitslag: [],
                 truien: {},
+                uitvallers: [], // <-- NIEUW: Array voor DNF/DNS
                 starttijdTekst: null,
             };
 
             const bodyText = document.body.innerText;
-
-            // Zoek naar datum en starttijd op de pagina
             const dateMatch = bodyText.match(/Date:\s*([^\n]+)/i);
-            const timeMatch =
-                bodyText.match(/Starttime:\s*([0-9]{1,2}:[0-9]{2})/i) ||
-                bodyText.match(/Start time:\s*([0-9]{1,2}:[0-9]{2})/i);
+            const timeMatch = bodyText.match(/Starttime:\s*([0-9]{1,2}:[0-9]{2})/i) || bodyText.match(/Start time:\s*([0-9]{1,2}:[0-9]{2})/i);
 
-            results.starttijdTekst = dateMatch?.[1]
-                ? `${dateMatch[1]} ${timeMatch?.[1] || ""}`.trim()
-                : null;
+            results.starttijdTekst = dateMatch?.[1] ? `${dateMatch[1]} ${timeMatch?.[1] || ""}`.trim() : null;
 
             const tables = Array.from(document.querySelectorAll('table'));
-
-            // Zoek de juiste tabel (bevat 'Rider' en heeft genoeg rijen)
-            const resultTable = tables.find(
-                (t) => t.innerText.includes('Rider') && t.querySelectorAll('tr').length > 10
-            );
+            const resultTable = tables.find(t => t.innerText.includes('Rider') && t.querySelectorAll('tr').length > 10);
 
             if (resultTable) {
-                const rows = Array.from(resultTable.querySelectorAll('tbody tr')).slice(0, 25);
+                const allRows = Array.from(resultTable.querySelectorAll('tbody tr'));
 
-                results.uitslag = rows
-                    .map((row, i) => {
+                // 1. Pak de Top 25 voor de normale punten
+                const top25Rows = allRows.slice(0, 25);
+                results.uitslag = top25Rows.map((row, i) => {
+                    const a = row.querySelector('a[href^="rider/"]');
+                    const href = a?.getAttribute('href') || "";
+                    const slug = href.replace('rider/', '').split('/')[0];
+                    return { positie: i + 1, naam: a?.innerText.trim(), slug: slug || null };
+                }).filter(r => r.slug);
+
+                // 2. NIEUW: Loop door ALLE rijen om uitvallers (DNF, DNS, OTL) te zoeken
+                const uitvallerCodes = ['DNF', 'DNS', 'OTL', 'DSQ'];
+                allRows.forEach(row => {
+                    // PCS zet de positie (of DNF) in de 1e of 2e kolom afhankelijk van de koers
+                    const posText1 = row.querySelector('td:nth-child(1)')?.innerText.trim().toUpperCase();
+                    const posText2 = row.querySelector('td:nth-child(2)')?.innerText.trim().toUpperCase();
+
+                    const code = uitvallerCodes.find(c => c === posText1 || c === posText2);
+
+                    if (code) {
                         const a = row.querySelector('a[href^="rider/"]');
-                        // Pak de slug direct uit de href om mismatches te voorkomen
                         const href = a?.getAttribute('href') || "";
                         const slug = href.replace('rider/', '').split('/')[0];
-
-                        return {
-                            positie: i + 1,
-                            naam: a?.innerText.trim(),
-                            slug: slug || null,
-                        };
-                    })
-                    .filter((r) => r.slug);
+                        if (slug) {
+                            results.uitvallers.push({ slug: slug, reden: code });
+                        }
+                    }
+                });
             }
 
-            // Helper om de leider van een klassement te vinden
             const getLeaderSlug = (headerText) => {
-                const targetTable = tables.find(
-                    (t) =>
-                        t.previousElementSibling?.innerText.includes(headerText) ||
-                        t.innerText.includes(headerText)
-                );
-
+                const targetTable = tables.find(t => t.previousElementSibling?.innerText.includes(headerText) || t.innerText.includes(headerText));
                 const a = targetTable?.querySelector('a[href^="rider/"]');
                 return a?.getAttribute('href')?.replace('rider/', '').split('/')[0] || null;
             };
