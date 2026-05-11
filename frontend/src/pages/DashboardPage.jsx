@@ -120,6 +120,7 @@ export default function DashboardPage() {
                 }}
             >
                 <h1
+                    className="dashboard-welcome"
                     style={{
                         fontSize: isMobile ? "1.5rem" : undefined,
                         lineHeight: 1.2,

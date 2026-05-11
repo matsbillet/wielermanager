@@ -2527,6 +2527,21 @@ textarea:focus {
     box-shadow: 0 0 6px #f87171;
 }
 
+.player-name,
+.rider-name,
+.trui-row strong,
+.klassement-row,
+.team-list-item,
+.draft-team-list-item,
+.action-card-title,
+.top-renners-card strong {
+    text-transform: capitalize;
+}
+
+.dashboard-welcome {
+    text-transform: capitalize;
+}
+
 @media (max-width: 980px) {
 
     .home-topbar,
