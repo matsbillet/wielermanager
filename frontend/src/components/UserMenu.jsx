@@ -25,7 +25,9 @@ export default function UserMenu({ homeStyle = false, theme = "dark", toggleThem
                 {theme === "dark" ? "🌙" : "☀️"}
             </button>
 
-            <span className="user-name">👤 {gebruiker.naam}</span>
+            <span className="user-name">
+                👤 {gebruiker.naam.charAt(0).toUpperCase() + gebruiker.naam.slice(1)}
+            </span>
             <button
                 className={homeStyle ? "home-login" : "logout-btn"}
                 onClick={handleLogout}
