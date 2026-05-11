@@ -182,21 +182,49 @@ async function maakScoreboardVoorSessie(sessie) {
         .filter((rit) => rit.gescrapet)
         .sort((a, b) => Number(b.rit_nummer) - Number(a.rit_nummer))[0];
 
+    const leiderSlugs = [
+        laatsteGescrapeteRit.leider_algemeen,
+        laatsteGescrapeteRit.leider_punten,
+        laatsteGescrapeteRit.leider_berg,
+        laatsteGescrapeteRit.leider_jongeren,
+    ].filter(Boolean);
+
+    const { data: leiderRenners } = await supabase
+        .from("renners")
+        .select("slug, naam")
+        .in("slug", leiderSlugs);
+
+    const naamMap = {};
+
+    (leiderRenners || []).forEach((renner) => {
+        naamMap[renner.slug] = renner.naam;
+    });
+
     const truien = laatsteGescrapeteRit
         ? {
             rit_nummer: laatsteGescrapeteRit.rit_nummer,
-            algemeen: laatsteGescrapeteRit.leider_algemeen || "-",
-            punten: laatsteGescrapeteRit.leider_punten || "-",
-            berg: laatsteGescrapeteRit.leider_berg || "-",
-            jongeren: laatsteGescrapeteRit.leider_jongeren || "-",
+
+            algemeen:
+                naamMap[laatsteGescrapeteRit.leider_algemeen] || "-",
+
+            punten:
+                naamMap[laatsteGescrapeteRit.leider_punten] || "-",
+
+            berg:
+                naamMap[laatsteGescrapeteRit.leider_berg] || "-",
+
+            jongeren:
+                naamMap[laatsteGescrapeteRit.leider_jongeren] || "-",
+
             wedstrijdNaam: sessie.wedstrijden?.naam || "",
         }
         : {
-            rit_nummer: null,
             algemeen: "-",
             punten: "-",
             berg: "-",
             jongeren: "-",
+            rit_nummer: null,
+            wedstrijdNaam: sessie.wedstrijden?.naam || "",
         };
 
     return {
