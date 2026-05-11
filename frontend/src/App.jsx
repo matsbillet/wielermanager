@@ -65,7 +65,11 @@ function Layout({ theme, toggleTheme }) {
         <Routes>
           <Route
             path="/"
-            element={<HomePage theme={theme} toggleTheme={toggleTheme} />}
+            element={
+              localStorage.getItem("token")
+                ? <HomePage theme={theme} toggleTheme={toggleTheme} />
+                : <LoginPage />
+            }
           />
 
           <Route path="/login" element={<LoginPage />} />

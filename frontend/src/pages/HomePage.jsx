@@ -4,7 +4,7 @@ import logo from "../img/fietsimgneon.png";
 import heroImg from "../img/mainfoto.jpg";
 import UserMenu from "../components/UserMenu";
 
-export default function HomePage() {
+export default function HomePage({ theme = "dark", toggleTheme }) {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
@@ -32,13 +32,25 @@ export default function HomePage() {
 
         {/* Navigatieknoppen verwijderd */}
 
-        <UserMenu homeStyle />
+        <UserMenu
+          homeStyle
+          theme={theme}
+          toggleTheme={toggleTheme}
+        />
       </header>
 
       <section
         className="home-hero"
         style={{
-          backgroundImage: `linear-gradient(
+          backgroundImage:
+            theme === "light"
+              ? `linear-gradient(
+            90deg,
+            rgba(255,255,255,.92) 0%,
+            rgba(255,255,255,.70) 42%,
+            rgba(255,255,255,.18) 100%
+          ), url(${heroImg})`
+              : `linear-gradient(
             90deg,
             rgba(41,55,61,.96) 0%,
             rgba(41,55,61,.78) 42%,

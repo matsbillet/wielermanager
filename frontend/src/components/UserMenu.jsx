@@ -1,6 +1,10 @@
 import { useNavigate } from "react-router-dom";
 
-export default function UserMenu({ homeStyle = false, theme = "dark", toggleTheme }) {
+export default function UserMenu({
+    homeStyle = false,
+    theme = "dark",
+    toggleTheme,
+}) {
     const navigate = useNavigate();
     const gebruiker = JSON.parse(localStorage.getItem("gebruiker"));
 
@@ -15,7 +19,6 @@ export default function UserMenu({ homeStyle = false, theme = "dark", toggleThem
     return (
         <div className="user-menu">
 
-
             <button
                 type="button"
                 className="theme-toggle-btn"
@@ -28,12 +31,14 @@ export default function UserMenu({ homeStyle = false, theme = "dark", toggleThem
             <span className="user-name">
                 👤 {gebruiker.naam.charAt(0).toUpperCase() + gebruiker.naam.slice(1)}
             </span>
+
             <button
                 className={homeStyle ? "home-login" : "logout-btn"}
                 onClick={handleLogout}
             >
                 Uitloggen
             </button>
+
         </div>
     );
 }
