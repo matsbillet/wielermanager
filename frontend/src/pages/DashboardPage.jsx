@@ -224,29 +224,7 @@ export default function DashboardPage() {
                             gap: "1rem"
                         }}>
                             {uitvallers.map((u, i) => (
-                                <div key={i} style={{
-                                    padding: "0.75rem 1rem",
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    backgroundColor: "rgba(255, 255, 255, 0.03)",
-                                    borderRadius: "8px"
-                                }}>
-                                    <div style={{ display: "flex", flexDirection: "column" }}>
-                                        <strong style={{ fontSize: "1.1rem" }}>{u.renners?.naam}</strong>
-                                        <span style={{ opacity: 0.6, fontSize: "0.85rem" }}>{u.renners?.ploeg}</span>
-                                    </div>
-                                    <span style={{
-                                        backgroundColor: "#ef4444",
-                                        color: "white",
-                                        padding: "4px 10px",
-                                        borderRadius: "4px",
-                                        fontWeight: "bold",
-                                        fontSize: "0.9rem"
-                                    }}>
-                                        {u.status}
-                                    </span>
-                                </div>
+                                <UitvallerItem key={i} u={u} />
                             ))}
                         </div>
                     ) : (
@@ -281,6 +259,58 @@ function StatCard({ title, value, icon, color }) {
 
             <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>
                 {value}
+            </div>
+        </div>
+    );
+}
+
+function UitvallerItem({ u }) {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div
+            onClick={() => setIsOpen(!isOpen)}
+            style={{
+                padding: "0.75rem 1rem",
+                backgroundColor: "rgba(255, 255, 255, 0.03)",
+                borderRadius: "8px",
+                cursor: "pointer",
+                transition: "all 0.2s ease-in-out",
+                border: isOpen ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid transparent"
+            }}
+        >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                    <strong style={{ fontSize: "1.1rem" }}>{u.renners?.naam}</strong>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{
+                        backgroundColor: "#ef4444", color: "white",
+                        padding: "4px 10px", borderRadius: "4px", fontWeight: "bold", fontSize: "0.9rem"
+                    }}>
+                        {u.status}
+                    </span>
+                    <span style={{ fontSize: "0.8rem", opacity: 0.5, transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s" }}>
+                        ▼
+                    </span>
+                </div>
+            </div>
+
+            {/* SLIDE DOWN GEDEELTE */}
+            <div style={{
+                maxHeight: isOpen ? "100px" : "0px",
+                overflow: "hidden",
+                transition: "max-height 0.3s ease-in-out",
+                opacity: isOpen ? 1 : 0
+            }}>
+                <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", fontSize: "0.95rem", color: "#e2e8f0" }}>
+                    <p style={{ margin: "0 0 5px 0" }}>💔 <strong>{u.renners?.naam}</strong> is uitgevallen.</p>
+                    <p style={{ margin: 0 }}>
+                        Eigenaar: <strong style={{ color: u.eigenaar !== "Niemand" ? "#22d3ee" : "#94a3b8" }}>
+                            {u.eigenaar !== "Niemand" ? u.eigenaar : "Geen (Zat in geen enkel team)"}
+                        </strong>
+                    </p>
+                </div>
             </div>
         </div>
     );

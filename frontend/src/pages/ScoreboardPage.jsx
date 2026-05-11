@@ -27,6 +27,7 @@ const kleuren = [
     "#03a9f4",
     "#e91e63",
 ];
+
 function maakGrafiekData(spelers) {
     if (!spelers.length) return [];
 
@@ -70,6 +71,7 @@ export default function ScoreboardPage() {
     const [melding, setMelding] = useState("");
     const [draftSessies, setDraftSessies] = useState([]);
     const [sessieId, setSessieId] = useState("");
+    const [klassementTab, setKlassementTab] = useState("algemeen"); // 'algemeen' of 'dagelijks'
 
     useEffect(() => {
         async function laadScoreboard() {
@@ -146,20 +148,40 @@ export default function ScoreboardPage() {
     if (loading) return <div>Laden van scoreboard...</div>;
     if (melding) return <div>{melding}</div>;
 
+    // --- REKENLOGICA ---
     const grafiekData = maakGrafiekData(spelers);
-    const klassement = [...spelers].sort((a, b) => b.totaal - a.totaal);
-    const aantalRitten = Math.max(
-        0,
-        ...spelers.map((speler) => speler.per_rit?.length || 0),
-    );
 
-    const aantalGeredenRitten = new Set(
+    // 1. Zoek uit wat de laatste rit was die verwerkt is
+    const geredenRitNummers = [...new Set(
         spelers.flatMap((speler) =>
             (speler.per_rit || [])
                 .filter((rit) => rit.gescrapet)
                 .map((rit) => rit.rit_nummer)
         )
-    ).size;
+    )].sort((a, b) => b - a);
+
+    const laatsteRitNummer = geredenRitNummers.length > 0 ? geredenRitNummers[0] : null;
+
+    // 2. Bepaal welk klassement we moeten tonen in de bovenste kaart!
+    let getoondeKlassement = [];
+    if (klassementTab === "algemeen") {
+        getoondeKlassement = [...spelers]
+            .sort((a, b) => b.totaal - a.totaal)
+            .map(s => ({ ...s, toonPunten: s.totaal }));
+    } else {
+        // Dagelijks klassement
+        getoondeKlassement = [...spelers].map(s => {
+            const ritData = (s.per_rit || []).find(r => r.rit_nummer === laatsteRitNummer);
+            const dagPunten = ritData ? ritData.punten : 0;
+            return { ...s, toonPunten: dagPunten };
+        }).sort((a, b) => b.toonPunten - a.toonPunten);
+    }
+
+    // 3. Herstel de variabelen voor de rest van de pagina
+    const aantalRitten = Math.max(0, ...spelers.map((speler) => speler.per_rit?.length || 0));
+    const klassement = [...spelers].sort((a, b) => b.totaal - a.totaal); // Algemeen klassement voor de tabel onderaan
+
+    const aantalGeredenRitten = geredenRitNummers.length;
 
     return (
         <div className="scoreboard-page">
@@ -234,12 +256,38 @@ export default function ScoreboardPage() {
 
             <section className="scoreboard-top-grid">
                 <div className="card klassement-card">
-                    <div className="section-head">
-                        <h2>Algemeen klassement</h2>
+                    <div className="section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2>{klassementTab === "algemeen" ? "Algemeen klassement" : `Uitslag Rit ${laatsteRitNummer || "-"}`}</h2>
+
+                        {/* DE TOGGLE KNOPPEN */}
+                        <div style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '4px' }}>
+                            <button
+                                onClick={() => setKlassementTab("algemeen")}
+                                style={{
+                                    padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
+                                    backgroundColor: klassementTab === "algemeen" ? '#22d3ee' : 'transparent',
+                                    color: klassementTab === "algemeen" ? '#0f172a' : '#94a3b8',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Algemeen
+                            </button>
+                            <button
+                                onClick={() => setKlassementTab("dagelijks")}
+                                style={{
+                                    padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
+                                    backgroundColor: klassementTab === "dagelijks" ? '#22d3ee' : 'transparent',
+                                    color: klassementTab === "dagelijks" ? '#0f172a' : '#94a3b8',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Laatste Rit
+                            </button>
+                        </div>
                     </div>
 
                     <div className="klassement-list">
-                        {klassement.map((speler, index) => (
+                        {getoondeKlassement.map((speler, index) => (
                             <div key={speler.speler_id} className="klassement-row">
                                 <div className="rank">#{index + 1}</div>
 
@@ -251,7 +299,7 @@ export default function ScoreboardPage() {
                                     <strong>{speler.speler}</strong>
                                 </div>
 
-                                <div className="player-total">{speler.totaal} pts</div>
+                                <div className="player-total">{speler.toonPunten} pts</div>
                             </div>
                         ))}
                     </div>
@@ -290,10 +338,10 @@ export default function ScoreboardPage() {
                         <div className="trui-row">
                             <span
                                 className={`trui-label ${truien?.wedstrijdNaam?.includes("Giro")
-                                        ? "roze"
-                                        : truien?.wedstrijdNaam?.includes("Vuelta")
-                                            ? "rood"
-                                            : "geel"
+                                    ? "roze"
+                                    : truien?.wedstrijdNaam?.includes("Vuelta")
+                                        ? "rood"
+                                        : "geel"
                                     }`}
                             >
                                 {truien?.wedstrijdNaam?.includes("Giro")

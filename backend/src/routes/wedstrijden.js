@@ -307,22 +307,49 @@ router.post("/:id/sync-startlijst", async (req, res) => {
     }
 });
 
-// --- HAAL ALLE UITVALLERS VAN EEN WEDSTRIJD OP ---
+// --- HAAL ALLE UITVALLERS VAN EEN WEDSTRIJD OP (INCLUSIEF EIGENAAR) ---
 router.get('/:id/uitvallers', async (req, res) => {
     const { id } = req.params;
     try {
-        const { data, error } = await supabase
+        // 1. Haal de uitvallers op
+        const { data: deelnemers, error } = await supabase
             .from('wedstrijd_deelnemers')
-            .select(`
-                status,
-                renners (naam, ploeg)
-            `)
+            .select(`renner_id, status, renners (naam, ploeg)`)
             .eq('wedstrijd_id', id)
-            .neq('status', 'active'); // Haal alles op wat GEEN 'active' is
+            .neq('status', 'active');
 
         if (error) throw error;
 
-        res.json(data || []);
+        // 2. Zoek de eigenaren op via de actieve draft sessie
+        const { data: sessie } = await supabase
+            .from('draft_sessies')
+            .select('id')
+            .eq('wedstrijd_id', id)
+            .eq('is_actief', true)
+            .single();
+
+        let eigenaarMap = {};
+        if (sessie) {
+            const { data: draftData } = await supabase
+                .from('draft')
+                .select('renner_id, spelers(gebruikers(naam))')
+                .eq('sessie_id', sessie.id);
+
+            if (draftData) {
+                draftData.forEach(d => {
+                    eigenaarMap[d.renner_id] = d.spelers?.gebruikers?.naam || "Niemand";
+                });
+            }
+        }
+
+        // 3. Combineer de data
+        const resultaat = (deelnemers || []).map(d => ({
+            status: d.status,
+            renners: d.renners,
+            eigenaar: eigenaarMap[d.renner_id] || "Niemand"
+        }));
+
+        res.json(resultaat);
     } catch (err) {
         console.error("Fout bij ophalen uitvallers:", err);
         res.status(500).json({ error: err.message });
