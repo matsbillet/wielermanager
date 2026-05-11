@@ -1,9 +1,15 @@
-# Negeer de zware library mappen
-node_modules/
+# Electron & Build bestanden
+release/
+frontend/dist/
 
-# Negeer omgevingsvariabelen met wachtwoorden/sleutels
+# Wachtwoorden en sleutels (CRUCIAAL!)
 .env
+backend/.env
 
-# Negeer OS-specifieke rommel
+# Node modules (stond er waarschijnlijk al in)
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Mac rommel
 .DS_Store
-Thumbs.db
