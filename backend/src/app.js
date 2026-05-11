@@ -2,8 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-// 1. Importeer de centrale Automation Motor
-require('./services/automationService');
+// NIEUWE VERSIE: Haal de start-functie op
+const { startLokaleMotor } = require('./services/automationService');
 
 const app = express();
 
@@ -53,4 +53,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server draait op http://localhost:${PORT}`);
     console.log(`⚙️ Automation Service is succesvol opgestart op de achtergrond.`);
+    startLokaleMotor();
 });

@@ -26,7 +26,8 @@ async function zoekRennerIdOpSlug(slug) {
     return renner?.id || null;
 }
 
-async function verwerkRitResultaat(ritId, resultaat) {
+// Voeg wedstrijdNaam toe als extra parameter (standaard leeg)
+async function verwerkRitResultaat(ritId, resultaat, wedstrijdNaam = "") {
     if (!resultaat?.uitslag?.length) {
         throw new Error("Geen uitslag gevonden om op te slaan.");
     }
@@ -86,10 +87,7 @@ async function verwerkRitResultaat(ritId, resultaat) {
             .eq('renner_id', rennerId)
             .maybeSingle();
 
-        if (bestaandError) {
-            console.error(`❌ Fout bij zoeken bestaand truiresultaat:`, bestaandError.message);
-            continue;
-        }
+        if (bestaandError) continue;
 
         if (bestaand) {
             const nieuweTruiPunten = Number(bestaand.trui_punten || 0) + TRUI_PUNTEN;
@@ -97,10 +95,7 @@ async function verwerkRitResultaat(ritId, resultaat) {
 
             await supabase
                 .from('ritresultaten')
-                .update({
-                    trui_punten: nieuweTruiPunten,
-                    truien_punten: nieuweTruienPunten,
-                })
+                .update({ trui_punten: nieuweTruiPunten, truien_punten: nieuweTruienPunten })
                 .eq('id', bestaand.id);
         } else {
             await supabase
@@ -109,13 +104,19 @@ async function verwerkRitResultaat(ritId, resultaat) {
                     rit_id: ritId,
                     renner_id: rennerId,
                     positie: null,
-                    punten: 0,
-                    rit_punten: 0,
-                    trui_punten: TRUI_PUNTEN,
-                    truien_punten: TRUI_PUNTEN,
+                    punten: 0, rit_punten: 0,
+                    trui_punten: TRUI_PUNTEN, truien_punten: TRUI_PUNTEN,
                 });
         }
     }
+
+    // --- NIEUWE LOGICA: Controleer of het een grote ronde is en de trui ontbreekt ---
+    const naamLower = wedstrijdNaam.toLowerCase();
+    const isGrandTour = naamLower.includes('tour de france') || naamLower.includes('giro') || naamLower.includes('vuelta');
+    const heeftAlgemeneTrui = !!resultaat.truien?.algemeen;
+
+    // Mag de rit definitief afgevinkt worden?
+    const magAfgevinktWorden = isGrandTour ? heeftAlgemeneTrui : true;
 
     const { error: updateError } = await supabase
         .from('ritten')
@@ -124,11 +125,15 @@ async function verwerkRitResultaat(ritId, resultaat) {
             leider_punten: resultaat.truien?.punten || null,
             leider_berg: resultaat.truien?.berg || null,
             leider_jongeren: resultaat.truien?.jongeren || null,
-            gescrapet: true,
+            gescrapet: magAfgevinktWorden, // Hier bepalen we of hij open blijft staan!
         })
         .eq('id', ritId);
 
     if (updateError) throw updateError;
+
+    if (isGrandTour && !heeftAlgemeneTrui) {
+        console.log(`⚠️ Uitslag verwerkt, maar PCS heeft de leiderstrui nog niet ingevuld. Rit blijft op 'ongescrapet' staan voor latere retry.`);
+    }
 }
 
 router.get('/deadlines/:wedstrijd_id', rittenController.getDeadlines);
