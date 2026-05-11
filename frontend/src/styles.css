@@ -2412,13 +2412,12 @@ textarea:focus {
 
 .light-mode .rit-link {
     background: #ffffff;
-    color: #111827;
     border-color: #d7dde5;
 }
 
 .light-mode .admin-select-custom {
     background: #ffffff;
-    color: #111827;
+    color: #00F5D4;
     border-color: #cbd5e1;
 }
 
