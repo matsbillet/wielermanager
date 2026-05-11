@@ -288,6 +288,18 @@ const getTeamVanSpeler = async (req, res) => {
     const { sessieId, spelerId } = req.params;
 
     try {
+        const { data: spelerData, error: spelerError } = await supabase
+            .from("spelers")
+            .select("id, gebruiker_id")
+            .eq("id", spelerId)
+            .single();
+
+        if (spelerError || !spelerData) {
+            return res.status(404).json({
+                error: "Speler niet gevonden.",
+            });
+        }
+
         const { data, error } = await supabase
             .from("draft")
             .select(`
@@ -307,6 +319,8 @@ const getTeamVanSpeler = async (req, res) => {
 
         const team = data.map((keuze) => ({
             draftId: keuze.id,
+            spelerId: Number(spelerId),
+            gebruikerId: spelerData.gebruiker_id,
             rennerId: keuze.renner_id,
             naam: keuze.renners?.naam || "Onbekende renner",
             ploeg: keuze.renners?.ploeg || "",

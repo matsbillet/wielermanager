@@ -1,4 +1,16 @@
+const jwt = require("jsonwebtoken");
 const { supabase } = require("../db/supabase");
+
+function haalGebruikerUitToken(req) {
+    const authHeader = req.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
+
+    if (!token) {
+        throw new Error("Geen token meegegeven.");
+    }
+
+    return jwt.verify(token, process.env.JWT_SECRET);
+}
 
 async function haalSessieOp(sessieId) {
     const { data, error } = await supabase
@@ -8,17 +20,48 @@ async function haalSessieOp(sessieId) {
         .single();
 
     if (error || !data) throw new Error("Draftsessie niet gevonden.");
+
     return data;
+}
+
+async function checkMagTeamAanpassen(req, spelerId) {
+    const gebruiker = haalGebruikerUitToken(req);
+
+    if (gebruiker.is_admin) {
+        return true;
+    }
+
+    const { data: speler, error } = await supabase
+        .from("spelers")
+        .select("id, gebruiker_id")
+        .eq("id", spelerId)
+        .single();
+
+    if (error || !speler) {
+        throw new Error("Speler niet gevonden.");
+    }
+
+    if (Number(speler.gebruiker_id) !== Number(gebruiker.id)) {
+        const fout = new Error("Je mag alleen je eigen team aanpassen.");
+        fout.statusCode = 403;
+        throw fout;
+    }
+
+    return true;
 }
 
 async function vervangVoorStart(req, res) {
     const { sessie_id, speler_id, renner_uit_id, renner_in_id } = req.body;
 
     if (!sessie_id || !speler_id || !renner_uit_id || !renner_in_id) {
-        return res.status(400).json({ error: "sessie_id, speler_id, renner_uit_id en renner_in_id zijn verplicht." });
+        return res.status(400).json({
+            error: "sessie_id, speler_id, renner_uit_id en renner_in_id zijn verplicht.",
+        });
     }
 
     try {
+        await checkMagTeamAanpassen(req, speler_id);
+
         const sessie = await haalSessieOp(sessie_id);
 
         const { data: bestaandeKeuze } = await supabase
@@ -29,7 +72,9 @@ async function vervangVoorStart(req, res) {
             .maybeSingle();
 
         if (bestaandeKeuze) {
-            return res.status(409).json({ error: "Deze renner zit al in een team." });
+            return res.status(409).json({
+                error: "Deze renner zit al in een team.",
+            });
         }
 
         const { error: updateError } = await supabase
@@ -49,12 +94,17 @@ async function vervangVoorStart(req, res) {
                 rit_nummer: 0,
                 renner_uit: renner_uit_id,
                 renner_in: renner_in_id,
-                reden: "voor_start"
+                reden: "voor_start",
             });
 
-        res.json({ status: "Succes", bericht: "Renner vervangen vóór de start." });
+        res.json({
+            status: "Succes",
+            bericht: "Renner vervangen vóór de start.",
+        });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(error.statusCode || 500).json({
+            error: error.message,
+        });
     }
 }
 
@@ -62,10 +112,14 @@ async function blessureWissel(req, res) {
     const { sessie_id, speler_id, renner_uit_id, renner_in_id, rit_nummer } = req.body;
 
     if (!sessie_id || !speler_id || !renner_uit_id || !renner_in_id || !rit_nummer) {
-        return res.status(400).json({ error: "Alle velden zijn verplicht." });
+        return res.status(400).json({
+            error: "Alle velden zijn verplicht.",
+        });
     }
 
     try {
+        await checkMagTeamAanpassen(req, speler_id);
+
         const sessie = await haalSessieOp(sessie_id);
         const volgendeRit = Number(rit_nummer) + 1;
 
@@ -88,7 +142,7 @@ async function blessureWissel(req, res) {
                     actief_vanaf_rit: volgendeRit,
                     actief_tot_rit: null,
                     status: "uitgevallen",
-                    reden: "blessure"
+                    reden: "blessure",
                 },
                 {
                     speler_id,
@@ -97,8 +151,8 @@ async function blessureWissel(req, res) {
                     actief_vanaf_rit: volgendeRit,
                     actief_tot_rit: null,
                     status: "actief",
-                    reden: "bank_naar_actief"
-                }
+                    reden: "bank_naar_actief",
+                },
             ]);
 
         await supabase
@@ -123,16 +177,21 @@ async function blessureWissel(req, res) {
                 rit_nummer: volgendeRit,
                 renner_uit: renner_uit_id,
                 renner_in: renner_in_id,
-                reden: "blessure"
+                reden: "blessure",
             });
 
-        res.json({ status: "Succes", bericht: `Wissel actief vanaf rit ${volgendeRit}.` });
+        res.json({
+            status: "Succes",
+            bericht: `Wissel actief vanaf rit ${volgendeRit}.`,
+        });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(error.statusCode || 500).json({
+            error: error.message,
+        });
     }
 }
 
 module.exports = {
     vervangVoorStart,
-    blessureWissel
+    blessureWissel,
 };

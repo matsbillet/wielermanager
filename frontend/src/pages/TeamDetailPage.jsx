@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
     getTeamVanSpeler,
     getBeschikbareRenners,
@@ -13,7 +13,7 @@ import CountdownTimer from "../components/CountdownTimer";
 
 export default function TeamDetailPage() {
     const { sessieId, spelerId } = useParams();
-
+    const navigate = useNavigate();
 
     const [team, setTeam] = useState([]);
     const [beschikbareRenners, setBeschikbareRenners] = useState([]);
@@ -55,6 +55,14 @@ export default function TeamDetailPage() {
             setLoading(false);
         }
     }
+
+    const gebruiker = JSON.parse(localStorage.getItem("gebruiker"));
+
+    const teamEigenaarId = team?.[0]?.gebruikerId;
+
+    const magWisselen =
+        gebruiker?.is_admin ||
+        Number(gebruiker?.id) === Number(teamEigenaarId);
 
     // 4. Extra useEffect om de deadlines op te halen
     useEffect(() => {
@@ -125,8 +133,16 @@ export default function TeamDetailPage() {
 
     if (loading) return <div>Team laden...</div>;
 
+
     return (
         <div className="team-detail-page">
+            <button
+                className="logout-btn"
+                onClick={() => navigate("/teams/1")}
+                style={{ marginBottom: "1rem" }}
+            >
+                ← Ga terug
+            </button>
             <section className="section-head">
                 <div>
                     <h1>Team beheren</h1>
@@ -180,83 +196,85 @@ export default function TeamDetailPage() {
                 </div>
             </section>
 
-            <section className="card wissel-card">
-                {/* De rest van je wissel formulier blijft ongewijzigd */}
-                <h2>Wissel uitvoeren</h2>
+            {magWisselen && (
+                <section className="card wissel-card">
+                    {/* De rest van je wissel formulier blijft ongewijzigd */}
+                    <h2>Wissel uitvoeren</h2>
 
-                <form onSubmit={handleWissel} className="wissel-form">
-                    <label>
-                        Type wissel
-                        <select
-                            value={typeWissel}
-                            onChange={(e) => {
-                                setTypeWissel(e.target.value);
-                                setRennerUitId("");
-                                setRennerInId("");
-                            }}
-                        >
-                            <option value="voor_start">Vervanging voor start</option>
-                            <option value="blessure">Blessure na rit</option>
-                        </select>
-                    </label>
+                    <form onSubmit={handleWissel} className="wissel-form">
+                        <label>
+                            Type wissel
+                            <select
+                                value={typeWissel}
+                                onChange={(e) => {
+                                    setTypeWissel(e.target.value);
+                                    setRennerUitId("");
+                                    setRennerInId("");
+                                }}
+                            >
+                                <option value="voor_start">Vervanging voor start</option>
+                                <option value="blessure">Blessure na rit</option>
+                            </select>
+                        </label>
 
-                    <label>
-                        Renner uit
-                        <select
-                            value={rennerUitId}
-                            onChange={(e) => setRennerUitId(e.target.value)}
-                        >
-                            <option value="">Kies renner</option>
-                            {actieveRenners.map((renner) => (
-                                <option key={renner.rennerId} value={renner.rennerId}>
-                                    {renner.naam}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    <label>
-                        Renner in
-                        <select
-                            value={rennerInId}
-                            onChange={(e) => setRennerInId(e.target.value)}
-                        >
-                            <option value="">Kies renner</option>
-
-                            {typeWissel === "voor_start" &&
-                                beschikbareRenners.map((renner) => (
-                                    <option key={renner.id} value={renner.id}>
-                                        {renner.naam}
-                                    </option>
-                                ))}
-
-                            {typeWissel === "blessure" &&
-                                bankRenners.map((renner) => (
+                        <label>
+                            Renner uit
+                            <select
+                                value={rennerUitId}
+                                onChange={(e) => setRennerUitId(e.target.value)}
+                            >
+                                <option value="">Kies renner</option>
+                                {actieveRenners.map((renner) => (
                                     <option key={renner.rennerId} value={renner.rennerId}>
                                         {renner.naam}
                                     </option>
                                 ))}
-                        </select>
-                    </label>
-
-                    {typeWissel === "blessure" && (
-                        <label>
-                            Uitgevallen na rit
-                            <input
-                                type="number"
-                                min="1"
-                                value={ritNummer}
-                                onChange={(e) => setRitNummer(e.target.value)}
-                                placeholder="Bijvoorbeeld 2"
-                            />
+                            </select>
                         </label>
-                    )}
 
-                    <button type="submit" className="primary-btn">
-                        Wissel uitvoeren
-                    </button>
-                </form>
-            </section>
+                        <label>
+                            Renner in
+                            <select
+                                value={rennerInId}
+                                onChange={(e) => setRennerInId(e.target.value)}
+                            >
+                                <option value="">Kies renner</option>
+
+                                {typeWissel === "voor_start" &&
+                                    beschikbareRenners.map((renner) => (
+                                        <option key={renner.id} value={renner.id}>
+                                            {renner.naam}
+                                        </option>
+                                    ))}
+
+                                {typeWissel === "blessure" &&
+                                    bankRenners.map((renner) => (
+                                        <option key={renner.rennerId} value={renner.rennerId}>
+                                            {renner.naam}
+                                        </option>
+                                    ))}
+                            </select>
+                        </label>
+
+                        {typeWissel === "blessure" && (
+                            <label>
+                                Uitgevallen na rit
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={ritNummer}
+                                    onChange={(e) => setRitNummer(e.target.value)}
+                                    placeholder="Bijvoorbeeld 2"
+                                />
+                            </label>
+                        )}
+
+                        <button type="submit" className="btn-primary">
+                            Wissel uitvoeren
+                        </button>
+                    </form>
+                </section>
+            )}
         </div>
     );
 }
