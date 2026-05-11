@@ -1100,12 +1100,18 @@ textarea:focus {
     background: #181917;
     border-radius: 8px;
     overflow: hidden;
-    border: 0.5px solid #2a2a28;
-    transition: border-color 0.3s ease;
+    border: 2px solid #2a2a28;
+    transition:
+        border-color 0.3s ease,
+        box-shadow 0.3s ease,
+        transform 0.2s ease;
 }
 
 .draft-player-card-active {
-    border-left: 3px solid #00f5d4;
+    border: 2px solid #00f5d4;
+    box-shadow:
+        0 0 12px rgba(0, 245, 212, 0.35),
+        0 0 24px rgba(0, 245, 212, 0.15);
 }
 
 .draft-player-header {
