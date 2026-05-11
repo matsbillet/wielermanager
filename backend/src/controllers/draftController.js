@@ -288,6 +288,11 @@ const getTeamVanSpeler = async (req, res) => {
     const { sessieId, spelerId } = req.params;
 
     try {
+        // 1. ONZE FIX: Haal de sessie op om de wedstrijd_id te weten (Voor de DNF statussen)
+        const sessie = await getSessie(sessieId);
+        const wedstrijdId = sessie.wedstrijd_id;
+
+        // 2. COLLEGA'S FIX: Haal de speler data op voor de gebruiker_id
         const { data: spelerData, error: spelerError } = await supabase
             .from("spelers")
             .select("id, gebruiker_id")
@@ -300,7 +305,8 @@ const getTeamVanSpeler = async (req, res) => {
             });
         }
 
-        const { data, error } = await supabase
+        // 3. Haal het draft team op (Let op de namen: draftData ipv data!)
+        const { data: draftData, error: draftError } = await supabase
             .from("draft")
             .select(`
                 id,
@@ -317,7 +323,7 @@ const getTeamVanSpeler = async (req, res) => {
 
         if (draftError) throw draftError;
 
-        // 3. Haal de statussen (DNF/DNS) op uit wedstrijd_deelnemers voor deze specifieke wedstrijd
+        // 4. Haal de statussen (DNF/DNS) op uit wedstrijd_deelnemers voor deze specifieke wedstrijd
         const rennerIds = draftData.map(d => d.renner_id).filter(id => id !== null);
 
         const { data: statusData, error: statusError } = await supabase
@@ -334,17 +340,17 @@ const getTeamVanSpeler = async (req, res) => {
             statusMap[s.renner_id] = s.status;
         });
 
-        // 4. Combineer alles tot één mooi team-object voor de frontend
+        // 5. Combineer alles tot één mooi team-object (Collega's code + Onze code)
         const team = draftData.map((keuze) => ({
             draftId: keuze.id,
             spelerId: Number(spelerId),
-            gebruikerId: spelerData.gebruiker_id,
+            gebruikerId: spelerData.gebruiker_id, // <-- Van je collega
             rennerId: keuze.renner_id,
             naam: keuze.renners?.naam || "Onbekende renner",
             ploeg: keuze.renners?.ploeg || "",
             ronde: keuze.ronde,
             isBank: keuze.is_bank,
-            status: statusMap[keuze.renner_id] || "active" // <-- DIT IS DE KEY!
+            status: statusMap[keuze.renner_id] || "active" // <-- Onze ambulance
         }));
 
         res.json(team);
