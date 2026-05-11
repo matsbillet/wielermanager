@@ -1,7 +1,7 @@
 // src/pages/RitPage.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getRit, triggerScrape } from "../services/api";
+import { getRit, triggerScrape, getAdminDrafts } from "../services/api";
 
 export default function RitPage() {
   const { id } = useParams();
@@ -11,6 +11,14 @@ export default function RitPage() {
   const [scrapping, setScrapping] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [progress, setProgress] = useState(0);
+  const [drafts, setDrafts] = useState([]);
+
+  const spelerKleuren = {
+    "casper": "#22d3ee",
+    "dries": "#facc15",
+    "jonas": "#f87171",
+    "roel": "#a855f7"
+  };
 
   const formatName = (slug) => {
     if (!slug) return "";
@@ -22,10 +30,16 @@ export default function RitPage() {
 
   const laadData = async () => {
     try {
-      const res = await getRit(id);
-      setRit(res.data);
+      // Haal beide tegelijk op
+      const [resRit, resDrafts] = await Promise.all([
+        getRit(id),
+        getAdminDrafts()
+      ]);
 
-      if (res.data && !res.data.gescrapet && !scrapping) {
+      setRit(resRit.data);
+      setDrafts(resDrafts.data || []); // Sla de drafts op
+
+      if (resRit.data && !resRit.data.gescrapet && !scrapping) {
         const isLocked = localStorage.getItem(`scraping_active_${id}`);
         if (!isLocked) {
           voerScrapeUit();
@@ -211,15 +225,71 @@ export default function RitPage() {
               </thead>
               <tbody>
                 {rit.ritresultaten?.length > 0 ? (
-                  rit.ritresultaten.map((res, i) => (
-                    <tr key={i}>
-                      <td className="pos-cell">{res.positie || "-"}</td>
-                      <td className="name-cell">{res.renners?.naam}</td>
-                      <td className="points-cell">
-                        {res.punten + (res.trui_punten || 0)}
-                      </td>
-                    </tr>
-                  ))
+                  rit.ritresultaten.map((res, i) => {
+                    // Zoek de eigenaar van de renner
+                    const rennerNaam = res.renners?.naam;
+                    const draftGevonden = drafts.find(
+                      (d) => d.renners?.naam === rennerNaam
+                    );
+
+                    // Haal de naam op via het nieuwe backend pad: spelers -> gebruikers -> naam
+                    const eigenaar = draftGevonden?.spelers?.gebruikers?.naam;
+                    const eigenaarKleur = eigenaar
+                      ? spelerKleuren[eigenaar.toLowerCase()] || "#ffffff"
+                      : "transparent";
+
+                    return (
+                      <tr
+                        key={i}
+                        style={{
+                          backgroundColor: eigenaar ? `${eigenaarKleur}15` : "transparent",
+                        }}
+                      >
+                        <td className="pos-cell">{res.positie || "-"}</td>
+                        <td className="name-cell">
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {/* Team Kleur Bolletje */}
+                            {eigenaar && (
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  width: "10px",
+                                  height: "10px",
+                                  borderRadius: "50%",
+                                  backgroundColor: eigenaarKleur,
+                                  boxShadow: `0 0 5px ${eigenaarKleur}`,
+                                }}
+                              ></span>
+                            )}
+
+                            <span>{res.renners?.naam}</span>
+
+                            {/* Spelersnaam */}
+                            {eigenaar && (
+                              <span
+                                style={{
+                                  fontSize: "0.8rem",
+                                  color: eigenaarKleur,
+                                  fontWeight: "bold",
+                                }}
+                              >
+                                ({eigenaar})
+                              </span>
+                            )}
+
+                            {res.trui_punten > 0 && (
+                              <span className="jersey-icon" title="Truipunten gescoord">
+                                👕
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="points-cell">
+                          {res.punten + (res.trui_punten || 0)}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan="3" className="empty-cell">

@@ -67,6 +67,11 @@ router.get('/drafts', async (req, res) => {
                 renner_id,
                 renners (
                     naam
+                ),
+                spelers (
+                    gebruikers (
+                        naam
+                    )
                 )
             `);
 
