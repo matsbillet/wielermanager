@@ -23,6 +23,9 @@ export default function DashboardPage() {
 
     const [uitvallers, setUitvallers] = useState([]);
     const [lastStageTruien, setLastStageTruien] = useState(null);
+    const [topSpelers, setTopSpelers] = useState([]); // --- NIEUW: State voor de top 3 spelers ---
+    const [deadlines, setDeadlines] = useState(null);
+
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -47,12 +50,23 @@ export default function DashboardPage() {
                 setStats(statsRes.data);
                 setLastStageTruien(scoreboardRes.data?.truien || null);
 
+                // --- NIEUW: Pak de top 3 spelers uit het actuele scoreboard ---
+                if (scoreboardRes.data?.scoreboard) {
+                    setTopSpelers(scoreboardRes.data.scoreboard.slice(0, 3));
+                }
+
                 const sessieResponse = await getSessieVoorCompetitie(1);
                 const wId = sessieResponse.data?.wedstrijd_id || sessieResponse.data?.wedstrijden?.id;
 
                 if (wId) {
                     const uitvallersResponse = await getUitvallers(wId);
                     setUitvallers(uitvallersResponse.data || []);
+
+                    const dlResponse = await fetch(`http://localhost:3000/api/ritten/deadlines/${wId}`);
+                    if (dlResponse.ok) {
+                        const dlData = await dlResponse.json();
+                        setDeadlines(dlData);
+                    }
                 }
             } catch (error) {
                 console.error("Dashboard laden mislukt:", error);
@@ -147,20 +161,31 @@ export default function DashboardPage() {
                 </section>
                 <aside>
                     <div className="section-head"><h2>Live Status</h2></div>
-                    <div className="card" style={{ padding: "1.25rem" }}><CountdownTimer /></div>
+                    <div className="card" style={{ padding: "1.25rem" }}>
+                        <CountdownTimer
+                            customTargetDate={deadlines?.volgendeRit?.starttijd}
+                            customTitel="Volgende Rit"
+                            customSubTitel={deadlines?.volgendeRit?.naam}
+                        />
+                    </div>
                 </aside>
             </div>
 
             <div className="section-head">
-                <h1>
-                    Welkom terug, {capitalize(stats.naam)}! 👋
-                </h1>
+                <h1>Welkom terug, {capitalize(stats.naam)}! 👋</h1>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: "1.5rem", marginBottom: "4rem" }}>
                 <StatCard title="Totaal Punten" value={stats.totaalPunten} icon="🏆" color="#22d3ee" />
                 <StatCard title="Ranglijst" value={`#${stats.positie}`} icon="📊" color="#fbbf24" />
-                <StatCard title="Koersen" value={stats.actieveRaces} icon="🚴" color="#f87171" />
+
+                {/* --- AANGEPAST: HET MINI SCOREBORD VAN SPELERS --- */}
+                <MiniScoreboardCard
+                    title="Top 3 Managers"
+                    spelers={topSpelers}
+                    icon="🔥"
+                    color="#f87171"
+                />
             </div>
 
             <div style={{ marginBottom: "4rem" }}>
@@ -246,6 +271,40 @@ export default function DashboardPage() {
     );
 }
 
+// --- AANGEPAST COMPONENT: Mini Scorebord ---
+function MiniScoreboardCard({ title, spelers, icon, color }) {
+    return (
+        <div className="card" style={{ borderLeft: `4px solid ${color}`, padding: "1.25rem", display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "1rem" }}>
+                <div style={{ fontSize: "1.8rem" }}>{icon}</div>
+                <div style={{ opacity: 0.7, fontSize: "0.8rem", textTransform: "uppercase", fontWeight: "bold" }}>{title}</div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", flexGrow: 1 }}>
+                {spelers && spelers.length > 0 ? (
+                    spelers.map((speler, idx) => {
+                        // --- SLIMME ZOEKER: Nu kijkt hij in de gekoppelde 'gebruikers' tabel! ---
+                        const spelerNaam = speler.gebruikers?.naam || speler.gebruiker?.naam || speler.naam || "Onbekend";
+                        const spelerPunten = speler.punten ?? speler.totaal_punten ?? speler.totaalPunten ?? speler.score ?? 0;
+
+                        return (
+                            <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "1rem", borderBottom: idx < spelers.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", paddingBottom: idx < spelers.length - 1 ? "6px" : "0" }}>
+                                <span style={{ fontWeight: idx === 0 ? "bold" : "normal", color: idx === 0 ? color : "#e2e8f0" }}>
+                                    {idx + 1}. {capitalize(spelerNaam)}
+                                </span>
+                                <span style={{ fontWeight: "bold" }}>
+                                    {spelerPunten} <span style={{ fontSize: "0.75rem", opacity: 0.6, fontWeight: "normal" }}>pt</span>
+                                </span>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div style={{ opacity: 0.5, fontSize: "0.9rem" }}>Nog geen klassement.</div>
+                )}
+            </div>
+        </div>
+    );
+}
 function StatCard({ title, value, icon, color }) {
     return (
         <div className="card" style={{ borderLeft: `4px solid ${color}`, padding: "1.5rem" }}>
