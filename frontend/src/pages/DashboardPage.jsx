@@ -147,7 +147,9 @@ export default function DashboardPage() {
             </div>
 
             <div className="section-head">
-                <h1>Welkom terug, {stats.naam}! 👋</h1>
+                <h1>
+                    Welkom terug, {stats.naam.charAt(0).toUpperCase() + stats.naam.slice(1)}! 👋
+                </h1>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: "1.5rem", marginBottom: "4rem" }}>
