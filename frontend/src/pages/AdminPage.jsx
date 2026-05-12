@@ -438,7 +438,7 @@ export default function AdminPage() {
     return (
         <div className="page-shell admin-page">
             <div className="section-head">
-                <h1>Admin Dashboard</h1>
+                <h1>Admin Dashbord</h1>
                 <div className="tab-menu">
                     <button className={`pill-btn ${activeTab === 'scraper' ? 'active' : ''}`} onClick={() => setActiveTab('scraper')}>🚀 Scraper</button>
                     <button className={`pill-btn ${activeTab === 'renners' ? 'active' : ''}`} onClick={() => setActiveTab('renners')}>🚴 Renners</button>

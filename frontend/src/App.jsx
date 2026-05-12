@@ -46,7 +46,7 @@ function Layout({ theme, toggleTheme }) {
           </NavLink>
 
           <nav className="main-nav">
-            <NavLink to="/dashboard">Dashboard</NavLink>
+            <NavLink to="/dashboard">Dashbord</NavLink>
             <NavLink to="/scoreboard/1">Scorebord</NavLink>
             <NavLink to="/draft/1">Draft</NavLink>
             <NavLink to="/teams/1">Teams</NavLink>
