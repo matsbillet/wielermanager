@@ -430,25 +430,79 @@ export default function AdminPage() {
     async function handleRaceLifecycle() {
         try {
             setLoading(true);
+
             const previewResponse = await previewRaceLifecycle();
             const previewResultaten = previewResponse.data.resultaten || [];
-            if (previewResultaten.length === 0) return alert("Geen actieve draftsessies gevonden.");
+
+            if (previewResultaten.length === 0) {
+                return alert("Geen actieve draftsessies gevonden.");
+            }
 
             const previewTekst = previewResultaten.map((r) => {
-                if (r.actie === "preview_volgende_koers") return `✅ ${r.vorigeWedstrijd} ${r.vorigeJaar || ""} → ${r.nieuweWedstrijd} ${r.nieuweJaar || ""}`;
+                if (r.actie === "preview_volgende_koers") {
+                    return `✅ ${r.vorigeWedstrijd} ${r.vorigeJaar || ""} → ${r.nieuweWedstrijd} ${r.nieuweJaar || ""}`;
+                }
+
                 return `⚠️ ${r.reden || "Geen actie mogelijk."}`;
             }).join("\n");
 
-            const heeftVolgendeKoers = previewResultaten.some((r) => r.actie === "preview_volgende_koers");
-            if (!heeftVolgendeKoers) return alert(previewTekst);
+            const heeftVolgendeKoers = previewResultaten.some(
+                (r) => r.actie === "preview_volgende_koers"
+            );
 
-            const bevestiging = window.prompt(`Je staat op het punt om de volgende koers te starten:\n\n${previewTekst}\n\nOude drafts en scores blijven bewaard.\n\nTyp START om te bevestigen.`);
-            if (bevestiging !== "START") return alert("Geannuleerd. Er is niets aangepast.");
+            if (!heeftVolgendeKoers) {
+                return alert(previewTekst);
+            }
 
-            const response = await runRaceLifecycle();
+            const aantalBasisInput = window.prompt(
+                `Je staat op het punt om de volgende koers te starten:\n\n${previewTekst}\n\nHoeveel BASISRENNERS per speler?\n\nStandaard: 12`,
+                "12"
+            );
+
+            if (aantalBasisInput === null) {
+                return alert("Geannuleerd. Er is niets aangepast.");
+            }
+
+            const aantalBankInput = window.prompt(
+                `Hoeveel BANKRENNERS per speler?\n\nStandaard: 6`,
+                "6"
+            );
+
+            if (aantalBankInput === null) {
+                return alert("Geannuleerd. Er is niets aangepast.");
+            }
+
+            const aantalBasis = Number(aantalBasisInput);
+            const aantalBank = Number(aantalBankInput);
+
+            if (!Number.isInteger(aantalBasis) || !Number.isInteger(aantalBank)) {
+                return alert("Gebruik alleen hele getallen.");
+            }
+
+            if (aantalBasis < 1 || aantalBank < 0) {
+                return alert("Basisrenners moet minstens 1 zijn. Bankrenners mag 0 of hoger zijn.");
+            }
+
+            const bevestiging = window.prompt(
+                `Volgende koers starten met:\n\nBasisrenners: ${aantalBasis}\nBankrenners: ${aantalBank}\nTotaal per speler: ${aantalBasis + aantalBank}\n\nOude drafts en scores blijven bewaard.\n\nTyp START om te bevestigen.`
+            );
+
+            if (bevestiging !== "START") {
+                return alert("Geannuleerd. Er is niets aangepast.");
+            }
+
+            const response = await runRaceLifecycle({
+                aantalBasis,
+                aantalBank,
+            });
+
             const resultaten = response.data.resultaten || [];
+
             const tekst = resultaten.map((r) => {
-                if (r.actie === "nieuwe_draft_aangemaakt") return `✅ Nieuwe koers gestart: ${r.vorigeWedstrijd} → ${r.nieuweWedstrijd}`;
+                if (r.actie === "nieuwe_draft_aangemaakt") {
+                    return `✅ Nieuwe koers gestart: ${r.vorigeWedstrijd} → ${r.nieuweWedstrijd}`;
+                }
+
                 return `⚠️ ${r.actie}: ${r.reden || "geen reden"}`;
             }).join("\n");
 
@@ -459,6 +513,26 @@ export default function AdminPage() {
         } finally {
             setLoading(false);
         }
+    }
+
+    async function testDraftInstellingenPopup() {
+        const aantalBasisInput = window.prompt(
+            "TEST: Hoeveel BASISRENNERS per speler?",
+            "12"
+        );
+
+        if (aantalBasisInput === null) return;
+
+        const aantalBankInput = window.prompt(
+            "TEST: Hoeveel BANKRENNERS per speler?",
+            "6"
+        );
+
+        if (aantalBankInput === null) return;
+
+        alert(
+            `Test gelukt:\n\nBasisrenners: ${aantalBasisInput}\nBankrenners: ${aantalBankInput}\nTotaal: ${Number(aantalBasisInput) + Number(aantalBankInput)}`
+        );
     }
 
     async function verwijderAlleRenners() {
@@ -535,6 +609,14 @@ export default function AdminPage() {
                         <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <button onClick={handleForceSync} className="pill-btn" disabled={forcingSync} style={{ backgroundColor: forcingSync ? "#475569" : "#10b981", color: "white", fontWeight: "bold", cursor: forcingSync ? "not-allowed" : "pointer", opacity: forcingSync ? 0.7 : 1 }}>
                                 {forcingSync ? "🚀 Aan het scrapen..." : "⚙️ Forceer Auto-Sync"}
+                            </button>
+
+                            <button
+                                className="pill-btn"
+                                onClick={testDraftInstellingenPopup}
+                                style={{ background: "#8b5cf6", color: "white" }}
+                            >
+                                🧪 Test draft instellingen
                             </button>
 
                             <button className="pill-btn" onClick={handleRaceLifecycle} disabled={loading} style={{ background: '#3b82f6', color: 'white' }}>

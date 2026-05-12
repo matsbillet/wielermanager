@@ -312,7 +312,22 @@ router.post("/race-lifecycle/run", async (req, res) => {
             });
         }
 
-        const resultaat = await verwerkRaceLifecycle({ dryRun: false });
+        const aantalBasis = Number(req.body?.aantalBasis || 12);
+        const aantalBank = Number(req.body?.aantalBank || 6);
+
+        if (aantalBasis < 1 || aantalBank < 0) {
+            return res.status(400).json({
+                error: "Ongeldige draft instellingen.",
+                details: "Basisrenners moet minstens 1 zijn. Bankrenners mag 0 of meer zijn.",
+            });
+        }
+
+        const resultaat = await verwerkRaceLifecycle({
+            dryRun: false,
+            aantalBasis,
+            aantalBank,
+        });
+
         res.json(resultaat);
     } catch (error) {
         console.error("Race lifecycle fout:", error);

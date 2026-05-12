@@ -205,7 +205,13 @@ async function syncStartlijstEnRitten(wedstrijd) {
         throw hoofdFout;
     }
 }
-async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
+
+async function maakNieuweDraftSessie({
+    competitieId,
+    wedstrijd,
+    aantalBasis = 12,
+    aantalBank = 6,
+}) {
     const { data: bestaandeSessie, error: bestaandeError } = await supabase
         .from("draft_sessies")
         .select("id")
@@ -218,7 +224,11 @@ async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
     if (bestaandeSessie) {
         const { error: updateError } = await supabase
             .from("draft_sessies")
-            .update({ is_actief: true })
+            .update({
+                is_actief: true,
+                aantal_basis: Number(aantalBasis),
+                aantal_bank: Number(aantalBank),
+            })
             .eq("id", bestaandeSessie.id);
 
         if (updateError) throw updateError;
@@ -233,6 +243,8 @@ async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
             competitie_id: competitieId,
             wedstrijd_id: wedstrijd.id,
             is_actief: true,
+            aantal_basis: Number(aantalBasis),
+            aantal_bank: Number(aantalBank),
         })
         .select()
         .single();
@@ -242,7 +254,11 @@ async function maakNieuweDraftSessie({ competitieId, wedstrijd }) {
     return nieuweSessie;
 }
 
-async function verwerkRaceLifecycle({ dryRun = false } = {}) {
+async function verwerkRaceLifecycle({
+    dryRun = false,
+    aantalBasis = 12,
+    aantalBank = 6,
+} = {}) {
     if (lifecycleBezig) {
         return {
             success: false,
@@ -361,6 +377,8 @@ async function verwerkRaceLifecycle({ dryRun = false } = {}) {
                 const nieuweSessie = await maakNieuweDraftSessie({
                     competitieId: sessie.competitie_id,
                     wedstrijd: volgendeWedstrijd,
+                    aantalBasis,
+                    aantalBank,
                 });
 
                 resultaten.push({

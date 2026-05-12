@@ -92,8 +92,13 @@ export const getMijnCompetities = (userId) =>
 export const previewRaceLifecycle = () =>
     api.get("/admin/race-lifecycle/preview");
 
-export const runRaceLifecycle = () =>
-    api.post("/admin/race-lifecycle/run", { bevestiging: "START" });
+export const runRaceLifecycle = (instellingen = {}) =>
+    api.post("/admin/race-lifecycle/run", {
+        bevestiging: "START",
+        aantalBasis: instellingen.aantalBasis,
+        aantalBank: instellingen.aantalBank,
+    });
+
 export const getDashboardStats = () => api.get("/dashboard/me");
 
 export const scrapePastRitten = async (wedstrijdId) => {
