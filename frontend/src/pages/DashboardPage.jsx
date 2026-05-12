@@ -8,6 +8,11 @@ import {
 } from "../services/api";
 import CountdownTimer from "../components/CountdownTimer";
 
+const capitalize = (text) => {
+    if (!text) return "";
+    return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
 export default function DashboardPage() {
     const [stats, setStats] = useState({
         naam: "Manager",
@@ -70,7 +75,7 @@ export default function DashboardPage() {
             if (t.algemeen && t.algemeen !== "-") {
                 items.push({
                     tag: isGiro ? 'Roze Trui' : isVuelta ? 'Rode Trui' : 'Gele Trui',
-                    title: t.algemeen,
+                    title: capitalize(t.algemeen),
                     desc: `Leider in het algemeen klassement na rit ${t.rit_nummer}.`,
                     icon: '👑', color: isGiro ? '#E40071' : isVuelta ? '#D70014' : '#FCD116'
                 });
@@ -78,7 +83,7 @@ export default function DashboardPage() {
             if (t.punten && t.punten !== "-") {
                 items.push({
                     tag: 'Sprintklassement',
-                    title: t.punten,
+                    title: capitalize(t.punten),
                     desc: 'De man met de snelste benen en de meeste regelmaat.',
                     icon: '⚡', color: isGiro ? '#6A1C7A' : '#008B47'
                 });
@@ -86,7 +91,7 @@ export default function DashboardPage() {
             if (t.berg && t.berg !== "-") {
                 items.push({
                     tag: 'Bergklassement',
-                    title: t.berg,
+                    title: capitalize(t.berg),
                     desc: 'De beste klimmer van dit moment in het peloton.',
                     icon: '⛰️', color: '#3b82f6'
                 });
@@ -98,7 +103,7 @@ export default function DashboardPage() {
                 tag: `Medisch Overzicht (${u.status})`,
                 title: u.renners?.naam,
                 desc: u.eigenaar !== "Niemand"
-                    ? `Drama voor Team ${u.eigenaar}! Deze renner verlaat de koers.`
+                    ? `Drama voor Team ${capitalize(u.eigenaar)}! Deze renner verlaat de koers.`
                     : `Heeft de koers verlaten. Gelukkig voor de spelers zat hij in geen enkel team.`,
                 icon: '🚑', color: '#ef4444'
             });
@@ -148,7 +153,7 @@ export default function DashboardPage() {
 
             <div className="section-head">
                 <h1>
-                    Welkom terug, {stats.naam.charAt(0).toUpperCase() + stats.naam.slice(1)}! 👋
+                    Welkom terug, {capitalize(stats.naam)}! 👋
                 </h1>
             </div>
 
@@ -168,10 +173,8 @@ export default function DashboardPage() {
                     </button>
                 </div>
 
-                {/* HIGHLIGHTS CAROUSEL (NU MET PIJLTJES BINNENIN) */}
                 <div className="highlight-wrapper">
                     <div className="highlight-view">
-                        {/* Linker Knop */}
                         <button className="nav-btn left" onClick={() => { setSlideIndex(s => s === 0 ? slides.length - 1 : s - 1); resetTimer(); }}>&#10094;</button>
 
                         <div className="highlight-track" style={{ transform: `translateX(-${slideIndex * 100}%)` }}>
@@ -189,7 +192,6 @@ export default function DashboardPage() {
                             ))}
                         </div>
 
-                        {/* Rechter Knop */}
                         <button className="nav-btn right" onClick={() => { setSlideIndex(s => (s + 1) % slides.length); resetTimer(); }}>&#10095;</button>
                     </div>
                 </div>
@@ -210,50 +212,23 @@ export default function DashboardPage() {
             <style>{`
                 .live-dot { width: 10px; height: 10px; background: #22d3ee; border-radius: 50%; box-shadow: 0 0 8px #22d3ee; animation: pulse 2s infinite; }
                 @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.5; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.5; } }
-                
                 .toggle-btn { background: rgba(255,255,255,0.05); border: 1px solid #444; color: #aaa; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
                 .toggle-btn:hover { border-color: #ef4444; color: #ef4444; }
-
                 .highlight-wrapper { width: 100%; margin-top: 10px; }
-                
-                /* highlight-view is nu RELATIVE zodat de knoppen erin passen */
                 .highlight-view { position: relative; width: 100%; height: 130px; overflow: hidden; background: #161616; border-radius: 12px; border: 1px solid #222; }
                 .highlight-track { display: flex; height: 100%; transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
-                
-                /* Padding verhoogd zodat tekst niet onder de pijlen schuift */
                 .highlight-slide { min-width: 100%; display: flex; align-items: center; padding: 0 65px; gap: 20px; box-sizing: border-box; }
-                
                 .highlight-icon { width: 65px; height: 65px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
                 .highlight-info h3 { margin: 2px 0; font-size: 1.3rem; color: #fff; }
                 .highlight-info p { margin: 0; font-size: 0.9rem; color: #666; }
                 .tag { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
-                
-                /* Vernieuwde knoppen IN de zwarte balk */
-                .nav-btn { 
-                    position: absolute; 
-                    top: 0; 
-                    height: 100%; 
-                    width: 50px; 
-                    background: rgba(0,0,0,0.2); 
-                    border: none; 
-                    color: #555; 
-                    font-size: 1.8rem; 
-                    cursor: pointer; 
-                    transition: 0.3s; 
-                    z-index: 10; 
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
+                .nav-btn { position: absolute; top: 0; height: 100%; width: 50px; background: rgba(0,0,0,0.2); border: none; color: #555; font-size: 1.8rem; cursor: pointer; transition: 0.3s; z-index: 10; display: flex; align-items: center; justify-content: center; }
                 .nav-btn.left { left: 0; border-right: 1px solid rgba(255,255,255,0.05); }
                 .nav-btn.right { right: 0; border-left: 1px solid rgba(255,255,255,0.05); }
                 .nav-btn:hover { color: #fff; background: rgba(0,0,0,0.6); }
-
                 .dots { display: flex; justify-content: center; gap: 6px; margin-top: 15px; }
                 .dot { width: 6px; height: 6px; background: #333; border-radius: 50%; cursor: pointer; transition: 0.3s; }
                 .dot.active { background: #22d3ee; transform: scale(1.3); }
-
-                /* Responsiveness voor mobiel */
                 @media (max-width: 768px) {
                     .nav-btn { display: none; }
                     .highlight-slide { padding: 0 20px; }
@@ -278,7 +253,7 @@ function UitvallerItem({ u }) {
         <div style={{ padding: "0.75rem", backgroundColor: "rgba(255, 255, 255, 0.02)", borderRadius: "8px", border: "1px solid #222", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
                 <div style={{ fontWeight: "bold" }}>{u.renners?.naam}</div>
-                <div style={{ fontSize: "0.75rem", color: "#666" }}>Team: {u.eigenaar || "Geen"}</div>
+                <div style={{ fontSize: "0.75rem", color: "#666" }}>Team: {capitalize(u.eigenaar || "Geen")}</div>
             </div>
             <span style={{ backgroundColor: "#ef4444", color: "#fff", padding: "3px 8px", borderRadius: "4px", fontSize: "0.7rem", fontWeight: "bold" }}>{u.status}</span>
         </div>

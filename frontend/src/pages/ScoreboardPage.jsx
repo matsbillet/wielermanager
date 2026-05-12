@@ -15,7 +15,6 @@ import {
     getScoreboardVoorSessie,
     getDraftSessiesVoorCompetitie,
 } from "../services/api";
-import CountdownTimer from "../components/CountdownTimer";
 
 const kleuren = [
     "#00e5c7",
@@ -27,6 +26,11 @@ const kleuren = [
     "#03a9f4",
     "#e91e63",
 ];
+
+const capitalize = (text) => {
+    if (!text) return "";
+    return text.charAt(0).toUpperCase() + text.slice(1);
+};
 
 function maakGrafiekData(spelers) {
     if (!spelers.length) return [];
@@ -53,7 +57,7 @@ function maakGrafiekData(spelers) {
                 )
                 .reduce((som, rit) => som + Number(rit.punten || 0), 0);
 
-            punt[speler.speler] = totaalTotNu;
+            punt[capitalize(speler.speler)] = totaalTotNu;
         });
 
         return punt;
@@ -71,7 +75,7 @@ export default function ScoreboardPage() {
     const [melding, setMelding] = useState("");
     const [draftSessies, setDraftSessies] = useState([]);
     const [sessieId, setSessieId] = useState("");
-    const [klassementTab, setKlassementTab] = useState("algemeen"); // 'algemeen' of 'dagelijks'
+    const [klassementTab, setKlassementTab] = useState("algemeen");
 
     useEffect(() => {
         async function laadScoreboard() {
@@ -97,7 +101,7 @@ export default function ScoreboardPage() {
                 setMelding(
                     err.response?.data?.error ||
                     err.response?.data?.details ||
-                    "Kon scoreboard niet laden.",
+                    "Kon scoreboard niet laden."
                 );
             } finally {
                 setLoading(false);
@@ -138,7 +142,7 @@ export default function ScoreboardPage() {
             setMelding(
                 err.response?.data?.error ||
                 err.response?.data?.details ||
-                "Kon scoreboard voor deze koers niet laden.",
+                "Kon scoreboard voor deze koers niet laden."
             );
         } finally {
             setLoading(false);
@@ -148,10 +152,8 @@ export default function ScoreboardPage() {
     if (loading) return <div>Laden van scoreboard...</div>;
     if (melding) return <div>{melding}</div>;
 
-    // --- REKENLOGICA ---
     const grafiekData = maakGrafiekData(spelers);
 
-    // 1. Zoek uit wat de laatste rit was die verwerkt is
     const geredenRitNummers = [...new Set(
         spelers.flatMap((speler) =>
             (speler.per_rit || [])
@@ -160,27 +162,33 @@ export default function ScoreboardPage() {
         )
     )].sort((a, b) => b - a);
 
-    const laatsteRitNummer = geredenRitNummers.length > 0 ? geredenRitNummers[0] : null;
+    const laatsteRitNummer =
+        geredenRitNummers.length > 0 ? geredenRitNummers[0] : null;
 
-    // 2. Bepaal welk klassement we moeten tonen in de bovenste kaart!
     let getoondeKlassement = [];
+
     if (klassementTab === "algemeen") {
         getoondeKlassement = [...spelers]
             .sort((a, b) => b.totaal - a.totaal)
-            .map(s => ({ ...s, toonPunten: s.totaal }));
+            .map((s) => ({ ...s, toonPunten: s.totaal }));
     } else {
-        // Dagelijks klassement
-        getoondeKlassement = [...spelers].map(s => {
-            const ritData = (s.per_rit || []).find(r => r.rit_nummer === laatsteRitNummer);
-            const dagPunten = ritData ? ritData.punten : 0;
-            return { ...s, toonPunten: dagPunten };
-        }).sort((a, b) => b.toonPunten - a.toonPunten);
+        getoondeKlassement = [...spelers]
+            .map((s) => {
+                const ritData = (s.per_rit || []).find(
+                    (r) => r.rit_nummer === laatsteRitNummer
+                );
+                const dagPunten = ritData ? ritData.punten : 0;
+                return { ...s, toonPunten: dagPunten };
+            })
+            .sort((a, b) => b.toonPunten - a.toonPunten);
     }
 
-    // 3. Herstel de variabelen voor de rest van de pagina
-    const aantalRitten = Math.max(0, ...spelers.map((speler) => speler.per_rit?.length || 0));
-    const klassement = [...spelers].sort((a, b) => b.totaal - a.totaal); // Algemeen klassement voor de tabel onderaan
+    const aantalRitten = Math.max(
+        0,
+        ...spelers.map((speler) => speler.per_rit?.length || 0)
+    );
 
+    const klassement = [...spelers].sort((a, b) => b.totaal - a.totaal);
     const aantalGeredenRitten = geredenRitNummers.length;
 
     return (
@@ -238,11 +246,12 @@ export default function ScoreboardPage() {
                             <YAxis width={55} />
                             <Tooltip />
                             <Legend />
+
                             {spelers.map((speler) => (
                                 <Line
                                     key={speler.speler_id}
                                     type="monotone"
-                                    dataKey={speler.speler}
+                                    dataKey={capitalize(speler.speler)}
                                     stroke={speler.kleur}
                                     strokeWidth={3}
                                     dot={{ r: 4 }}
@@ -256,29 +265,69 @@ export default function ScoreboardPage() {
 
             <section className="scoreboard-top-grid">
                 <div className="card klassement-card">
-                    <div className="section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h2>{klassementTab === "algemeen" ? "Algemeen klassement" : `Uitslag Rit ${laatsteRitNummer || "-"}`}</h2>
+                    <div
+                        className="section-head"
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                        }}
+                    >
+                        <h2>
+                            {klassementTab === "algemeen"
+                                ? "Algemeen klassement"
+                                : `Uitslag Rit ${laatsteRitNummer || "-"}`}
+                        </h2>
 
-                        {/* DE TOGGLE KNOPPEN */}
-                        <div style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '4px' }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                backgroundColor: "rgba(0,0,0,0.2)",
+                                borderRadius: "8px",
+                                padding: "4px",
+                            }}
+                        >
                             <button
                                 onClick={() => setKlassementTab("algemeen")}
                                 style={{
-                                    padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
-                                    backgroundColor: klassementTab === "algemeen" ? '#22d3ee' : 'transparent',
-                                    color: klassementTab === "algemeen" ? '#0f172a' : '#94a3b8',
-                                    transition: 'all 0.2s'
+                                    padding: "6px 12px",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    fontWeight: "bold",
+                                    fontSize: "0.85rem",
+                                    backgroundColor:
+                                        klassementTab === "algemeen"
+                                            ? "#22d3ee"
+                                            : "transparent",
+                                    color:
+                                        klassementTab === "algemeen"
+                                            ? "#0f172a"
+                                            : "#94a3b8",
+                                    transition: "all 0.2s",
                                 }}
                             >
                                 Algemeen
                             </button>
+
                             <button
                                 onClick={() => setKlassementTab("dagelijks")}
                                 style={{
-                                    padding: '6px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem',
-                                    backgroundColor: klassementTab === "dagelijks" ? '#22d3ee' : 'transparent',
-                                    color: klassementTab === "dagelijks" ? '#0f172a' : '#94a3b8',
-                                    transition: 'all 0.2s'
+                                    padding: "6px 12px",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    cursor: "pointer",
+                                    fontWeight: "bold",
+                                    fontSize: "0.85rem",
+                                    backgroundColor:
+                                        klassementTab === "dagelijks"
+                                            ? "#22d3ee"
+                                            : "transparent",
+                                    color:
+                                        klassementTab === "dagelijks"
+                                            ? "#0f172a"
+                                            : "#94a3b8",
+                                    transition: "all 0.2s",
                                 }}
                             >
                                 Laatste Rit
@@ -296,7 +345,7 @@ export default function ScoreboardPage() {
                                         className="player-dot"
                                         style={{ backgroundColor: speler.kleur }}
                                     />
-                                    <strong>{speler.speler}</strong>
+                                    <strong>{capitalize(speler.speler)}</strong>
                                 </div>
 
                                 <div className="player-total">{speler.toonPunten} pts</div>
@@ -318,7 +367,7 @@ export default function ScoreboardPage() {
                                 <div className="player-info">
                                     <strong>{renner.renner}</strong>
                                     <span className="small-muted">
-                                        {renner.eigenaar}
+                                        {capitalize(renner.eigenaar)}
                                         {renner.isBank ? " · bank" : ""}
                                     </span>
                                 </div>
@@ -338,10 +387,10 @@ export default function ScoreboardPage() {
                         <div className="trui-row">
                             <span
                                 className={`trui-label ${truien?.wedstrijdNaam?.includes("Giro")
-                                    ? "roze"
-                                    : truien?.wedstrijdNaam?.includes("Vuelta")
-                                        ? "rood"
-                                        : "geel"
+                                        ? "roze"
+                                        : truien?.wedstrijdNaam?.includes("Vuelta")
+                                            ? "rood"
+                                            : "geel"
                                     }`}
                             >
                                 {truien?.wedstrijdNaam?.includes("Giro")
@@ -351,37 +400,26 @@ export default function ScoreboardPage() {
                                         : "Geel"}
                             </span>
 
-                            <strong>{truien?.algemeen || "-"}</strong>
+                            <strong>{capitalize(truien?.algemeen) || "-"}</strong>
                         </div>
 
                         <div className="trui-row">
-                            <span className="trui-label punten">
-                                Punten
-                            </span>
-
-                            <strong>{truien?.punten || "-"}</strong>
+                            <span className="trui-label punten">Punten</span>
+                            <strong>{capitalize(truien?.punten) || "-"}</strong>
                         </div>
 
                         <div className="trui-row">
-                            <span className="trui-label berg">
-                                Berg
-                            </span>
-
-                            <strong>{truien?.berg || "-"}</strong>
+                            <span className="trui-label berg">Berg</span>
+                            <strong>{capitalize(truien?.berg) || "-"}</strong>
                         </div>
 
                         <div className="trui-row">
-                            <span className="trui-label jongeren">
-                                Jongeren
-                            </span>
-
-                            <strong>{truien?.jongeren || "-"}</strong>
+                            <span className="trui-label jongeren">Jongeren</span>
+                            <strong>{capitalize(truien?.jongeren) || "-"}</strong>
                         </div>
 
                         {truien?.rit_nummer && (
-                            <p className="small-muted">
-                                Na rit {truien.rit_nummer}
-                            </p>
+                            <p className="small-muted">Na rit {truien.rit_nummer}</p>
                         )}
                     </div>
                 </div>
@@ -412,12 +450,12 @@ export default function ScoreboardPage() {
                                             className="player-dot"
                                             style={{ backgroundColor: speler.kleur }}
                                         />
-                                        {speler.speler}
+                                        {capitalize(speler.speler)}
                                     </td>
 
                                     {Array.from({ length: aantalRitten }, (_, i) => {
                                         const rit = speler.per_rit.find(
-                                            (r) => r.rit_nummer === i + 1,
+                                            (r) => r.rit_nummer === i + 1
                                         );
 
                                         if (!rit) return <td key={i}>-</td>;
