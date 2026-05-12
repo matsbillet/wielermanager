@@ -56,42 +56,31 @@ router.get('/renners', async (req, res) => {
     }
 });
 
-// haal alle drafts op
-router.get('/drafts', async (req, res) => {
+router.get('/drafts/wedstrijd/:wedstrijdId', async (req, res) => {
     try {
+        const { wedstrijdId } = req.params;
         const { data, error } = await supabase
             .from('draft')
             .select(`
-                id,
-                speler_id,
-                renner_id,
-                renners (
-                    naam
-                ),
+                *,
+                renners (id, naam),
                 spelers (
-                    gebruikers (
-                        naam
-                    )
+                    id, 
+                    gebruikers (naam)
+                ),
+                draft_sessies!inner (
+                    wedstrijd_id
                 )
-            `);
+            `)
+            .eq('draft_sessies.wedstrijd_id', wedstrijdId);
 
-        if (error) {
-            console.error('JOIN ERROR:', error.message);
-
-            const { data: simpleData, error: simpleError } = await supabase
-                .from('draft')
-                .select('*, renners(naam)');
-
-            if (simpleError) throw simpleError;
-
-            return res.json(simpleData);
-        }
-
+        if (error) throw error;
         res.json(data);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 // --- 2. SCRAPER ACTIONS (POST) ---
 

@@ -62,29 +62,29 @@ export default function RitPage() {
       .join(" ");
   };
 
-  const laadData = async () => {
-    try {
-      // Haal beide tegelijk op
-      const [resRit, resDrafts] = await Promise.all([
-        getRit(id),
-        getAdminDrafts()
-      ]);
+  // const laadData = async () => {
+  //   try {
+  //     // Haal beide tegelijk op
+  //     const [resRit, resDrafts] = await Promise.all([
+  //       getRit(id),
+  //       getAdminDrafts()
+  //     ]);
 
-      setRit(resRit.data);
-      setDrafts(resDrafts.data || []); // Sla de drafts op
+  //     setRit(resRit.data);
+  //     setDrafts(resDrafts.data || []); // Sla de drafts op
 
-      if (resRit.data && !resRit.data.gescrapet && !scrapping) {
-        const isLocked = localStorage.getItem(`scraping_active_${id}`);
-        if (!isLocked) {
-          voerScrapeUit();
-        }
-      }
-    } catch (err) {
-      console.error("Fout bij laden:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     if (resRit.data && !resRit.data.gescrapet && !scrapping) {
+  //       const isLocked = localStorage.getItem(`scraping_active_${id}`);
+  //       if (!isLocked) {
+  //         voerScrapeUit();
+  //       }
+  //     }
+  //   } catch (err) {
+  //     console.error("Fout bij laden:", err);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const voerScrapeUit = async () => {
     if (scrapping) return;
@@ -160,9 +160,29 @@ export default function RitPage() {
   };
 
   useEffect(() => {
-    laadData();
-    return () => localStorage.removeItem(`scraping_active_${id}`);
-  }, [id]);
+    const laadAlles = async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const resRit = await getRit(id);
+        const ritData = resRit.data;
+        setRit(ritData);
+
+        // Gebruik het ID van de wedstrijd die bij de rit hoort
+        const wId = ritData.wedstrijd_id || ritData.wedstrijden?.id;
+
+        if (wId) {
+          const resDrafts = await getAdminDrafts(wId); // Nu met wedstrijdId
+          setDrafts(resDrafts.data || []);
+        }
+      } catch (err) {
+        console.error("Fout bij laden:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    laadAlles();
+  }, [id]); // Alleen opnieuw uitvoeren als het rit-id verandert
 
   if (loading)
     return (
@@ -269,71 +289,96 @@ export default function RitPage() {
               </thead>
               <tbody>
                 {rit.ritresultaten?.length > 0 ? (
-                  rit.ritresultaten.map((res, i) => {
-                    // Zoek de eigenaar van de renner
-                    const rennerNaam = res.renners?.naam;
-                    const draftGevonden = drafts.find(
-                      (d) => d.renners?.naam === rennerNaam
-                    );
+                  rit.ritresultaten
+                    .slice() // Maak een kopie om de originele state niet te muteren
+                    .sort((a, b) => {
+                      // Sorteer op positie, zet null/0 achteraan
+                      const posA = a.positie || 999;
+                      const posB = b.positie || 999;
+                      return posA - posB;
+                    })
+                    .map((res, i) => {
+                      // Zoek de eigenaar van de renner
+                      // RitPage.jsx binnen de .map() van rit.ritresultaten
 
-                    // Haal de naam op via het nieuwe backend pad: spelers -> gebruikers -> naam
-                    const eigenaar = draftGevonden?.spelers?.gebruikers?.naam;
-                    const eigenaarKleur = eigenaar
-                      ? spelerKleuren[eigenaar.toLowerCase()] || "#ffffff"
-                      : "transparent";
+                      const rennerNaam = res.renners?.naam;
+                      const draftGevonden = drafts.find(d => d.renner_id === res.renner_id);
+                      const eigenaar = draftGevonden?.spelers?.gebruikers?.naam || null;
 
-                    return (
-                      <tr
-                        key={i}
-                        style={{
-                          backgroundColor: eigenaar ? `${eigenaarKleur}15` : "transparent",
-                        }}
-                      >
-                        <td className="pos-cell">{res.positie || "-"}</td>
-                        <td className="name-cell">
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            {/* Team Kleur Bolletje */}
-                            {eigenaar && (
+                      // Kleureninstellingen
+                      const kleurNietGedraft = "#94a3b8"; // Een helderdere grijs (Slate-400) die goed leesbaar is op donker
+                      const eigenaarKleur = eigenaar
+                        ? (spelerKleuren[eigenaar.toLowerCase()] || "#ffffff")
+                        : kleurNietGedraft;
+
+                      return (
+                        <tr
+                          key={i}
+                          style={{
+                            // Alleen een subtiele gloed als de renner gedraft is
+                            backgroundColor: eigenaar ? `${eigenaarKleur}10` : "transparent",
+                            borderBottom: "1px solid #222"
+                          }}
+                        >
+                          <td className="pos-cell" style={{ color: eigenaar ? "#22d3ee" : kleurNietGedraft }}>
+                            {res.positie || "-"}
+                          </td>
+
+                          <td className="name-cell">
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+
+                              {/* Het bolletje: fel bij draft, gedimd/leeg bij geen draft */}
                               <span
                                 style={{
                                   display: "inline-block",
-                                  width: "10px",
-                                  height: "10px",
+                                  width: "8px",
+                                  height: "8px",
                                   borderRadius: "50%",
-                                  backgroundColor: eigenaarKleur,
-                                  boxShadow: `0 0 5px ${eigenaarKleur}`,
+                                  backgroundColor: eigenaar ? eigenaarKleur : "transparent",
+                                  border: `1px solid ${eigenaarKleur}`,
+                                  boxShadow: eigenaar ? `0 0 8px ${eigenaarKleur}` : "none",
                                 }}
                               ></span>
-                            )}
 
-                            <span>{res.renners?.naam}</span>
-
-                            {/* Spelersnaam */}
-                            {eigenaar && (
-                              <span
-                                style={{
-                                  fontSize: "0.8rem",
-                                  color: eigenaarKleur,
-                                  fontWeight: "bold",
-                                }}
-                              >
-                                ({eigenaar})
+                              {/* Renner naam: Wit voor gedraft, zacht wit/grijs voor de rest */}
+                              <span style={{
+                                color: eigenaar ? "#ffffff" : "#cbd5e1",
+                                fontWeight: eigenaar ? "600" : "400",
+                                opacity: eigenaar ? 1 : 0.8
+                              }}>
+                                {res.renners?.naam}
                               </span>
-                            )}
 
-                            {res.trui_punten > 0 && (
-                              <span className="jersey-icon" title="Truipunten gescoord">
-                                👕
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="points-cell">
-                          {res.punten + (res.trui_punten || 0)}
-                        </td>
-                      </tr>
-                    );
-                  })
+                              {/* Spelersnaam label */}
+                              {eigenaar && (
+                                <span
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    backgroundColor: `${eigenaarKleur}20`,
+                                    color: eigenaarKleur,
+                                    fontWeight: "bold",
+                                    marginLeft: "4px"
+                                  }}
+                                >
+                                  {eigenaar}
+                                </span>
+                              )}
+
+                              {res.trui_punten > 0 && <span style={{ marginLeft: "auto" }}>👕</span>}
+                            </div>
+                          </td>
+
+                          <td className="points-cell" style={{
+                            color: eigenaar ? "#fff" : kleurNietGedraft,
+                            opacity: eigenaar ? 1 : 0.7
+                          }}>
+                            {res.punten + (res.trui_punten || 0)}
+                          </td>
+                        </tr>
+                      );
+                    })
                 ) : (
                   <tr>
                     <td colSpan="3" className="empty-cell">

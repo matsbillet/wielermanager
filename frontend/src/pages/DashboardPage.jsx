@@ -23,6 +23,9 @@ export default function DashboardPage() {
 
     const [uitvallers, setUitvallers] = useState([]);
     const [lastStageTruien, setLastStageTruien] = useState(null);
+    const [topSpelers, setTopSpelers] = useState([]); // --- NIEUW: State voor de top 3 spelers ---
+    const [deadlines, setDeadlines] = useState(null);
+
     const [loading, setLoading] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -47,12 +50,23 @@ export default function DashboardPage() {
                 setStats(statsRes.data);
                 setLastStageTruien(scoreboardRes.data?.truien || null);
 
+                // --- NIEUW: Pak de top 3 spelers uit het actuele scoreboard ---
+                if (scoreboardRes.data?.scoreboard) {
+                    setTopSpelers(scoreboardRes.data.scoreboard.slice(0, 3));
+                }
+
                 const sessieResponse = await getSessieVoorCompetitie(1);
                 const wId = sessieResponse.data?.wedstrijd_id || sessieResponse.data?.wedstrijden?.id;
 
                 if (wId) {
                     const uitvallersResponse = await getUitvallers(wId);
                     setUitvallers(uitvallersResponse.data || []);
+
+                    const dlResponse = await fetch(`http://localhost:3000/api/ritten/deadlines/${wId}`);
+                    if (dlResponse.ok) {
+                        const dlData = await dlResponse.json();
+                        setDeadlines(dlData);
+                    }
                 }
             } catch (error) {
                 console.error("Dashboard laden mislukt:", error);
@@ -147,20 +161,31 @@ export default function DashboardPage() {
                 </section>
                 <aside>
                     <div className="section-head"><h2>Live Status</h2></div>
-                    <div className="card" style={{ padding: "1.25rem" }}><CountdownTimer /></div>
+                    <div className="card" style={{ padding: "1.25rem" }}>
+                        <CountdownTimer
+                            customTargetDate={deadlines?.volgendeRit?.starttijd}
+                            customTitel="Volgende Rit"
+                            customSubTitel={deadlines?.volgendeRit?.naam}
+                        />
+                    </div>
                 </aside>
             </div>
 
             <div className="section-head">
-                <h1>
-                    Welkom terug, {capitalize(stats.naam)}! 👋
-                </h1>
+                <h1>Welkom terug, {capitalize(stats.naam)}! 👋</h1>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: "1.5rem", marginBottom: "4rem" }}>
                 <StatCard title="Totaal Punten" value={stats.totaalPunten} icon="🏆" color="#22d3ee" />
                 <StatCard title="Ranglijst" value={`#${stats.positie}`} icon="📊" color="#fbbf24" />
-                <StatCard title="Koersen" value={stats.actieveRaces} icon="🚴" color="#f87171" />
+
+                {/* --- AANGEPAST: HET MINI SCOREBORD VAN SPELERS --- */}
+                <MiniScoreboardCard
+                    title="Top 3 Managers"
+                    spelers={topSpelers}
+                    icon="🔥"
+                    color="#f87171"
+                />
             </div>
 
             <div style={{ marginBottom: "4rem" }}>
@@ -216,18 +241,26 @@ export default function DashboardPage() {
                 .toggle-btn:hover { border-color: #ef4444; color: #ef4444; }
                 .highlight-wrapper { width: 100%; margin-top: 10px; }
                 .highlight-view { position: relative; width: 100%; height: 130px; overflow: hidden; background: #161616; border-radius: 12px; border: 1px solid #222; }
+                .light-mode .highlight-view { background: #f3f5f7; border-color: #d7dde5; }
                 .highlight-track { display: flex; height: 100%; transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
                 .highlight-slide { min-width: 100%; display: flex; align-items: center; padding: 0 65px; gap: 20px; box-sizing: border-box; }
                 .highlight-icon { width: 65px; height: 65px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
                 .highlight-info h3 { margin: 2px 0; font-size: 1.3rem; color: #fff; }
+                .light-mode .highlight-info h3 { color: #111827; }
                 .highlight-info p { margin: 0; font-size: 0.9rem; color: #666; }
+                .light-mode .highlight-info p { color: #5b6472; }
                 .tag { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
                 .nav-btn { position: absolute; top: 0; height: 100%; width: 50px; background: rgba(0,0,0,0.2); border: none; color: #555; font-size: 1.8rem; cursor: pointer; transition: 0.3s; z-index: 10; display: flex; align-items: center; justify-content: center; }
+                .light-mode .nav-btn { background: rgba(0,0,0,0.05); color: #999; }
                 .nav-btn.left { left: 0; border-right: 1px solid rgba(255,255,255,0.05); }
+                .light-mode .nav-btn.left { border-right: 1px solid rgba(0,0,0,0.05); }
                 .nav-btn.right { right: 0; border-left: 1px solid rgba(255,255,255,0.05); }
+                .light-mode .nav-btn.right { border-left: 1px solid rgba(0,0,0,0.05); }
                 .nav-btn:hover { color: #fff; background: rgba(0,0,0,0.6); }
+                .light-mode .nav-btn:hover { color: #111827; background: rgba(0,0,0,0.1); }
                 .dots { display: flex; justify-content: center; gap: 6px; margin-top: 15px; }
                 .dot { width: 6px; height: 6px; background: #333; border-radius: 50%; cursor: pointer; transition: 0.3s; }
+                .light-mode .dot { background: #cbd5e1; }
                 .dot.active { background: #22d3ee; transform: scale(1.3); }
                 @media (max-width: 768px) {
                     .nav-btn { display: none; }
@@ -238,6 +271,40 @@ export default function DashboardPage() {
     );
 }
 
+// --- AANGEPAST COMPONENT: Mini Scorebord ---
+function MiniScoreboardCard({ title, spelers, icon, color }) {
+    return (
+        <div className="card" style={{ borderLeft: `4px solid ${color}`, padding: "1.25rem", display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "1rem" }}>
+                <div style={{ fontSize: "1.8rem" }}>{icon}</div>
+                <div style={{ opacity: 0.7, fontSize: "0.8rem", textTransform: "uppercase", fontWeight: "bold" }}>{title}</div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", flexGrow: 1 }}>
+                {spelers && spelers.length > 0 ? (
+                    spelers.map((speler, idx) => {
+                        // --- SLIMME ZOEKER: Nu kijkt hij in de gekoppelde 'gebruikers' tabel! ---
+                        const spelerNaam = speler.gebruikers?.naam || speler.gebruiker?.naam || speler.naam || "Onbekend";
+                        const spelerPunten = speler.punten ?? speler.totaal_punten ?? speler.totaalPunten ?? speler.score ?? 0;
+
+                        return (
+                            <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "1rem", borderBottom: idx < spelers.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", paddingBottom: idx < spelers.length - 1 ? "6px" : "0" }}>
+                                <span style={{ fontWeight: idx === 0 ? "bold" : "normal", color: idx === 0 ? color : "#e2e8f0" }}>
+                                    {idx + 1}. {capitalize(spelerNaam)}
+                                </span>
+                                <span style={{ fontWeight: "bold" }}>
+                                    {spelerPunten} <span style={{ fontSize: "0.75rem", opacity: 0.6, fontWeight: "normal" }}>pt</span>
+                                </span>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div style={{ opacity: 0.5, fontSize: "0.9rem" }}>Nog geen klassement.</div>
+                )}
+            </div>
+        </div>
+    );
+}
 function StatCard({ title, value, icon, color }) {
     return (
         <div className="card" style={{ borderLeft: `4px solid ${color}`, padding: "1.5rem" }}>
@@ -265,8 +332,8 @@ function ActionLink({ to, title, desc, icon }) {
         <Link to={to} className="card action-card" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "1rem", padding: "1rem" }}>
             <div style={{ fontSize: "1.5rem" }}>{icon}</div>
             <div>
-                <div style={{ fontWeight: "bold", color: "#fff" }}>{title}</div>
-                <div style={{ fontSize: "0.8rem", color: "#666" }}>{desc}</div>
+                <div className="action-card-title">{title}</div>
+                <div className="action-card-desc">{desc}</div>
             </div>
         </Link>
     );
