@@ -216,18 +216,26 @@ export default function DashboardPage() {
                 .toggle-btn:hover { border-color: #ef4444; color: #ef4444; }
                 .highlight-wrapper { width: 100%; margin-top: 10px; }
                 .highlight-view { position: relative; width: 100%; height: 130px; overflow: hidden; background: #161616; border-radius: 12px; border: 1px solid #222; }
+                .light-mode .highlight-view { background: #f3f5f7; border-color: #d7dde5; }
                 .highlight-track { display: flex; height: 100%; transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1); }
                 .highlight-slide { min-width: 100%; display: flex; align-items: center; padding: 0 65px; gap: 20px; box-sizing: border-box; }
                 .highlight-icon { width: 65px; height: 65px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
                 .highlight-info h3 { margin: 2px 0; font-size: 1.3rem; color: #fff; }
+                .light-mode .highlight-info h3 { color: #111827; }
                 .highlight-info p { margin: 0; font-size: 0.9rem; color: #666; }
+                .light-mode .highlight-info p { color: #5b6472; }
                 .tag { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
                 .nav-btn { position: absolute; top: 0; height: 100%; width: 50px; background: rgba(0,0,0,0.2); border: none; color: #555; font-size: 1.8rem; cursor: pointer; transition: 0.3s; z-index: 10; display: flex; align-items: center; justify-content: center; }
+                .light-mode .nav-btn { background: rgba(0,0,0,0.05); color: #999; }
                 .nav-btn.left { left: 0; border-right: 1px solid rgba(255,255,255,0.05); }
+                .light-mode .nav-btn.left { border-right: 1px solid rgba(0,0,0,0.05); }
                 .nav-btn.right { right: 0; border-left: 1px solid rgba(255,255,255,0.05); }
+                .light-mode .nav-btn.right { border-left: 1px solid rgba(0,0,0,0.05); }
                 .nav-btn:hover { color: #fff; background: rgba(0,0,0,0.6); }
+                .light-mode .nav-btn:hover { color: #111827; background: rgba(0,0,0,0.1); }
                 .dots { display: flex; justify-content: center; gap: 6px; margin-top: 15px; }
                 .dot { width: 6px; height: 6px; background: #333; border-radius: 50%; cursor: pointer; transition: 0.3s; }
+                .light-mode .dot { background: #cbd5e1; }
                 .dot.active { background: #22d3ee; transform: scale(1.3); }
                 @media (max-width: 768px) {
                     .nav-btn { display: none; }
@@ -265,8 +273,8 @@ function ActionLink({ to, title, desc, icon }) {
         <Link to={to} className="card action-card" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "1rem", padding: "1rem" }}>
             <div style={{ fontSize: "1.5rem" }}>{icon}</div>
             <div>
-                <div style={{ fontWeight: "bold", color: "#fff" }}>{title}</div>
-                <div style={{ fontSize: "0.8rem", color: "#666" }}>{desc}</div>
+                <div className="action-card-title">{title}</div>
+                <div className="action-card-desc">{desc}</div>
             </div>
         </Link>
     );
