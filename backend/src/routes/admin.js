@@ -385,6 +385,53 @@ const createSlug = (text) => {
         .replace(/(^-|-$)+/g, '');    // Verwijder streepjes aan begin of eind
 };
 
+// --- HANDMATIGE UITSLAG OPSLAAN ---
+router.post('/manual-results', async (req, res) => {
+    const { rit_id, top25, truien } = req.body;
+
+    if (!rit_id) {
+        return res.status(400).json({ error: "Rit ID is verplicht." });
+    }
+
+    try {
+        // 1. Verwijder eerst oude uitslagen voor deze rit (handig als je een foutje wil corrigeren!)
+        await supabase.from('ritresultaten').delete().eq('rit_id', rit_id);
+
+        // 2. Bouw de data array op voor Supabase
+        const uitslagData = [];
+
+        top25.forEach((renner_id, index) => {
+            if (renner_id) { // Voeg alleen toe als het vakje niet leeg is gelaten
+                uitslagData.push({
+                    rit_id: rit_id,
+                    renner_id: renner_id,
+                    positie: index + 1
+                    // LET OP: Pas deze kolomnamen aan als jouw database ze anders noemt (bijv. 'etappe_id')
+                });
+            }
+        });
+
+        // 3. Sla de Top 25 op in de database
+        if (uitslagData.length > 0) {
+            const { error: insertError } = await supabase.from('ritresultaten').insert(uitslagData);
+            if (insertError) throw insertError;
+        }
+
+        // 4. (Optioneel) Truien opslaan. 
+        // Als je een aparte tabel 'truidragers' hebt, doe je hier nog een insert met de 'truien' array.
+
+        // 5. Markeer de rit als voltooid / gescrapet
+        await supabase.from('ritten').update({ gescrapet: true }).eq('id', rit_id);
+
+        // 6. Succes terugsturen naar de frontend
+        res.status(200).json({ success: true, message: "Handmatige uitslag is veilig opgeslagen!" });
+
+    } catch (error) {
+        console.error("❌ Fout bij opslaan handmatige uitslag:", error.message);
+        res.status(500).json({ error: "Er is een database fout opgetreden bij het opslaan." });
+    }
+});
+
 // Sync starttijden voor één specifieke wedstrijd
 router.post('/sync-wedstrijd/:id', async (req, res) => {
     const { id } = req.params;
