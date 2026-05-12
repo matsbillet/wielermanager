@@ -77,7 +77,7 @@ export default function DashboardPage() {
             }
             if (t.punten && t.punten !== "-") {
                 items.push({
-                    tag: 'Puntenklassement',
+                    tag: 'Sprintklassement',
                     title: t.punten,
                     desc: 'De man met de snelste benen en de meeste regelmaat.',
                     icon: '⚡', color: isGiro ? '#6A1C7A' : '#008B47'
