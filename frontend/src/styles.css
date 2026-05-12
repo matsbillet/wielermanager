@@ -2542,7 +2542,7 @@ textarea:focus {
 .draft-team-list-item,
 .action-card-title,
 .top-renners-card strong {
-    text-transform: capitalize;
+    text-transform: uppercase;
 }
 
 .dashboard-welcome {
