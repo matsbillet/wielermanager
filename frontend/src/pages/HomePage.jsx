@@ -27,7 +27,7 @@ export default function HomePage({ theme = "dark", toggleTheme }) {
             className="home-logo"
           />
 
-          <span>WIELER MANAGER</span>
+          <span>WIELERMANAGER</span>
         </Link>
 
         {/* Navigatieknoppen verwijderd */}

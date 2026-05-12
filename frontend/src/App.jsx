@@ -41,7 +41,7 @@ function Layout({ theme, toggleTheme }) {
             <img src={logo} alt="Wielermanager logo" className="logo" />
 
             <span className="brand-text">
-              WIELER MANAGER
+              WIELERMANAGER
             </span>
           </NavLink>
 
