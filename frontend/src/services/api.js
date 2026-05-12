@@ -56,6 +56,9 @@ export const getDraftSessiesVoorCompetitie = (competitieId) =>
 export const getScoreboardVoorSessie = (sessieId) =>
     api.get(`/scores/sessie/${sessieId}`);
 
+// Handmatig een renner toevoegen via Admin
+export const voegRennerToe = (rennerData) => API.post("/admin/renners", rennerData);
+
 export const getUitvallers = (wedstrijdId) => api.get(`/wedstrijden/${wedstrijdId}/uitvallers`);
 
 export const vervangRennerVoorStart = (data) =>

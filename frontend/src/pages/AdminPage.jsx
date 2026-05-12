@@ -16,7 +16,8 @@ import {
     importKlassiekerAlsRit,
     previewRaceLifecycle,
     runRaceLifecycle,
-    forceAutoSync
+    forceAutoSync,
+    voegRennerToe
 } from '../services/api';
 
 function normaliseer(text = "") {
@@ -51,12 +52,57 @@ export default function AdminPage() {
 
     const [klassiekerUrl, setKlassiekerUrl] = useState('');
 
+    // --- STATES & LOGICA VOOR HANDMATIG RENNER TOEVOEGEN ---
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [formData, setFormData] = useState({
+        voornaam: "",
+        achternaam: "",
+    });
+    const [loadingToevoegen, setLoadingToevoegen] = useState(false);
+
+    // Genereer automatisch een slug (bijv. "Tadej" + "Pogačar" -> "tadej-pogacar")
+    const genereerSlug = (voornaam, achternaam) => {
+        if (!voornaam && !achternaam) return "";
+        const volledigeNaam = `${voornaam} ${achternaam}`;
+        return volledigeNaam
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, '-')
+            .replace(/[^\w-]+/g, '');
+    };
+
+    const handleVoegRennerToe = async (e) => {
+        e.preventDefault();
+        setLoadingToevoegen(true);
+
+        const slug = genereerSlug(formData.voornaam, formData.achternaam);
+        const volledigeNaam = `${formData.voornaam} ${formData.achternaam}`.trim();
+
+        try {
+            await voegRennerToe({
+                naam: volledigeNaam,
+                pcs_id: slug,
+            });
+            alert(`✅ ${volledigeNaam} succesvol toegevoegd!`);
+            setIsModalOpen(false);
+            setFormData({ voornaam: "", achternaam: "" });
+            await fetchData(); // Ververs direct de renners-lijst in de admin
+        } catch (error) {
+            console.error("Fout bij toevoegen renner:", error);
+            alert("❌ Er ging iets mis bij het toevoegen.");
+        } finally {
+            setLoadingToevoegen(false);
+        }
+    };
+    // --------------------------------------------------------
+
     const gefilterdeRenners = useMemo(() => {
         if (!zoekTerm) return renners;
         const term = normaliseer(zoekTerm);
         return renners.filter((r) =>
-            normaliseer(r.naam).includes(term) ||
-            (r.team && normaliseer(r.team).includes(term)) // Controleert ook op teamnaam!
+            normaliseer(r.naam).includes(term)
         );
     }, [renners, zoekTerm]);
 
@@ -88,6 +134,7 @@ export default function AdminPage() {
             }
         }
     };
+
     //Wedstrijden scrape functie
     const handleFullImport = async () => {
         if (!pcsTourUrl) return alert("Plak eerst een PCS URL");
@@ -243,14 +290,12 @@ export default function AdminPage() {
 
             alert(data.message || '✅ Wedstrijd succesvol gesynchroniseerd!');
 
-            // Ververs je data in het scherm
-            // fetchWedstrijden(); // (Of hoe jouw functie ook heet)
-
         } catch (error) {
             console.error("Fout bij sync:", error);
             alert("Fout bij synchroniseren: " + error.message);
         }
     };
+
     const handleImportStartlist = async () => {
         if (!wedstrijden || wedstrijden.length === 0) {
             alert('Geen wedstrijden gevonden.');
@@ -375,9 +420,9 @@ export default function AdminPage() {
 
         try {
             setLoading(true);
-            await deleteAllRenners(); // Dit is de API call die je bovenaan al had geïmporteerd
+            await deleteAllRenners();
             alert("Alle renners zijn succesvol verwijderd!");
-            fetchData(); // Herlaad de tabel
+            fetchData();
         } catch (err) {
             console.error("Fout bij verwijderen:", err);
             alert("Er is iets misgegaan bij het verwijderen van de renners.");
@@ -386,7 +431,6 @@ export default function AdminPage() {
         }
     }
 
-    // --- NIEUWE HANDLER VOOR KLASSIEKER IMPORT ---
     const handleKlassiekerImport = async () => {
         if (!klassiekerUrl) return alert("Plak eerst een PCS URL van de klassieker.");
 
@@ -396,19 +440,13 @@ export default function AdminPage() {
 
         setLoading(true);
         try {
-            // De échte API-aanroep
             const res = await importKlassiekerAlsRit(klassiekerUrl);
-
-            // Succesmelding tonen
             alert(res.data?.message || "Klassieker succesvol toegevoegd en gescrapet!");
-
-            // Veld leegmaken en data verversen
             setKlassiekerUrl('');
             await fetchData();
 
         } catch (err) {
             console.error("Klassieker Import Error:", err);
-            // Specifieke foutmelding uit de backend tonen, anders standaardmelding
             alert("Fout bij importeren klassieker: " + (err.response?.data?.error || err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
@@ -451,8 +489,6 @@ export default function AdminPage() {
 
             {activeTab === 'scraper' && (
                 <section className="panel card">
-
-                    {/* --- NIEUW: Systeem Acties Sectie --- */}
                     <div style={{ marginBottom: '25px', paddingBottom: '20px', borderBottom: '1px solid #334155' }}>
                         <h3>Systeem Acties (Achtergrond)</h3>
                         <p className="small-muted" style={{ marginBottom: '15px' }}>
@@ -460,7 +496,6 @@ export default function AdminPage() {
                         </p>
 
                         <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            {/* De Nieuwe Forceer Sync Knop */}
                             <button
                                 onClick={handleForceSync}
                                 className="pill-btn"
@@ -476,7 +511,6 @@ export default function AdminPage() {
                                 {forcingSync ? "🚀 Aan het scrapen..." : "⚙️ Forceer Auto-Sync"}
                             </button>
 
-                            {/* Bestaande Lifecycle Preview Knop */}
                             <button
                                 className="pill-btn"
                                 onClick={handleRaceLifecycle}
@@ -487,7 +521,6 @@ export default function AdminPage() {
                             </button>
                         </div>
 
-                        {/* Melding specifiek voor de Force Sync */}
                         {systeemMelding && (
                             <div style={{
                                 marginTop: "15px", padding: "10px", borderRadius: "4px",
@@ -499,7 +532,6 @@ export default function AdminPage() {
                             </div>
                         )}
                     </div>
-                    {/* --- EINDE Systeem Acties Sectie --- */}
 
                     <div className="admin-header-flex">
                         <div>
@@ -545,19 +577,45 @@ export default function AdminPage() {
 
             {activeTab === 'renners' && (
                 <section className="panel card">
-                    <div className="admin-header-flex" style={{ marginBottom: '20px' }}>
-                        <h3>Alle Renners ({gefilterdeRenners.length}/{renners.length})</h3>
+                    {/* AANGEPASTE HEADER VOOR DE RENNERS TAB (ALLES NAAST ELKAAR) */}
+                    <div className="admin-header-flex" style={{
+                        marginBottom: '20px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'nowrap',
+                        gap: '1rem'
+                    }}>
+                        <h3 style={{ margin: 0, whiteSpace: 'nowrap' }}>
+                            Alle Renners ({gefilterdeRenners.length}/{renners.length})
+                        </h3>
 
-                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            {/* 1. Zoekbalk */}
                             <input
                                 type="text"
                                 className="draft-search-input"
-                                placeholder="Zoek renner of team..."
+                                placeholder="Zoek renner..."
                                 value={zoekTerm}
                                 onChange={(e) => setZoekTerm(e.target.value)}
-                                style={{ margin: 0, maxWidth: "250px" }}
+                                style={{ margin: 0, width: "220px", padding: "10px 15px", borderRadius: "8px", border: "1px solid #333", backgroundColor: "#161616", color: "#fff" }}
                             />
-                            <button className="pill-btn" onClick={verwijderAlleRenners} style={{ background: 'var(--red)', color: 'white' }}>
+
+                            {/* 2. Blauwe Knop */}
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="pill-btn"
+                                style={{ backgroundColor: "#22d3ee", color: "#0f172a", fontWeight: "bold", border: "none", margin: 0, whiteSpace: 'nowrap' }}
+                            >
+                                + Handmatig Toevoegen
+                            </button>
+
+                            {/* 3. Rode Knop */}
+                            <button
+                                className="pill-btn"
+                                onClick={verwijderAlleRenners}
+                                style={{ backgroundColor: '#ef4444', color: 'white', fontWeight: 'bold', border: 'none', margin: 0, whiteSpace: 'nowrap' }}
+                            >
                                 🗑️ Alles Leegmaken
                             </button>
                         </div>
@@ -568,8 +626,6 @@ export default function AdminPage() {
                             <thead>
                                 <tr>
                                     <th>Naam</th>
-                                    <th>Team</th>
-                                    <th>Prijs</th>
                                     <th style={{ textAlign: 'right' }}>Actie</th>
                                 </tr>
                             </thead>
@@ -577,7 +633,6 @@ export default function AdminPage() {
                                 {gefilterdeRenners.map((r) => (
                                     <tr key={r.id}>
                                         <td>{r.naam}</td>
-                                        <td>{r.team}</td>
                                         <td>{r.prijs}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             <button className="admin-delete-icon-btn" onClick={() => deleteItem('renners', r.id)}>
@@ -779,6 +834,63 @@ export default function AdminPage() {
                         </table>
                     </div>
                 </section>
+            )}
+
+            {/* DE POP-UP (MODAL) VOOR RENNERS TOEVOEGEN */}
+            {isModalOpen && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+                    backgroundColor: "rgba(0,0,0,0.85)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000
+                }}>
+                    <div className="card" style={{
+                        backgroundColor: "#161616", padding: "2rem", borderRadius: "12px", width: "90%", maxWidth: "500px", border: "1px solid #22d3ee"
+                    }}>
+                        <h2 style={{ marginTop: 0, color: "#22d3ee", marginBottom: "1.5rem" }}>Nieuwe Renner Toevoegen</h2>
+
+                        <form onSubmit={handleVoegRennerToe} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+                            <div style={{ display: "flex", gap: "1rem" }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>Voornaam</label>
+                                    <input
+                                        type="text" required
+                                        value={formData.voornaam}
+                                        onChange={(e) => setFormData({ ...formData, voornaam: e.target.value })}
+                                        style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #333", backgroundColor: "#0f172a", color: "#fff" }}
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>Achternaam</label>
+                                    <input
+                                        type="text" required
+                                        value={formData.achternaam}
+                                        onChange={(e) => setFormData({ ...formData, achternaam: e.target.value })}
+                                        style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #333", backgroundColor: "#0f172a", color: "#fff" }}
+                                    />
+                                </div>
+                            </div>
+                            <p style={{ fontSize: "0.8rem", color: "#64748b", fontStyle: "italic", margin: 0 }}>
+                                Automatische Slug: <strong style={{ color: "#22d3ee" }}>{genereerSlug(formData.voornaam, formData.achternaam) || "..."}</strong>
+                            </p>
+
+                            <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    style={{ flex: 1, padding: "12px", background: "none", border: "1px solid #333", color: "#fff", borderRadius: "8px", cursor: "pointer" }}
+                                >
+                                    Annuleren
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loadingToevoegen}
+                                    style={{ flex: 1, padding: "12px", backgroundColor: "#22d3ee", border: "none", color: "#0f172a", fontWeight: "bold", borderRadius: "8px", cursor: loadingToevoegen ? "not-allowed" : "pointer" }}
+                                >
+                                    {loadingToevoegen ? "Bezig..." : "Opslaan"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -18,6 +18,35 @@ router.get("/", async (req, res) => {
     }
 });
 
+// POST: Handmatig renner toevoegen
+router.post('/renners', async (req, res) => {
+    const { naam, team, pcs_id } = req.body;
+
+    if (!naam) {
+        return res.status(400).json({ error: "Naam is verplicht." });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('renners')
+            .insert([
+                {
+                    naam: naam,
+                    team: team || null,
+                    pcs_id: pcs_id || null
+                }
+            ])
+            .select();
+
+        if (error) throw error;
+
+        res.status(201).json({ message: "Renner succesvol toegevoegd", renner: data[0] });
+    } catch (err) {
+        console.error("Fout bij toevoegen renner:", err.message);
+        res.status(500).json({ error: "Kon renner niet toevoegen aan database." });
+    }
+});
+
 router.get("/beschikbaar/:sessieId", async (req, res) => {
     const { sessieId } = req.params;
 
