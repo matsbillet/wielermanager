@@ -184,7 +184,9 @@ router.get('/:id', async (req, res) => {
             `)
             .eq('id', id)
             .single();
-
+        if (data?.ritresultaten) {
+            data.ritresultaten.sort((a, b) => (a.positie || 999) - (b.positie || 999));
+        }
         if (error) throw error;
         res.json(data);
     } catch (err) {

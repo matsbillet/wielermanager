@@ -67,7 +67,8 @@ export const blessureWissel = (data) => api.post("/transfer/blessure", data);
 
 export const getAdminRitten = () => api.get("/admin/ritten");
 export const getAdminRenners = () => api.get("/admin/renners");
-export const getAdminDrafts = () => api.get("/admin/drafts");
+
+export const getAdminDrafts = (wedstrijdId) => api.get(`/admin/drafts/wedstrijd/${wedstrijdId}`);
 export const getAdminWedstrijden = () => api.get("/admin/wedstrijden");
 
 export const importStartlist = (url, wedstrijdId) =>
