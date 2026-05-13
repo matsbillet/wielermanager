@@ -51,9 +51,11 @@ export default function DashboardPage() {
                 setLastStageTruien(scoreboardRes.data?.truien || null);
 
                 // --- NIEUW: Pak de top 3 spelers uit het actuele scoreboard ---
-                if (scoreboardRes.data?.scoreboard) {
-                    setTopSpelers(scoreboardRes.data.scoreboard.slice(0, 3));
-                }
+                const top3 = [...(scoreboardRes.data?.scoreboard || [])]
+                    .sort((a, b) => Number(b.totaal || 0) - Number(a.totaal || 0))
+                    .slice(0, 3);
+
+                setTopSpelers(top3);
 
                 const sessieResponse = await getSessieVoorCompetitie(1);
                 const wId = sessieResponse.data?.wedstrijd_id || sessieResponse.data?.wedstrijden?.id;
@@ -181,7 +183,7 @@ export default function DashboardPage() {
 
                 {/* --- AANGEPAST: HET MINI SCOREBORD VAN SPELERS --- */}
                 <MiniScoreboardCard
-                    title="Top 3 Managers"
+                    title="Top 3 Spelers"
                     spelers={topSpelers}
                     icon="🔥"
                     color="#f87171"
@@ -284,8 +286,8 @@ function MiniScoreboardCard({ title, spelers, icon, color }) {
                 {spelers && spelers.length > 0 ? (
                     spelers.map((speler, idx) => {
                         // --- SLIMME ZOEKER: Nu kijkt hij in de gekoppelde 'gebruikers' tabel! ---
-                        const spelerNaam = speler.gebruikers?.naam || speler.gebruiker?.naam || speler.naam || "Onbekend";
-                        const spelerPunten = speler.punten ?? speler.totaal_punten ?? speler.totaalPunten ?? speler.score ?? 0;
+                        const spelerNaam = speler.speler || speler.naam || "Onbekend";
+                        const spelerPunten = speler.totaal ?? 0;
 
                         return (
                             <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "1rem", borderBottom: idx < spelers.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", paddingBottom: idx < spelers.length - 1 ? "6px" : "0" }}>
