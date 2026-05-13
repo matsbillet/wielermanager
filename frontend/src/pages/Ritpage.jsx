@@ -46,6 +46,7 @@ export default function RitPage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [progress, setProgress] = useState(0);
   const [drafts, setDrafts] = useState([]);
+  const { wedstrijdNaam } = useParams();
 
   const spelerKleuren = {
     "casper": "#22d3ee",
@@ -209,7 +210,8 @@ export default function RitPage() {
   const truiStijlen = getTruiStijl(rit);
   return (
     <div className="rit-container">
-      <button onClick={() => navigate("/races")} className="back-button">
+      <button onClick={() => navigate(`/races/${rit?.wedstrijden?.slug}`)}
+        className="back-button">
         ⬅ Terug naar rittenoverzicht
       </button>
 
