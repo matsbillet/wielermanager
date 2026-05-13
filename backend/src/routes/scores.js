@@ -234,6 +234,67 @@ async function maakScoreboardVoorSessie(sessie) {
     };
 }
 
+// HALL OF FAME ROUTE
+router.get('/hall-of-fame', async (req, res) => {
+    try {
+        const verzameldePunten = {};
+
+        // STAP 1: Haal alle draft sessies op, precies zoals je dat in je andere routes doet
+        const { data: sessies, error: sessiesError } = await supabase
+            .from("draft_sessies")
+            .select(`
+                id,
+                competitie_id,
+                wedstrijd_id,
+                Naam,
+                is_actief,
+                wedstrijden (
+                    id,
+                    naam,
+                    jaar,
+                    slug
+                )
+            `);
+
+        if (sessiesError) throw sessiesError;
+
+        // STAP 2: Loop door elke gevonden sessie heen
+        for (const sessie of (sessies || [])) {
+
+            // STAP 3: Gebruik JOUW bestaande rekenmotor!
+            const resultaat = await maakScoreboardVoorSessie(sessie);
+
+            // Jouw functie retourneert o.a. 'scoreboard'. Dat is de lijst met spelers en hun totalen voor deze sessie.
+            const sessieScorebord = resultaat.scoreboard;
+
+            // STAP 4: Tel de punten van deze sessie op bij de globale "verzameldePunten" pot
+            sessieScorebord.forEach(speler => {
+                // In jouw code heet de naam 'speler' en de punten 'totaal'
+                const spelerNaam = speler.speler || "Onbekend";
+                const spelerPunten = speler.totaal || 0;
+
+                if (!verzameldePunten[spelerNaam]) {
+                    verzameldePunten[spelerNaam] = 0; // Maak de speler aan als hij nog niet bestaat
+                }
+
+                verzameldePunten[spelerNaam] += spelerPunten; // Tel de punten erbij op
+            });
+        }
+
+        // STAP 5: Vorm het object om naar een lijst en sorteer van hoog naar laag
+        const hallOfFameLijst = Object.keys(verzameldePunten).map(naam => ({
+            naam: naam,
+            totaal_punten: verzameldePunten[naam]
+        })).sort((a, b) => b.totaal_punten - a.totaal_punten);
+
+        // Stuur het eindresultaat naar de frontend
+        res.status(200).json(hallOfFameLijst);
+
+    } catch (error) {
+        console.error("❌ Fout bij berekenen Hall of Fame:", error);
+        res.status(500).json({ error: "Fout bij berekenen Hall of Fame", details: error.message });
+    }
+});
 router.get("/sessie/:sessieId", async (req, res) => {
     const { sessieId } = req.params;
 

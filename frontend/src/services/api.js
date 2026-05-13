@@ -43,6 +43,9 @@ export const getWedstrijd = (slug) => api.get(`/wedstrijden/${slug}`);
 export const getRittenVanWedstrijd = (slug) =>
     api.get(`/ritten/wedstrijd/${slug}`);
 
+// Verander dit in services/api.js:
+export const getHallOfFame = () => api.get('/scores/hall-of-fame');
+
 export const kiesRenner = (data) => api.post("/draft/kies", data);
 export const getTeams = (sessieId) => api.get(`/draft/teams/${sessieId}`);
 export const getTeamVanSpeler = (sessieId, spelerId) =>
