@@ -291,7 +291,13 @@ function MiniScoreboardCard({ title, spelers, icon, color }) {
 
                         return (
                             <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "1rem", borderBottom: idx < spelers.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", paddingBottom: idx < spelers.length - 1 ? "6px" : "0" }}>
-                                <span style={{ fontWeight: idx === 0 ? "bold" : "normal", color: idx === 0 ? color : "#e2e8f0" }}>
+                                <span style={{
+                                    fontWeight: idx === 0 ? "bold" : "normal", ccolor: idx === 0
+                                        ? color
+                                        : document.body.classList.contains("light-mode")
+                                            ? "#1e293b"
+                                            : "#e2e8f0"
+                                }}>
                                     {idx + 1}. {capitalize(spelerNaam)}
                                 </span>
                                 <span style={{ fontWeight: "bold" }}>

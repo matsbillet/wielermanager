@@ -84,10 +84,10 @@ export default function RacesPage() {
 
           {/* Jaar Header */}
           <div style={{ display: "flex", alignItems: "center", marginBottom: "1.5rem" }}>
-            <h2 style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#fff", marginRight: "1rem" }}>
+            <h2 className="race-year-title">
               {jaar}
             </h2>
-            <div style={{ flexGrow: 1, height: "2px", backgroundColor: "rgba(255,255,255,0.1)" }} />
+            <div className="race-year-line" />
           </div>
 
           <section
