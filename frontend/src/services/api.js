@@ -68,7 +68,15 @@ export const blessureWissel = (data) => api.post("/transfer/blessure", data);
 export const getAdminRitten = () => api.get("/admin/ritten");
 export const getAdminRenners = () => api.get("/admin/renners");
 
-export const getAdminDrafts = (wedstrijdId) => api.get(`/admin/drafts/wedstrijd/${wedstrijdId}`);
+export const getAdminDrafts = (wedstrijdId) => {
+    // Als er geen ID is, roepen we gewoon /admin/drafts aan
+    // Als er wel een ID is, plakken we die erachter: /admin/drafts/123
+    const path = (wedstrijdId && wedstrijdId !== 'undefined')
+        ? `/admin/drafts/${wedstrijdId}`
+        : `/admin/drafts`;
+
+    return api.get(path);
+};
 export const getAdminWedstrijden = () => api.get("/admin/wedstrijden");
 
 export const importStartlist = (url, wedstrijdId) =>

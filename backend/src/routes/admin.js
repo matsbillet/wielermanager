@@ -56,27 +56,32 @@ router.get('/renners', async (req, res) => {
     }
 });
 
-router.get('/drafts/wedstrijd/:wedstrijdId', async (req, res) => {
+// admin.js
+// admin.js
+// De :wedstrijdId? syntax werkt niet meer, gebruik dit:
+router.get(['/drafts', '/drafts/:wedstrijdId'], async (req, res) => {
     try {
         const { wedstrijdId } = req.params;
-        const { data, error } = await supabase
+
+        let query = supabase
             .from('draft')
             .select(`
                 *,
                 renners (id, naam),
-                spelers (
-                    id, 
-                    gebruikers (naam)
-                ),
-                draft_sessies!inner (
-                    wedstrijd_id
-                )
-            `)
-            .eq('draft_sessies.wedstrijd_id', wedstrijdId);
+                spelers (id, gebruikers (naam)),
+                draft_sessies (wedstrijd_id)
+            `);
 
+        // Filter alleen als wedstrijdId aanwezig is en niet de string "undefined"
+        if (wedstrijdId && wedstrijdId !== 'undefined') {
+            query = query.eq('draft_sessies.wedstrijd_id', wedstrijdId);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         res.json(data);
     } catch (err) {
+        console.error("Fout bij ophalen drafts:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
