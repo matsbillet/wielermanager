@@ -56,7 +56,6 @@ async function maakScoreboardVoorSessie(sessie) {
     const ritIds = (ritten || []).map((rit) => rit.id);
 
     let ritresultaten = [];
-
     if (ritIds.length > 0) {
         const { data, error } = await supabase
             .from("ritresultaten")
@@ -64,8 +63,24 @@ async function maakScoreboardVoorSessie(sessie) {
             .in("rit_id", ritIds);
 
         if (error) throw error;
-
         ritresultaten = data || [];
+    }
+
+    // Eindklassement alleen ophalen als wedstrijd finished is
+    let eindklassement = [];
+    const { data: wedstrijdInfo } = await supabase
+        .from('wedstrijden')
+        .select('status')
+        .eq('id', sessie.wedstrijd_id)
+        .single();
+
+    if (wedstrijdInfo?.status === 'finished') {
+        const { data: eindklassementData } = await supabase
+            .from('eindklassement')
+            .select('renner_id, punten')
+            .eq('wedstrijd_id', sessie.wedstrijd_id);
+
+        eindklassement = eindklassementData || [];
     }
 
     function isRennerActiefVoorRit(spelerId, rennerId, ritNummer) {
@@ -125,12 +140,22 @@ async function maakScoreboardVoorSessie(sessie) {
             };
         });
 
-        const totaal = per_rit.reduce((som, rit) => som + rit.punten, 0);
+        const ritTotaal = per_rit.reduce((som, rit) => som + rit.punten, 0);
+
+        // ← NIEUW: Eindklassement punten berekenen
+        const mijnRennerIds = draft
+            .filter(k => Number(k.speler_id) === Number(spelerId) && !k.is_bank)
+            .map(k => Number(k.renner_id));
+
+        const eindTotaal = eindklassement
+            .filter(e => mijnRennerIds.includes(Number(e.renner_id)))
+            .reduce((som, e) => som + (e.punten || 0), 0);
 
         return {
             speler_id: spelerId,
             speler: spelerNaam,
-            totaal,
+            totaal: ritTotaal + eindTotaal, // ← eindpunten meegeteld
+            eindpunten: eindTotaal,          // ← nieuw voor de frontend
             per_rit,
         };
     });
@@ -138,7 +163,6 @@ async function maakScoreboardVoorSessie(sessie) {
     scoreboard.sort((a, b) => b.totaal - a.totaal);
 
     const eigenaarPerRenner = new Map();
-
     draft.forEach((keuze) => {
         eigenaarPerRenner.set(Number(keuze.renner_id), {
             speler: keuze.spelers?.gebruikers?.naam || "Niet gekozen",
@@ -147,10 +171,8 @@ async function maakScoreboardVoorSessie(sessie) {
     });
 
     const rennerScores = new Map();
-
     ritresultaten.forEach((resultaat) => {
         const rit = ritten.find((r) => Number(r.id) === Number(resultaat.rit_id));
-
         if (!rit || !rit.gescrapet) return;
 
         const rennerId = Number(resultaat.renner_id);
@@ -182,6 +204,11 @@ async function maakScoreboardVoorSessie(sessie) {
         .filter((rit) => rit.gescrapet)
         .sort((a, b) => Number(b.rit_nummer) - Number(a.rit_nummer))[0];
 
+    // Veiligheidscheck voor als er nog geen ritten gescrapet zijn
+    if (!laatsteGescrapeteRit) {
+        return { scoreboard, topRenners, truien: { algemeen: "-", punten: "-", berg: "-", jongeren: "-", rit_nummer: null, wedstrijdNaam: sessie.wedstrijden?.naam || "" } };
+    }
+
     const leiderSlugs = [
         laatsteGescrapeteRit.leider_algemeen,
         laatsteGescrapeteRit.leider_punten,
@@ -195,43 +222,20 @@ async function maakScoreboardVoorSessie(sessie) {
         .in("slug", leiderSlugs);
 
     const naamMap = {};
-
     (leiderRenners || []).forEach((renner) => {
         naamMap[renner.slug] = renner.naam;
     });
 
-    const truien = laatsteGescrapeteRit
-        ? {
-            rit_nummer: laatsteGescrapeteRit.rit_nummer,
-
-            algemeen:
-                naamMap[laatsteGescrapeteRit.leider_algemeen] || "-",
-
-            punten:
-                naamMap[laatsteGescrapeteRit.leider_punten] || "-",
-
-            berg:
-                naamMap[laatsteGescrapeteRit.leider_berg] || "-",
-
-            jongeren:
-                naamMap[laatsteGescrapeteRit.leider_jongeren] || "-",
-
-            wedstrijdNaam: sessie.wedstrijden?.naam || "",
-        }
-        : {
-            algemeen: "-",
-            punten: "-",
-            berg: "-",
-            jongeren: "-",
-            rit_nummer: null,
-            wedstrijdNaam: sessie.wedstrijden?.naam || "",
-        };
-
-    return {
-        scoreboard,
-        topRenners,
-        truien,
+    const truien = {
+        rit_nummer: laatsteGescrapeteRit.rit_nummer,
+        algemeen: naamMap[laatsteGescrapeteRit.leider_algemeen] || "-",
+        punten: naamMap[laatsteGescrapeteRit.leider_punten] || "-",
+        berg: naamMap[laatsteGescrapeteRit.leider_berg] || "-",
+        jongeren: naamMap[laatsteGescrapeteRit.leider_jongeren] || "-",
+        wedstrijdNaam: sessie.wedstrijden?.naam || "",
     };
+
+    return { scoreboard, topRenners, truien };
 }
 
 // HALL OF FAME ROUTE

@@ -19,13 +19,16 @@ const getRittenPerWedstrijd = async (req, res) => {
 
 const getVolgendeRit = async (req, res) => {
     try {
+
         const { data, error } = await supabase
             .from('ritten')
             .select('rit_nummer, starttijd, naam')
             .gt('starttijd', new Date().toISOString())
             .order('starttijd', { ascending: true })
             .limit(1)
-            .single();
+            .maybeSingle();
+
+
 
         if (error && error.code !== 'PGRST116') throw error; // PGRST116 is 'geen resultaat'
         res.json(data || { bericht: "Geen toekomstige ritten gevonden" });

@@ -7,6 +7,7 @@ const CountdownTimer = ({ customTargetDate, customTitel, customSubTitel }) => {
     const [timeLeft, setTimeLeft] = useState("");
 
     const laadVolgendeRit = () => {
+
         fetch("http://localhost:3000/api/ritten/volgende")
             .then((res) => res.json())
             .then((data) => {

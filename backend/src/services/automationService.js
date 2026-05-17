@@ -3,7 +3,7 @@ const { supabase } = require('../db/supabase');
 const scraper = require('../scraper/scraper');
 const { verwerkRitResultaat } = require('../routes/ritten');
 const { verwerkRaceLifecycle, syncStartlijstEnRitten } = require('./raceLifecycleService'); // sync toegevoegd voor de scout
-
+const { scrapeEindklassement } = require('../scraper/scraper');
 // ============================================================================
 // 🛠️ HULPFUNCTIES
 // ============================================================================
@@ -108,8 +108,15 @@ async function runAutoSync() {
 
                         // 1. Zet huidige wedstrijd op finished
                         await supabase.from('wedstrijden').update({ status: 'finished' }).eq('id', rit.wedstrijden.id);
-
-                        // 2. Maak volgend jaar alvast aan als lege huls
+                        // 2. Scrape meteen het eindklassement (voor zover mogelijk)
+                        console.log(`🏆 Eindklassement automatisch ophalen voor ${rit.wedstrijden.naam}...`);
+                        try {
+                            const resultaat = await scrapeEindklassement(rit.wedstrijden.pcs_url, rit.wedstrijden.id);
+                            console.log(`✅ Eindklassement opgeslagen: ${resultaat.count} rijen`);
+                        } catch (eindErr) {
+                            console.error(`❌ Fout bij automatisch scrapen eindklassement:`, eindErr.message);
+                        }
+                        // 3. Maak volgend jaar alvast aan als lege huls
                         await maakVolgendJaarAan(rit.wedstrijden);
                     }
 

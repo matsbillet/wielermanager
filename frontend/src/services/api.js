@@ -134,4 +134,11 @@ export const importKlassiekerAlsRit = (pcsUrl) =>
 export const resetRit = async (ritId) => {
     return await api.post(`/ritten/${ritId}/reset`);
 };
+
+export const scrapeEindklassement = (wedstrijdId) => {
+    return api.post(`/wedstrijden/${wedstrijdId}/scrape-eindklassement`);
+};
+export const getEindklassement = (wedstrijdId) => {
+    return api.get(`/wedstrijden/${wedstrijdId}/eindklassement`);
+}
 export default api;

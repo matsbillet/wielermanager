@@ -14,7 +14,8 @@ import {
     getScoreboard,
     getScoreboardVoorSessie,
     getDraftSessiesVoorCompetitie,
-    getHallOfFame // <-- NIEUW: deze moest ook nog worden geïmporteerd!
+    getHallOfFame,
+    getEindklassement // <-- NIEUW: deze moest ook nog worden geïmporteerd!
 } from "../services/api";
 
 const kleuren = [
@@ -46,7 +47,8 @@ function maakGrafiekData(spelers) {
         ),
     ].sort((a, b) => a - b);
 
-    return geredenRitNummers.map((ritNummer) => {
+    // ← Sla op in variabele i.p.v. meteen returnen
+    const grafiekData = geredenRitNummers.map((ritNummer) => {
         const punt = { rit: `Rit ${ritNummer}` };
 
         spelers.forEach((speler) => {
@@ -63,6 +65,24 @@ function maakGrafiekData(spelers) {
 
         return punt;
     });
+
+    // Eindklassement punt toevoegen
+    const heeftEindpunten = spelers.some(s => (s.eindpunten || 0) > 0);
+    if (heeftEindpunten) {
+        const eindPunt = { rit: "Eindklassement" };
+
+        spelers.forEach((speler) => {
+            const ritTotaal = (speler.per_rit || [])
+                .filter(rit => rit.gescrapet)
+                .reduce((som, rit) => som + Number(rit.punten || 0), 0);
+
+            eindPunt[capitalize(speler.speler)] = ritTotaal + (speler.eindpunten || 0);
+        });
+
+        grafiekData.push(eindPunt);
+    }
+
+    return grafiekData;
 }
 
 export default function ScoreboardPage() {
@@ -79,6 +99,7 @@ export default function ScoreboardPage() {
     const [sessieId, setSessieId] = useState("");
     const [klassementTab, setKlassementTab] = useState("algemeen");
     const [hallOfFame, setHallOfFame] = useState([]); // <-- NU NETJES BOVENAAN
+    const [eindklassement, setEindklassement] = useState([]); // <-- NIEUW: eindklassement state
 
     // --- 2. ALLE USEEFFECT HOOKS ---
     useEffect(() => {
@@ -100,6 +121,17 @@ export default function ScoreboardPage() {
                 setSessieId(scoreboardResponse.data.sessieId);
 
                 verwerkScoreboardData(scoreboardResponse.data);
+
+                // ← NIEUW: eindklassement laden als wedstrijd bekend is
+                const wedstrijdId = scoreboardResponse.data.wedstrijd?.id;
+                if (wedstrijdId) {
+                    try {
+                        const eindRes = await getEindklassement(wedstrijdId);
+                        setEindklassement(eindRes.data || []);
+                    } catch (e) {
+                        console.log("Geen eindklassement beschikbaar.");
+                    }
+                }
             } catch (err) {
                 console.error("Fout bij ophalen scoreboard:", err);
                 setMelding(
@@ -155,6 +187,16 @@ export default function ScoreboardPage() {
             const response = await getScoreboardVoorSessie(gekozenSessieId);
 
             verwerkScoreboardData(response.data);
+
+            const wedstrijdId = response.data.wedstrijd?.id;
+            if (wedstrijdId) {
+                try {
+                    const eindRes = await getEindklassement(wedstrijdId);
+                    setEindklassement(eindRes.data || []);
+                } catch (e) {
+                    setEindklassement([]);
+                }
+            }
         } catch (err) {
             console.error("Fout bij wisselen scoreboard sessie:", err);
             setMelding(
@@ -490,6 +532,7 @@ export default function ScoreboardPage() {
                                 {Array.from({ length: aantalRitten }, (_, i) => (
                                     <th key={i}>Rit {i + 1}</th>
                                 ))}
+                                <th>Eind</th>
                                 <th>Totaal</th>
                             </tr>
                         </thead>
@@ -522,6 +565,9 @@ export default function ScoreboardPage() {
                                         );
                                     })}
 
+                                    <td>
+                                        <strong>{speler.eindpunten}</strong>
+                                    </td>
                                     <td>
                                         <strong>{speler.totaal}</strong>
                                     </td>

@@ -3,6 +3,13 @@ const { supabase } = require('../db/supabase');
 const axios = require('axios'); // Voeg deze regel toe
 const cheerio = require('cheerio'); // Deze hebben we ook nodig voor de wedstrijdstructuur
 
+const EINDPUNTEN = {
+    algemeen: [300, 240, 195, 165, 135, 105, 90, 75, 60, 51, 45, 42, 39, 36, 33, 30, 27, 24, 21, 18, 15, 12, 9, 6, 3],
+    punten: [150, 120, 100, 80, 60, 40, 30, 20, 10, 5],
+    berg: [100, 75, 50, 40, 30, 25, 20, 15, 10, 5],
+    jongeren: [80, 60, 40, 30, 25, 20, 15, 10, 5, 2],
+};
+
 async function getBrowser() {
     return await puppeteer.launch({
         headless: "new",
@@ -565,10 +572,98 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
     }
 }
 
+async function scrapeEindklassement(racePcsUrl, wedstrijdId) {
+    console.log(`\n🏆 START Eindklassement scrape voor wedstrijd ${wedstrijdId}`);
+
+    const browser = await getBrowser();
+    const klassementen = [
+        { type: 'algemeen', suffix: 'gc' },
+        { type: 'punten', suffix: 'points' },
+        { type: 'berg', suffix: 'kom' },
+        { type: 'jongeren', suffix: 'youth' },
+    ];
+
+    const cleanBase = racePcsUrl.endsWith('/') ? racePcsUrl.slice(0, -1) : racePcsUrl;
+    const alleResultaten = [];
+
+    try {
+        for (const { type, suffix } of klassementen) {
+            const url = `${cleanBase}/${suffix}`;
+            console.log(`📊 Scrapen ${type.toUpperCase()} via: ${url}`);
+
+            const page = await browser.newPage();
+            try {
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+                const maxPosities = EINDPUNTEN[type].length;
+
+                const renners = await page.evaluate((max) => {
+                    const tables = Array.from(document.querySelectorAll('table.results'));
+                    const visibleTable = tables.find(t => t.offsetWidth > 0 && t.offsetHeight > 0);
+                    if (!visibleTable) return [];
+
+                    return Array.from(visibleTable.querySelectorAll('tbody tr'))
+                        .slice(0, max)
+                        .map((row, index) => {
+                            const a = row.querySelector('a[href^="rider/"]');
+                            const slug = a?.getAttribute('href').replace('rider/', '').split('/')[0];
+                            return { positie: index + 1, slug: slug || null };
+                        })
+                        .filter(r => r.slug);
+                }, maxPosities);
+
+                console.log(`✅ ${renners.length} renners gevonden voor ${type}`);
+
+                for (const renner of renners) {
+                    const { data: rennerData } = await supabase
+                        .from('renners')
+                        .select('id')
+                        .eq('slug', renner.slug)
+                        .single();
+
+                    if (!rennerData) {
+                        console.warn(`⚠️ Renner niet gevonden: ${renner.slug}`);
+                        continue;
+                    }
+
+                    alleResultaten.push({
+                        wedstrijd_id: wedstrijdId,
+                        renner_id: rennerData.id,
+                        type: type,
+                        positie: renner.positie,
+                        punten: EINDPUNTEN[type][renner.positie - 1] || 0,
+                    });
+                }
+            } catch (err) {
+                console.error(`❌ Fout bij ${type}:`, err.message);
+            } finally {
+                await page.close();
+            }
+        }
+
+        // Verwijder oude data en sla nieuw op
+        await supabase.from('eindklassement').delete().eq('wedstrijd_id', wedstrijdId);
+
+        const { error } = await supabase.from('eindklassement').insert(alleResultaten);
+        if (error) throw error;
+
+        console.log(`🏆 ${alleResultaten.length} rijen opgeslagen`);
+        return { success: true, count: alleResultaten.length };
+
+    } catch (err) {
+        console.error('❌ Fout in scrapeEindklassement:', err);
+        throw err;
+    } finally {
+        await browser.close();
+    }
+}
+
 module.exports = {
     scrapeStagesForRace,
     scrapeFullRaceInfo,
     scrapeRitDetails,
     scrapeWedstrijdStructuur,
-    importStartlist
+    importStartlist,
+    scrapeEindklassement
 };
