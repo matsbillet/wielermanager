@@ -5,7 +5,9 @@ import {
   syncStartlijst,
   scrapePastRitten,
   resetAllRitten,
-  resetRit // Zorg dat deze goed in je api.js staat!
+  resetRit,
+  scrapeEindklassement,
+  getEindklassement // Zorg dat deze goed in je api.js staat!
 } from "../services/api";
 
 export default function RaceDetailPage() {
@@ -19,6 +21,7 @@ export default function RaceDetailPage() {
   const [resetingAll, setResetingAll] = useState(false);
 
   const [melding, setMelding] = useState("");
+  const [scrapingEind, setScrapingEind] = useState(false);
 
   async function laadRitten() {
     try {
@@ -130,6 +133,181 @@ export default function RaceDetailPage() {
     return a.rit_nummer - b.rit_nummer;
   });
 
+  async function handleScrapeEindklassement() {
+    if (!wedstrijdData?.wedstrijd?.id) return;
+    const bevestig = window.confirm(`Eindklassementen ophalen voor ${wedstrijdData.wedstrijd.naam}? Doe dit pas als de wedstrijd volledig afgelopen is.`);
+    if (!bevestig) return;
+
+    setScrapingEind(true);
+    setMelding("");
+    try {
+      const res = await scrapeEindklassement(wedstrijdData.wedstrijd.id);
+      setMelding(res.data.message || "✅ Eindklassement opgeslagen!");
+    } catch (err) {
+      setMelding("❌ Fout bij ophalen van eindklassement.");
+    } finally {
+      setScrapingEind(false);
+    }
+  }
+
+  const spelerKleuren = {
+    "casper": "#22d3ee",
+    "dries": "#facc15",
+    "jonas": "#f87171",
+    "roel": "#a855f7"
+  };
+
+  function getTruiStijl(data) {
+    const alles = JSON.stringify(data || {}).toLowerCase();
+    if (alles.includes("giro")) return {
+      algemeen: { bg: "#E40071", text: "#FFFFFF", label: "Roze" },
+      punten: { bg: "#6A1C7A", text: "#FFFFFF", label: "Paars" },
+      berg: { bg: "#0072CE", text: "#FFFFFF", label: "Blauw" },
+      jongeren: { bg: "#FFFFFF", text: "#0f172a", label: "Wit" }
+    };
+    if (alles.includes("vuelta")) return {
+      algemeen: { bg: "#D70014", text: "#FFFFFF", label: "Rood" },
+      punten: { bg: "#008B47", text: "#FFFFFF", label: "Groen" },
+      berg: { bg: "#0072CE", text: "#0072CE", label: "Bollen (Blauw)" },
+      jongeren: { bg: "#FFFFFF", text: "#0f172a", label: "Wit" }
+    };
+    return {
+      algemeen: { bg: "#FCD116", text: "#0f172a", label: "Geel" },
+      punten: { bg: "#009144", text: "#FFFFFF", label: "Groen" },
+      berg: { bg: "#FFFFFF", text: "#D70014", label: "Bollen (Rood)" },
+      jongeren: { bg: "#FFFFFF", text: "#0f172a", label: "Wit" }
+    };
+  }
+
+  function EindklassementSectie({ wedstrijdId, wedstrijd }) {
+    const [data, setData] = useState([]);
+    const [laden, setLaden] = useState(true);
+
+    useEffect(() => {
+      async function laad() {
+        try {
+          const res = await getEindklassement(wedstrijdId);
+          setData(res.data || []);
+        } catch (err) {
+          console.error("Fout bij laden eindklassement:", err);
+        } finally {
+          setLaden(false);
+        }
+      }
+      laad();
+    }, [wedstrijdId]);
+
+    const truiStijlen = getTruiStijl(wedstrijd);
+    const types = ['algemeen', 'punten', 'berg', 'jongeren'];
+
+    if (laden) return <div>Eindklassement laden...</div>;
+    if (data.length === 0) return null;
+
+    return (
+      <>
+        <div className="section-head" style={{ marginTop: "2rem" }}>
+          <h2>🏆 Eindklassement</h2>
+        </div>
+
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.5rem" }}>
+          {types.map((type) => {
+            const rijen = data.filter(r => r.type === type);
+            if (rijen.length === 0) return null;
+            const stijl = truiStijlen[type];
+
+            return (
+              <div key={type} className="card" style={{ padding: "1.5rem" }}>
+                {/* Klassement header in de juiste trui-kleur */}
+                <h3 style={{
+                  color: stijl.bg,
+                  textTransform: "uppercase",
+                  fontSize: "0.9rem",
+                  fontWeight: "bold",
+                  marginBottom: "1rem",
+                  letterSpacing: "1px"
+                }}>
+                  {stijl.label}
+                </h3>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {rijen.map((rij) => {
+                    const eigenaarKleur = rij.eigenaar
+                      ? (spelerKleuren[rij.eigenaar] || "#ffffff")
+                      : "#94a3b8";
+
+                    return (
+                      <div
+                        key={rij.positie}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "8px",
+                          borderRadius: "6px",
+                          backgroundColor: rij.eigenaar ? `${eigenaarKleur}10` : "transparent",
+                          borderBottom: "1px solid rgba(255,255,255,0.05)"
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          {/* Positienummer */}
+                          <span style={{ opacity: 0.5, width: "20px", fontSize: "0.85rem" }}>
+                            #{rij.positie}
+                          </span>
+
+                          {/* Kleurbolletje */}
+                          <span style={{
+                            display: "inline-block",
+                            width: "8px",
+                            height: "8px",
+                            borderRadius: "50%",
+                            backgroundColor: rij.eigenaar ? eigenaarKleur : "transparent",
+                            border: `1px solid ${eigenaarKleur}`,
+                            boxShadow: rij.eigenaar ? `0 0 8px ${eigenaarKleur}` : "none",
+                            flexShrink: 0
+                          }} />
+
+                          {/* Rennernaam */}
+                          <span style={{
+                            fontSize: "0.9rem",
+                            color: rij.eigenaar ? "#ffffff" : "#cbd5e1",
+                            fontWeight: rij.eigenaar ? "600" : "400",
+                            opacity: rij.eigenaar ? 1 : 0.8
+                          }}>
+                            {rij.renners?.naam}
+                          </span>
+
+                          {/* Spelerslabel */}
+                          {rij.eigenaar && !rij.is_bank && (
+                            <span style={{
+                              fontSize: "0.75rem",
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              backgroundColor: `${eigenaarKleur}20`,
+                              color: eigenaarKleur,
+                              fontWeight: "bold",
+                              textTransform: "uppercase",  // ← toevoegen
+                              letterSpacing: "0.5px"       // ← toevoegen voor leesbaarheid
+                            }}>
+                              {rij.eigenaar}
+                            </span>
+                          )}
+                        </span>
+
+                        {/* Punten in de trui-kleur */}
+                        <span style={{ color: stijl.bg, fontWeight: "bold" }}>
+                          {rij.punten}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      </>
+    );
+  }
   return (
     <div>
       <div className="section-head">
@@ -231,6 +409,23 @@ export default function RaceDetailPage() {
               {resetingAll ? "⏳ Wissen..." : "🗑️ Reset Alle Ritten (Demo)"}
             </button>
           </div>
+
+          <div>
+            <button
+              onClick={handleScrapeEindklassement}
+              className="pill-btn"
+              disabled={scrapingEind || syncingStartlist || scrapingPast}
+              style={{
+                backgroundColor: scrapingEind ? "#475569" : "#a855f7",
+                color: "white",
+                fontWeight: "bold",
+                cursor: scrapingEind ? "not-allowed" : "pointer",
+                opacity: scrapingEind ? 0.7 : 1,
+              }}
+            >
+              {scrapingEind ? "⏳ Ophalen..." : "🏆 Haal Eindklassement Op"}
+            </button>
+          </div>
         </div>
         <p style={{ fontSize: "0.8rem", marginTop: "1rem", opacity: 0.7 }}>
           Gebruik "Importeer Startlijst" om renners in te laden. Gebruik "Haal
@@ -287,10 +482,15 @@ export default function RaceDetailPage() {
                   <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
                 </svg>
               </button>
+
+
             </div>
           );
         })}
       </section>
+      {wedstrijd.status === 'finished' && (
+        <EindklassementSectie wedstrijdId={wedstrijd.id} wedstrijd={wedstrijd} />
+      )}
     </div>
   );
 }

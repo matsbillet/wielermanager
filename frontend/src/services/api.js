@@ -43,6 +43,9 @@ export const getWedstrijd = (slug) => api.get(`/wedstrijden/${slug}`);
 export const getRittenVanWedstrijd = (slug) =>
     api.get(`/ritten/wedstrijd/${slug}`);
 
+// Verander dit in services/api.js:
+export const getHallOfFame = () => api.get('/scores/hall-of-fame');
+
 export const kiesRenner = (data) => api.post("/draft/kies", data);
 export const getTeams = (sessieId) => api.get(`/draft/teams/${sessieId}`);
 export const getTeamVanSpeler = (sessieId, spelerId) =>
@@ -131,4 +134,11 @@ export const importKlassiekerAlsRit = (pcsUrl) =>
 export const resetRit = async (ritId) => {
     return await api.post(`/ritten/${ritId}/reset`);
 };
+
+export const scrapeEindklassement = (wedstrijdId) => {
+    return api.post(`/wedstrijden/${wedstrijdId}/scrape-eindklassement`);
+};
+export const getEindklassement = (wedstrijdId) => {
+    return api.get(`/wedstrijden/${wedstrijdId}/eindklassement`);
+}
 export default api;

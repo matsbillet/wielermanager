@@ -56,7 +56,6 @@ async function maakScoreboardVoorSessie(sessie) {
     const ritIds = (ritten || []).map((rit) => rit.id);
 
     let ritresultaten = [];
-
     if (ritIds.length > 0) {
         const { data, error } = await supabase
             .from("ritresultaten")
@@ -64,8 +63,24 @@ async function maakScoreboardVoorSessie(sessie) {
             .in("rit_id", ritIds);
 
         if (error) throw error;
-
         ritresultaten = data || [];
+    }
+
+    // Eindklassement alleen ophalen als wedstrijd finished is
+    let eindklassement = [];
+    const { data: wedstrijdInfo } = await supabase
+        .from('wedstrijden')
+        .select('status')
+        .eq('id', sessie.wedstrijd_id)
+        .single();
+
+    if (wedstrijdInfo?.status === 'finished') {
+        const { data: eindklassementData } = await supabase
+            .from('eindklassement')
+            .select('renner_id, punten')
+            .eq('wedstrijd_id', sessie.wedstrijd_id);
+
+        eindklassement = eindklassementData || [];
     }
 
     function isRennerActiefVoorRit(spelerId, rennerId, ritNummer) {
@@ -125,12 +140,22 @@ async function maakScoreboardVoorSessie(sessie) {
             };
         });
 
-        const totaal = per_rit.reduce((som, rit) => som + rit.punten, 0);
+        const ritTotaal = per_rit.reduce((som, rit) => som + rit.punten, 0);
+
+        // ← NIEUW: Eindklassement punten berekenen
+        const mijnRennerIds = draft
+            .filter(k => Number(k.speler_id) === Number(spelerId) && !k.is_bank)
+            .map(k => Number(k.renner_id));
+
+        const eindTotaal = eindklassement
+            .filter(e => mijnRennerIds.includes(Number(e.renner_id)))
+            .reduce((som, e) => som + (e.punten || 0), 0);
 
         return {
             speler_id: spelerId,
             speler: spelerNaam,
-            totaal,
+            totaal: ritTotaal + eindTotaal, // ← eindpunten meegeteld
+            eindpunten: eindTotaal,          // ← nieuw voor de frontend
             per_rit,
         };
     });
@@ -138,7 +163,6 @@ async function maakScoreboardVoorSessie(sessie) {
     scoreboard.sort((a, b) => b.totaal - a.totaal);
 
     const eigenaarPerRenner = new Map();
-
     draft.forEach((keuze) => {
         eigenaarPerRenner.set(Number(keuze.renner_id), {
             speler: keuze.spelers?.gebruikers?.naam || "Niet gekozen",
@@ -147,10 +171,8 @@ async function maakScoreboardVoorSessie(sessie) {
     });
 
     const rennerScores = new Map();
-
     ritresultaten.forEach((resultaat) => {
         const rit = ritten.find((r) => Number(r.id) === Number(resultaat.rit_id));
-
         if (!rit || !rit.gescrapet) return;
 
         const rennerId = Number(resultaat.renner_id);
@@ -182,6 +204,11 @@ async function maakScoreboardVoorSessie(sessie) {
         .filter((rit) => rit.gescrapet)
         .sort((a, b) => Number(b.rit_nummer) - Number(a.rit_nummer))[0];
 
+    // Veiligheidscheck voor als er nog geen ritten gescrapet zijn
+    if (!laatsteGescrapeteRit) {
+        return { scoreboard, topRenners, truien: { algemeen: "-", punten: "-", berg: "-", jongeren: "-", rit_nummer: null, wedstrijdNaam: sessie.wedstrijden?.naam || "" } };
+    }
+
     const leiderSlugs = [
         laatsteGescrapeteRit.leider_algemeen,
         laatsteGescrapeteRit.leider_punten,
@@ -195,45 +222,83 @@ async function maakScoreboardVoorSessie(sessie) {
         .in("slug", leiderSlugs);
 
     const naamMap = {};
-
     (leiderRenners || []).forEach((renner) => {
         naamMap[renner.slug] = renner.naam;
     });
 
-    const truien = laatsteGescrapeteRit
-        ? {
-            rit_nummer: laatsteGescrapeteRit.rit_nummer,
-
-            algemeen:
-                naamMap[laatsteGescrapeteRit.leider_algemeen] || "-",
-
-            punten:
-                naamMap[laatsteGescrapeteRit.leider_punten] || "-",
-
-            berg:
-                naamMap[laatsteGescrapeteRit.leider_berg] || "-",
-
-            jongeren:
-                naamMap[laatsteGescrapeteRit.leider_jongeren] || "-",
-
-            wedstrijdNaam: sessie.wedstrijden?.naam || "",
-        }
-        : {
-            algemeen: "-",
-            punten: "-",
-            berg: "-",
-            jongeren: "-",
-            rit_nummer: null,
-            wedstrijdNaam: sessie.wedstrijden?.naam || "",
-        };
-
-    return {
-        scoreboard,
-        topRenners,
-        truien,
+    const truien = {
+        rit_nummer: laatsteGescrapeteRit.rit_nummer,
+        algemeen: naamMap[laatsteGescrapeteRit.leider_algemeen] || "-",
+        punten: naamMap[laatsteGescrapeteRit.leider_punten] || "-",
+        berg: naamMap[laatsteGescrapeteRit.leider_berg] || "-",
+        jongeren: naamMap[laatsteGescrapeteRit.leider_jongeren] || "-",
+        wedstrijdNaam: sessie.wedstrijden?.naam || "",
     };
+
+    return { scoreboard, topRenners, truien };
 }
 
+// HALL OF FAME ROUTE
+router.get('/hall-of-fame', async (req, res) => {
+    try {
+        const verzameldePunten = {};
+
+        // STAP 1: Haal alle draft sessies op, precies zoals je dat in je andere routes doet
+        const { data: sessies, error: sessiesError } = await supabase
+            .from("draft_sessies")
+            .select(`
+                id,
+                competitie_id,
+                wedstrijd_id,
+                Naam,
+                is_actief,
+                wedstrijden (
+                    id,
+                    naam,
+                    jaar,
+                    slug
+                )
+            `);
+
+        if (sessiesError) throw sessiesError;
+
+        // STAP 2: Loop door elke gevonden sessie heen
+        for (const sessie of (sessies || [])) {
+
+            // STAP 3: Gebruik JOUW bestaande rekenmotor!
+            const resultaat = await maakScoreboardVoorSessie(sessie);
+
+            // Jouw functie retourneert o.a. 'scoreboard'. Dat is de lijst met spelers en hun totalen voor deze sessie.
+            const sessieScorebord = resultaat.scoreboard;
+
+            // STAP 4: Tel de punten van deze sessie op bij de globale "verzameldePunten" pot
+            sessieScorebord.forEach(speler => {
+                // In jouw code heet de naam 'speler' en de punten 'totaal'
+                const spelerNaam = speler.speler || "Onbekend";
+                const spelerPunten = speler.totaal || 0;
+
+                if (!verzameldePunten[spelerNaam]) {
+                    verzameldePunten[spelerNaam] = 0; // Maak de speler aan als hij nog niet bestaat
+                }
+
+                verzameldePunten[spelerNaam] += spelerPunten; // Tel de punten erbij op
+            });
+        }
+
+        // STAP 5: Vorm het object om naar een lijst en sorteer van hoog naar laag
+        const hallOfFameLijst = Object.keys(verzameldePunten).map(naam => ({
+            naam: naam,
+            totaal_punten: verzameldePunten[naam]
+        })).sort((a, b) => b.totaal_punten - a.totaal_punten);
+
+        // Stuur het eindresultaat naar de frontend
+        res.status(200).json(hallOfFameLijst);
+
+    } catch (error) {
+        console.error("❌ Fout bij berekenen Hall of Fame:", error);
+        res.status(500).json({ error: "Fout bij berekenen Hall of Fame", details: error.message });
+    }
+});
 router.get("/sessie/:sessieId", async (req, res) => {
     const { sessieId } = req.params;
 

@@ -63,7 +63,35 @@ router.get(['/drafts', '/drafts/:wedstrijdId'], async (req, res) => {
     try {
         const { wedstrijdId } = req.params;
 
-        let query = supabase
+        // Als wedstrijdId meegegeven is, zoek eerst de bijbehorende sessie
+        if (wedstrijdId && wedstrijdId !== 'undefined') {
+            const { data: sessies } = await supabase
+                .from('draft_sessies')
+                .select('id')
+                .eq('wedstrijd_id', wedstrijdId);
+
+            const sessieIds = (sessies || []).map(s => s.id);
+
+            if (sessieIds.length === 0) {
+                return res.json([]); // Geen sessie gevonden, geen drafts
+            }
+
+            const { data, error } = await supabase
+                .from('draft')
+                .select(`
+                    *,
+                    renners (id, naam),
+                    spelers (id, gebruikers (naam)),
+                    draft_sessies (wedstrijd_id)
+                `)
+                .in('sessie_id', sessieIds); // ← Filter op sessie_id
+
+            if (error) throw error;
+            return res.json(data);
+        }
+
+        // Geen wedstrijdId — geef alle drafts terug
+        const { data, error } = await supabase
             .from('draft')
             .select(`
                 *,
@@ -72,14 +100,9 @@ router.get(['/drafts', '/drafts/:wedstrijdId'], async (req, res) => {
                 draft_sessies (wedstrijd_id)
             `);
 
-        // Filter alleen als wedstrijdId aanwezig is en niet de string "undefined"
-        if (wedstrijdId && wedstrijdId !== 'undefined') {
-            query = query.eq('draft_sessies.wedstrijd_id', wedstrijdId);
-        }
-
-        const { data, error } = await query;
         if (error) throw error;
         res.json(data);
+
     } catch (err) {
         console.error("Fout bij ophalen drafts:", err.message);
         res.status(500).json({ error: err.message });

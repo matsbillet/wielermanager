@@ -3,6 +3,8 @@ const router = express.Router();
 const { supabase } = require("../db/supabase");
 const { scrapeFullRaceInfo } = require("../scraper/scraper"); // Zorg dat dit pad klopt
 const scraper = require("../scraper/scraper");
+const { scrapeEindklassement } = require("../scraper/scraper");
+const { scrapeEindklassementHandler, getEindklassement } = require("../controllers/eindklassementController");
 // Let op: controleer of dit het juiste pad is naar je scraper bestand vanuit routes/wedstrijden.js!
 
 // --- NIEUW: INITIALISEER EEN NIEUWE WEDSTRIJD ---
@@ -356,4 +358,6 @@ router.get('/:id/uitvallers', async (req, res) => {
     }
 });
 
+router.post('/:wedstrijd_id/scrape-eindklassement', scrapeEindklassementHandler);
+router.get('/:wedstrijd_id/eindklassement', getEindklassement);
 module.exports = router;

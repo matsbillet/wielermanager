@@ -11,6 +11,9 @@ const getStand = async (req, res) => {
                     naam,
                     ritresultaten (
                         rit_punten
+                    ),
+                    eindklassement (
+                        punten
                     )
                 )
             )
@@ -24,16 +27,29 @@ const getStand = async (req, res) => {
         let totaalPunten = 0;
         if (speler.draft) {
           speler.draft.forEach((item) => {
-            // Punten tellen alleen als de renner niet op de bank zit
-            if (!item.is_bank && item.renners && item.renners.ritresultaten) {
-              const punten = item.renners.ritresultaten.reduce(
-                (sum, r) => sum + r.rit_punten,
-                0,
+
+            // Sla bank-renners over — die tellen nooit mee
+            if (item.is_bank || !item.renners) return;
+
+            // 1. Ritpunten optellen (zoals voorheen)
+            if (item.renners.ritresultaten) {
+              totaalPunten += item.renners.ritresultaten.reduce(
+                (sum, r) => sum + (r.rit_punten || 0),
+                0
               );
-              totaalPunten += punten;
             }
+
+            // 2. Eindklassement punten optellen (nieuw)
+            if (item.renners.eindklassement) {
+              totaalPunten += item.renners.eindklassement.reduce(
+                (sum, e) => sum + (e.punten || 0),
+                0
+              );
+            }
+
           });
         }
+
         return { naam: speler.naam, punten: totaalPunten };
       })
       .sort((a, b) => b.punten - a.punten);

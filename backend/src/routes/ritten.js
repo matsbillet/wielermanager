@@ -169,31 +169,6 @@ async function verwerkRitResultaat(ritId, resultaat, wedstrijdNaam = "") {
         }
     }
 }
-
-// Voorbeeld van hoe je backend route eruit zou moeten zien:
-router.get('/:id', async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { data, error } = await supabase
-            .from('ritten')
-            // LET OP: we voegen wedstrijden(naam, slug) toe aan de select!
-            .select(`
-                *,
-                ritresultaten(*, renners(*)),
-                wedstrijden(naam, slug) 
-            `)
-            .eq('id', id)
-            .single();
-        if (data?.ritresultaten) {
-            data.ritresultaten.sort((a, b) => (a.positie || 999) - (b.positie || 999));
-        }
-        if (error) throw error;
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 router.get('/deadlines/:wedstrijd_id', rittenController.getDeadlines);
 router.get('/volgende', rittenController.getVolgendeRit);
 
@@ -230,6 +205,31 @@ router.get('/wedstrijd/:slug', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// Voorbeeld van hoe je backend route eruit zou moeten zien:
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('ritten')
+            // LET OP: we voegen wedstrijden(naam, slug) toe aan de select!
+            .select(`
+                *,
+                ritresultaten(*, renners(*)),
+                wedstrijden(naam, slug) 
+            `)
+            .eq('id', id)
+            .single();
+        if (data?.ritresultaten) {
+            data.ritresultaten.sort((a, b) => (a.positie || 999) - (b.positie || 999));
+        }
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 router.post('/wedstrijd/:wedstrijdId/scrape-past', async (req, res) => {
     const { wedstrijdId } = req.params;

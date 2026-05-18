@@ -14,6 +14,8 @@ import {
     getScoreboard,
     getScoreboardVoorSessie,
     getDraftSessiesVoorCompetitie,
+    getHallOfFame,
+    getEindklassement // <-- NIEUW: deze moest ook nog worden geïmporteerd!
 } from "../services/api";
 
 const kleuren = [
@@ -45,7 +47,8 @@ function maakGrafiekData(spelers) {
         ),
     ].sort((a, b) => a - b);
 
-    return geredenRitNummers.map((ritNummer) => {
+    // ← Sla op in variabele i.p.v. meteen returnen
+    const grafiekData = geredenRitNummers.map((ritNummer) => {
         const punt = { rit: `Rit ${ritNummer}` };
 
         spelers.forEach((speler) => {
@@ -62,11 +65,30 @@ function maakGrafiekData(spelers) {
 
         return punt;
     });
+
+    // Eindklassement punt toevoegen
+    const heeftEindpunten = spelers.some(s => (s.eindpunten || 0) > 0);
+    if (heeftEindpunten) {
+        const eindPunt = { rit: "Eindklassement" };
+
+        spelers.forEach((speler) => {
+            const ritTotaal = (speler.per_rit || [])
+                .filter(rit => rit.gescrapet)
+                .reduce((som, rit) => som + Number(rit.punten || 0), 0);
+
+            eindPunt[capitalize(speler.speler)] = ritTotaal + (speler.eindpunten || 0);
+        });
+
+        grafiekData.push(eindPunt);
+    }
+
+    return grafiekData;
 }
 
 export default function ScoreboardPage() {
     const { competitieId = "1" } = useParams();
 
+    // --- 1. ALLE STATE HOOKS BOVENAAN ---
     const [spelers, setSpelers] = useState([]);
     const [wedstrijd, setWedstrijd] = useState(null);
     const [topRenners, setTopRenners] = useState([]);
@@ -76,7 +98,10 @@ export default function ScoreboardPage() {
     const [draftSessies, setDraftSessies] = useState([]);
     const [sessieId, setSessieId] = useState("");
     const [klassementTab, setKlassementTab] = useState("algemeen");
+    const [hallOfFame, setHallOfFame] = useState([]); // <-- NU NETJES BOVENAAN
+    const [eindklassement, setEindklassement] = useState([]); // <-- NIEUW: eindklassement state
 
+    // --- 2. ALLE USEEFFECT HOOKS ---
     useEffect(() => {
         async function laadScoreboard() {
             try {
@@ -96,6 +121,17 @@ export default function ScoreboardPage() {
                 setSessieId(scoreboardResponse.data.sessieId);
 
                 verwerkScoreboardData(scoreboardResponse.data);
+
+                // ← NIEUW: eindklassement laden als wedstrijd bekend is
+                const wedstrijdId = scoreboardResponse.data.wedstrijd?.id;
+                if (wedstrijdId) {
+                    try {
+                        const eindRes = await getEindklassement(wedstrijdId);
+                        setEindklassement(eindRes.data || []);
+                    } catch (e) {
+                        console.log("Geen eindklassement beschikbaar.");
+                    }
+                }
             } catch (err) {
                 console.error("Fout bij ophalen scoreboard:", err);
                 setMelding(
@@ -111,6 +147,20 @@ export default function ScoreboardPage() {
         laadScoreboard();
     }, [competitieId]);
 
+    // Hall of Fame lader (nu veilig vóór de early returns)
+    useEffect(() => {
+        async function laadHallOfFame() {
+            try {
+                const res = await getHallOfFame();
+                setHallOfFame(res.data || []);
+            } catch (e) {
+                console.error("Kon Hall of Fame niet laden:", e);
+            }
+        }
+        laadHallOfFame();
+    }, []);
+
+    // --- FUNCTIES ---
     function verwerkScoreboardData(data) {
         const scoreboardData = data.scoreboard || [];
         const wedstrijdData = data.wedstrijd || null;
@@ -137,6 +187,16 @@ export default function ScoreboardPage() {
             const response = await getScoreboardVoorSessie(gekozenSessieId);
 
             verwerkScoreboardData(response.data);
+
+            const wedstrijdId = response.data.wedstrijd?.id;
+            if (wedstrijdId) {
+                try {
+                    const eindRes = await getEindklassement(wedstrijdId);
+                    setEindklassement(eindRes.data || []);
+                } catch (e) {
+                    setEindklassement([]);
+                }
+            }
         } catch (err) {
             console.error("Fout bij wisselen scoreboard sessie:", err);
             setMelding(
@@ -149,9 +209,11 @@ export default function ScoreboardPage() {
         }
     }
 
+    // --- 3. EARLY RETURNS (Hierna mogen GEEN haken (hooks) meer staan!) ---
     if (loading) return <div>Laden van scoreboard...</div>;
     if (melding) return <div>{melding}</div>;
 
+    // --- 4. RENDER VARIABELEN ---
     const grafiekData = maakGrafiekData(spelers);
 
     const geredenRitNummers = [...new Set(
@@ -191,6 +253,7 @@ export default function ScoreboardPage() {
     const klassement = [...spelers].sort((a, b) => b.totaal - a.totaal);
     const aantalGeredenRitten = geredenRitNummers.length;
 
+    // --- 5. RENDER JSX ---
     return (
         <div className="scoreboard-page">
             <section className="scoreboard-header">
@@ -263,20 +326,33 @@ export default function ScoreboardPage() {
                 </div>
             </section>
 
-            <section className="scoreboard-top-grid">
-                <div className="card klassement-card">
+            <section
+                className="scoreboard-top-grid"
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: "1.5rem",
+                    alignItems: "stretch",
+                    minHeight: "450px"
+                }}
+            >
+                {/* --- KOLOM 1: Algemeen Klassement --- */}
+                <div className="card klassement-card" style={{ display: "flex", flexDirection: "column", padding: "1.5rem", height: "100%", margin: 0 }}>
                     <div
                         className="section-head"
                         style={{
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
+                            marginBottom: "1.5rem",
+                            borderBottom: "none",
+                            paddingBottom: 0
                         }}
                     >
-                        <h2>
+                        <h2 style={{ margin: 0, fontSize: "1.25rem" }}>
                             {klassementTab === "algemeen"
                                 ? "Algemeen klassement"
-                                : `Uitslag Rit ${laatsteRitNummer || "-"}`}
+                                : `Uitslag laatste rit`}
                         </h2>
 
                         <div
@@ -296,14 +372,8 @@ export default function ScoreboardPage() {
                                     cursor: "pointer",
                                     fontWeight: "bold",
                                     fontSize: "0.85rem",
-                                    backgroundColor:
-                                        klassementTab === "algemeen"
-                                            ? "#22d3ee"
-                                            : "transparent",
-                                    color:
-                                        klassementTab === "algemeen"
-                                            ? "#0f172a"
-                                            : "#94a3b8",
+                                    backgroundColor: klassementTab === "algemeen" ? "#22d3ee" : "transparent",
+                                    color: klassementTab === "algemeen" ? "#0f172a" : "#94a3b8",
                                     transition: "all 0.2s",
                                 }}
                             >
@@ -319,111 +389,135 @@ export default function ScoreboardPage() {
                                     cursor: "pointer",
                                     fontWeight: "bold",
                                     fontSize: "0.85rem",
-                                    backgroundColor:
-                                        klassementTab === "dagelijks"
-                                            ? "#22d3ee"
-                                            : "transparent",
-                                    color:
-                                        klassementTab === "dagelijks"
-                                            ? "#0f172a"
-                                            : "#94a3b8",
+                                    backgroundColor: klassementTab === "dagelijks" ? "#22d3ee" : "transparent",
+                                    color: klassementTab === "dagelijks" ? "#0f172a" : "#94a3b8",
                                     transition: "all 0.2s",
                                 }}
                             >
-                                Laatste Rit
+                                Laatste rit
                             </button>
                         </div>
                     </div>
 
-                    <div className="klassement-list">
+                    <div className="klassement-list" style={{ flexGrow: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingRight: "5px" }}>
                         {getoondeKlassement.map((speler, index) => (
-                            <div key={speler.speler_id} className="klassement-row">
-                                <div className="rank">#{index + 1}</div>
+                            <div key={speler.speler_id} className="klassement-row" style={{ display: "flex", alignItems: "center", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                <div className="rank" style={{ fontWeight: "bold", opacity: 0.5, width: "30px" }}>#{index + 1}</div>
 
-                                <div className="player-info">
+                                <div className="player-info" style={{ flexGrow: 1, display: "flex", alignItems: "center", gap: "10px" }}>
                                     <span
                                         className="player-dot"
-                                        style={{ backgroundColor: speler.kleur }}
+                                        style={{ backgroundColor: speler.kleur, width: "10px", height: "10px", borderRadius: "50%", display: "inline-block", boxShadow: `0 0 8px ${speler.kleur}60` }}
                                     />
-                                    <strong>{capitalize(speler.speler)}</strong>
+                                    <strong style={{ fontSize: "1.1rem" }}>{capitalize(speler.speler)}</strong>
                                 </div>
 
-                                <div className="player-total">{speler.toonPunten} pts</div>
+                                <div className="player-total" style={{ color: "#22d3ee", fontWeight: "bold", fontSize: "1.1rem" }}>
+                                    {speler.toonPunten} <span style={{ fontSize: "0.75rem", fontWeight: "normal", color: "#94a3b8" }}>PTS</span>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="card top-renners-card">
-                    <div className="section-head">
-                        <h2>Top 10 renners</h2>
+                {/* --- KOLOM 2: Top 10 Renners (Gefixt Design) --- */}
+                <div className="card top-renners-card" style={{ display: "flex", flexDirection: "column", padding: "1.5rem", height: "100%", margin: 0 }}>
+                    <div className="section-head" style={{ marginBottom: "1.5rem", borderBottom: "none", paddingBottom: 0 }}>
+                        <h2 style={{ margin: 0, fontSize: "1.25rem" }}>Top 10 renners</h2>
                     </div>
 
-                    <div className="klassement-list">
+                    <div className="klassement-list" style={{ flexGrow: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px", paddingRight: "5px" }}>
                         {topRenners.map((renner, index) => (
-                            <div key={renner.renner_id} className="klassement-row">
-                                <div className="rank">#{index + 1}</div>
+                            <div key={renner.renner_id} className="klassement-row" style={{ display: "flex", alignItems: "center", padding: "12px", backgroundColor: "rgba(255,255,255,0.02)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
 
-                                <div className="player-info">
-                                    <strong>{renner.renner}</strong>
-                                    <span className="small-muted">
+                                <div className="rank" style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "36px", height: "36px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.05)", color: "#22d3ee", fontWeight: "bold", flexShrink: 0 }}>
+                                    #{index + 1}
+                                </div>
+
+                                <div className="player-info" style={{ flexGrow: 1, marginLeft: "15px", display: "flex", flexDirection: "column", minWidth: 0, alignItems: "flex-start" }}>
+                                    <strong style={{ fontSize: "1rem", textTransform: "uppercase", whiteSpace: "normal", wordWrap: "break-word", lineHeight: "1.2" }}>
+                                        {renner.renner}
+                                    </strong>
+                                    <span style={{ fontSize: "0.75rem", color: "#94a3b8", textTransform: "uppercase", marginTop: "4px", fontWeight: "600", letterSpacing: "0.5px" }}>
                                         {capitalize(renner.eigenaar)}
-                                        {renner.isBank ? " · bank" : ""}
+                                        {renner.isBank ? " • BANK" : ""}
                                     </span>
                                 </div>
 
-                                <div className="player-total">{renner.totaal} pts</div>
+                                <div className="player-total" style={{ color: "#22d3ee", fontWeight: "bold", fontSize: "1.1rem", flexShrink: 0, marginLeft: "10px", textAlign: "right" }}>
+                                    {renner.totaal} <span style={{ fontSize: "0.7rem", fontWeight: "normal", color: "#94a3b8" }}>PTS</span>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="card truien-card">
-                    <div className="section-head">
-                        <h2>Truitjes</h2>
+                {/* --- KOLOM 3: Truien + Hall of Fame (Echte Data) --- */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", height: "100%" }}>
+
+                    {/* Truitjes Kaart */}
+                    <div className="card truien-card" style={{ padding: "1.5rem", margin: 0 }}>
+                        <div className="section-head" style={{ marginBottom: "1.5rem", borderBottom: "none", paddingBottom: 0 }}>
+                            <h2 style={{ margin: 0, fontSize: "1.25rem" }}>Truitjes</h2>
+                        </div>
+
+                        <div className="truien-list" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            <div className="trui-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                <span className="trui-label" style={{ color: truien?.wedstrijdNaam?.includes("Giro") ? "#E40071" : truien?.wedstrijdNaam?.includes("Vuelta") ? "#D70014" : "#FCD116", fontWeight: "bold", textTransform: "uppercase", fontSize: "0.85rem" }}>
+                                    {truien?.wedstrijdNaam?.includes("Giro") ? "Roze" : truien?.wedstrijdNaam?.includes("Vuelta") ? "Rood" : "Geel"}
+                                </span>
+                                <strong style={{ textTransform: "uppercase", fontSize: "0.9rem", textAlign: "right" }}>{capitalize(truien?.algemeen) || "-"}</strong>
+                            </div>
+
+                            <div className="trui-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                <span className="trui-label" style={{ color: "#008B47", fontWeight: "bold", textTransform: "uppercase", fontSize: "0.85rem" }}>Punten</span>
+                                <strong style={{ textTransform: "uppercase", fontSize: "0.9rem", textAlign: "right" }}>{capitalize(truien?.punten) || "-"}</strong>
+                            </div>
+
+                            <div className="trui-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                <span className="trui-label" style={{ color: "#3b82f6", fontWeight: "bold", textTransform: "uppercase", fontSize: "0.85rem" }}>Berg</span>
+                                <strong style={{ textTransform: "uppercase", fontSize: "0.9rem", textAlign: "right" }}>{capitalize(truien?.berg) || "-"}</strong>
+                            </div>
+
+                            <div className="trui-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                <span className="trui-label" style={{ color: "#f8fafc", fontWeight: "bold", textTransform: "uppercase", fontSize: "0.85rem" }}>Jongeren</span>
+                                <strong style={{ textTransform: "uppercase", fontSize: "0.9rem", textAlign: "right" }}>{capitalize(truien?.jongeren) || "-"}</strong>
+                            </div>
+
+                            {truien?.rit_nummer && (
+                                <p className="small-muted" style={{ margin: "5px 0 0 0", fontSize: "0.75rem", fontStyle: "italic" }}>Na rit {truien.rit_nummer}</p>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="truien-list">
-                        <div className="trui-row">
-                            <span
-                                className={`trui-label ${truien?.wedstrijdNaam?.includes("Giro")
-                                        ? "roze"
-                                        : truien?.wedstrijdNaam?.includes("Vuelta")
-                                            ? "rood"
-                                            : "geel"
-                                    }`}
-                            >
-                                {truien?.wedstrijdNaam?.includes("Giro")
-                                    ? "Roze"
-                                    : truien?.wedstrijdNaam?.includes("Vuelta")
-                                        ? "Rood"
-                                        : "Geel"}
-                            </span>
-
-                            <strong>{capitalize(truien?.algemeen) || "-"}</strong>
+                    {/* Hall of Fame Kaart */}
+                    <div className="card hall-of-fame-card" style={{ padding: "1.5rem", margin: 0, display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "5px" }}>
+                            <span style={{ fontSize: "1.2rem" }}>🌍</span>
+                            <h2 style={{ margin: 0, fontSize: "1.2rem", color: "#f59e0b" }}>Hall of Fame</h2>
                         </div>
+                        <p style={{ fontSize: "0.75rem", color: "#94a3b8", margin: "0 0 1rem 0", fontStyle: "italic" }}>Totaal over alle koersen</p>
 
-                        <div className="trui-row">
-                            <span className="trui-label punten">Punten</span>
-                            <strong>{capitalize(truien?.punten) || "-"}</strong>
+                        <div style={{ flexGrow: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", paddingRight: "5px" }}>
+                            {hallOfFame.length > 0 ? (
+                                hallOfFame.map((speler, idx) => (
+                                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: idx < hallOfFame.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", paddingBottom: "8px" }}>
+                                        <span style={{ fontWeight: idx === 0 ? "bold" : "normal", color: idx === 0 ? "#f59e0b" : "#e2e8f0" }}>
+                                            {idx + 1}. {capitalize(speler.naam)}
+                                        </span>
+                                        <span style={{ fontWeight: "bold" }}>
+                                            {speler.totaal_punten} <span style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: "normal" }}>PTS</span>
+                                        </span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ opacity: 0.5, fontSize: "0.85rem" }}>Nog geen data beschikbaar...</div>
+                            )}
                         </div>
-
-                        <div className="trui-row">
-                            <span className="trui-label berg">Berg</span>
-                            <strong>{capitalize(truien?.berg) || "-"}</strong>
-                        </div>
-
-                        <div className="trui-row">
-                            <span className="trui-label jongeren">Jongeren</span>
-                            <strong>{capitalize(truien?.jongeren) || "-"}</strong>
-                        </div>
-
-                        {truien?.rit_nummer && (
-                            <p className="small-muted">Na rit {truien.rit_nummer}</p>
-                        )}
                     </div>
+
                 </div>
-            </section>
+            </section >
 
             <section className="card ritpunten-card ritpunten-card-full">
                 <div className="section-head">
@@ -438,6 +532,7 @@ export default function ScoreboardPage() {
                                 {Array.from({ length: aantalRitten }, (_, i) => (
                                     <th key={i}>Rit {i + 1}</th>
                                 ))}
+                                <th>Eind</th>
                                 <th>Totaal</th>
                             </tr>
                         </thead>
@@ -471,6 +566,9 @@ export default function ScoreboardPage() {
                                     })}
 
                                     <td>
+                                        <strong>{speler.eindpunten}</strong>
+                                    </td>
+                                    <td>
                                         <strong>{speler.totaal}</strong>
                                     </td>
                                 </tr>
@@ -479,6 +577,6 @@ export default function ScoreboardPage() {
                     </table>
                 </div>
             </section>
-        </div>
+        </div >
     );
 }
