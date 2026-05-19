@@ -85,8 +85,8 @@ export const getAdminWedstrijden = () => api.get("/admin/wedstrijden");
 export const importStartlist = (url, wedstrijdId) =>
     api.post("/admin/import-startlist", { url, wedstrijdId });
 
-export const scrapeRit = (ritId, ritNummer) =>
-    api.post("/admin/scrape-rit", { ritId, ritNummer });
+// Zoek deze en vervang hem:
+export const scrapeRit = (ritId) => api.post(`/ritten/${ritId}/auto-scrape`);
 
 export const addRit = (data) => api.post("/admin/ritten/add", data);
 
@@ -140,5 +140,5 @@ export const scrapeEindklassement = (wedstrijdId) => {
 };
 export const getEindklassement = (wedstrijdId) => {
     return api.get(`/wedstrijden/${wedstrijdId}/eindklassement`);
-}
+};
 export default api;

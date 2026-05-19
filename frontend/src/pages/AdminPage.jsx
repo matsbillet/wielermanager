@@ -351,14 +351,16 @@ export default function AdminPage() {
         }
     };
 
-    const handleScrapeRit = async (ritId, ritNummer) => {
+    const handleScrapeRit = async (ritId) => {
         setLoading(true);
         try {
-            const res = await scrapeRit(ritId, ritNummer);
-            alert(res.data.message || `Succes!`);
+            // We roepen nu jouw succesvolle auto-scrape functie aan!
+            const res = await scrapeRit(ritId);
+            alert(res.data?.message || `Succes! De rit is opnieuw gescrapet.`);
             await fetchData();
         } catch (err) {
-            alert(err.response?.data?.message || 'Deze etappe is nog niet gereden.');
+            const echteFout = err.response?.data?.error || err.response?.data?.message || 'Er ging iets mis bij het ophalen van de uitslag.';
+            alert(`Fout bij scrapen: ${echteFout}`);
         } finally {
             setLoading(false);
         }
@@ -762,7 +764,7 @@ export default function AdminPage() {
                     <div className="super-import-container" style={{ marginBottom: "2rem", borderTop: "1px solid #334155", paddingTop: "2rem" }}>
                         <div className="super-import-header">
                             <div>
-                                <h4>Klassieker Toevoegen (Als Rit) (nog backend nodig)</h4>
+                                <h4>Klassieker Toevoegen (Als Rit)</h4>
                                 <p>Voer de PCS URL van een eendagskoers in. De scraper haalt automatisch de naam, datum en startlijst op en voegt deze toe aan de voorjaarskalender.</p>
                             </div>
                         </div>
