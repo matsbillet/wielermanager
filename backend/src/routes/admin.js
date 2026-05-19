@@ -417,7 +417,7 @@ const createSlug = (text) => {
         .replace(/(^-|-$)+/g, '');    // Verwijder streepjes aan begin of eind
 };
 
-// --- HANDMATIGE UITSLAG OPSLAAN ---
+// --- HANDMATIGE UITSLAG OPSLAAN (INCLUSIEF PUNTEN & TRUIEN) ---
 router.post('/manual-results', async (req, res) => {
     const { rit_id, top25, truien } = req.body;
 
@@ -425,38 +425,92 @@ router.post('/manual-results', async (req, res) => {
         return res.status(400).json({ error: "Rit ID is verplicht." });
     }
 
+    // Hetzelfde puntenschema als in je auto-scraper!
+    const PUNTEN_SCHEMA = [100, 80, 65, 55, 45, 35, 30, 25, 20, 17, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    const TRUI_PUNTEN = 10;
+
     try {
-        // 1. Verwijder eerst oude uitslagen voor deze rit (handig als je een foutje wil corrigeren!)
+        // 1. Verwijder eerst oude uitslagen voor deze rit
         await supabase.from('ritresultaten').delete().eq('rit_id', rit_id);
 
-        // 2. Bouw de data array op voor Supabase
+        // 2. Haal de 'slugs' op van de renners die een trui hebben gewonnen
+        const jerseyWinnerIds = [truien.algemeen, truien.punten, truien.berg, truien.jongeren].filter(id => id);
+        let rennerSlugs = {};
+
+        if (jerseyWinnerIds.length > 0) {
+            const { data: rennersData } = await supabase.from('renners').select('id, slug').in('id', jerseyWinnerIds);
+            if (rennersData) {
+                rennersData.forEach(r => rennerSlugs[r.id] = r.slug);
+            }
+        }
+
+        // 3. Reken uit wie hoeveel truipunten krijgt
+        const jerseyPointsMap = {};
+        const voegTruiPuntToe = (rennerId) => {
+            if (rennerId) jerseyPointsMap[rennerId] = (jerseyPointsMap[rennerId] || 0) + TRUI_PUNTEN;
+        };
+
+        voegTruiPuntToe(truien.algemeen);
+        voegTruiPuntToe(truien.punten);
+        voegTruiPuntToe(truien.berg);
+        voegTruiPuntToe(truien.jongeren);
+
+        // 4. Bouw de data array op voor de Top 25
         const uitslagData = [];
+        const insertedRiders = new Set();
 
         top25.forEach((renner_id, index) => {
-            if (renner_id) { // Voeg alleen toe als het vakje niet leeg is gelaten
+            if (renner_id) {
+                const ritPtn = PUNTEN_SCHEMA[index] || 0;
+                const truiPtn = jerseyPointsMap[renner_id] || 0;
+
                 uitslagData.push({
                     rit_id: rit_id,
                     renner_id: renner_id,
-                    positie: index + 1
-                    // LET OP: Pas deze kolomnamen aan als jouw database ze anders noemt (bijv. 'etappe_id')
+                    positie: index + 1,
+                    rit_punten: ritPtn,
+                    trui_punten: truiPtn,
+                    truien_punten: truiPtn,
+                    punten: ritPtn // FIX: Was per ongeluk ritPtn + truiPtn
                 });
+                insertedRiders.add(String(renner_id));
             }
         });
 
-        // 3. Sla de Top 25 op in de database
+        // 5. Voeg renners toe die GEEN top 25 reden, maar WEL een trui hebben
+        for (const renner_id of Object.keys(jerseyPointsMap)) {
+            if (!insertedRiders.has(String(renner_id))) {
+                const truiPtn = jerseyPointsMap[renner_id];
+                uitslagData.push({
+                    rit_id: rit_id,
+                    renner_id: renner_id,
+                    positie: null,
+                    rit_punten: 0,
+                    trui_punten: truiPtn,
+                    truien_punten: truiPtn,
+                    punten: 0 // FIX: Was per ongeluk truiPtn
+                });
+            }
+        }
+
+        // 6. Sla alles op in ritresultaten
         if (uitslagData.length > 0) {
             const { error: insertError } = await supabase.from('ritresultaten').insert(uitslagData);
             if (insertError) throw insertError;
         }
 
-        // 4. (Optioneel) Truien opslaan. 
-        // Als je een aparte tabel 'truidragers' hebt, doe je hier nog een insert met de 'truien' array.
+        // 7. Update de ritten tabel met de nieuwe truidragers (slugs)
+        const { error: updateError } = await supabase.from('ritten').update({
+            gescrapet: true,
+            leider_algemeen: truien.algemeen ? rennerSlugs[truien.algemeen] : null,
+            leider_punten: truien.punten ? rennerSlugs[truien.punten] : null,
+            leider_berg: truien.berg ? rennerSlugs[truien.berg] : null,
+            leider_jongeren: truien.jongeren ? rennerSlugs[truien.jongeren] : null
+        }).eq('id', rit_id);
 
-        // 5. Markeer de rit als voltooid / gescrapet
-        await supabase.from('ritten').update({ gescrapet: true }).eq('id', rit_id);
+        if (updateError) throw updateError;
 
-        // 6. Succes terugsturen naar de frontend
-        res.status(200).json({ success: true, message: "Handmatige uitslag is veilig opgeslagen!" });
+        res.status(200).json({ success: true, message: "Handmatige uitslag is opgeslagen (met de correcte punten)!" });
 
     } catch (error) {
         console.error("❌ Fout bij opslaan handmatige uitslag:", error.message);

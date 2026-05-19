@@ -616,7 +616,7 @@ export default function AdminPage() {
             {activeTab === 'scraper' && (
                 <section className="panel card">
                     <div style={{ marginBottom: '25px', paddingBottom: '20px', borderBottom: '1px solid #334155' }}>
-                        <h3>Systeem Acties (Achtergrond)</h3>
+                        <h3>Systeem Acties</h3>
                         <p className="small-muted" style={{ marginBottom: '15px' }}>
                             Forceer de automatische scraper, controleer koersen of voer handmatig data in.
                         </p>
