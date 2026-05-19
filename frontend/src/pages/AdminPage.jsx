@@ -17,7 +17,8 @@ import {
     previewRaceLifecycle,
     runRaceLifecycle,
     forceAutoSync,
-    voegRennerToe
+    voegRennerToe,
+    cancelRit
 } from '../services/api';
 
 function normaliseer(text = "") {
@@ -144,6 +145,22 @@ export default function AdminPage() {
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/\s+/g, '-')
             .replace(/[^\w-]+/g, '');
+    };
+
+    const handleCancelRit = async (ritId) => {
+        if (!window.confirm("⚠️ Weet je zeker dat je deze etappe wilt annuleren? Alle punten worden gewist en de truien van de vorige etappe worden overgenomen!")) return;
+
+        setLoading(true);
+        try {
+            const res = await cancelRit(ritId);
+            alert(res.data?.message || "Rit succesvol geannuleerd!");
+            await fetchData();
+        } catch (err) {
+            const echteFout = err.response?.data?.error || err.response?.data?.message || err.message;
+            alert(`Fout bij annuleren: ${echteFout}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleVoegRennerToe = async (e) => {
@@ -673,8 +690,42 @@ export default function AdminPage() {
                             <div key={rit.id} className="admin-row list-row-admin">
                                 <span><strong>Rit {rit.rit_nummer}</strong>: {rit.naam || 'Etappe'}</span>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                    <span className={`status-pill ${rit.gescrapet ? 'done' : 'open'}`}>{rit.gescrapet ? '✅ Gescrapet' : '⏳ Open'}</span>
-                                    <button className="pill-btn" onClick={() => handleScrapeRit(rit.id, rit.rit_nummer)} disabled={loading}>{rit.gescrapet ? 'Re-scrape' : 'Scrape Rit'}</button>
+
+                                    {/* STATUS BADGE LOGICA */}
+                                    {rit.geannuleerd ? (
+                                        <span className="status-pill" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444' }}>
+                                            🚫 Geannuleerd
+                                        </span>
+                                    ) : (
+                                        <span className={`status-pill ${rit.gescrapet ? 'done' : 'open'}`}>
+                                            {rit.gescrapet ? '✅ Gescrapet' : '⏳ Open'}
+                                        </span>
+                                    )}
+
+                                    {/* VERBERG KNOP ALS GEANNULEERD IS */}
+                                    {!rit.geannuleerd && (
+                                        <button
+                                            onClick={() => handleCancelRit(rit.id)}
+                                            style={{
+                                                backgroundColor: "transparent",
+                                                color: "#ef4444",
+                                                padding: "8px 16px",
+                                                border: "1px solid #ef4444",
+                                                borderRadius: "6px",
+                                                cursor: "pointer",
+                                                fontWeight: "bold",
+                                                transition: "all 0.2s"
+                                            }}
+                                            onMouseEnter={(e) => { e.target.style.backgroundColor = "#ef4444"; e.target.style.color = "#fff"; }}
+                                            onMouseLeave={(e) => { e.target.style.backgroundColor = "transparent"; e.target.style.color = "#ef4444"; }}
+                                        >
+                                            🚫 Annuleer
+                                        </button>
+                                    )}
+
+                                    <button className="pill-btn" onClick={() => handleScrapeRit(rit.id, rit.rit_nummer)} disabled={loading}>
+                                        {rit.gescrapet ? 'Re-scrape' : 'Scrape Rit'}
+                                    </button>
                                 </div>
                             </div>
                         ))}

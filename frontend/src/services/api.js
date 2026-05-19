@@ -125,6 +125,8 @@ export const forceAutoSync = async () => {
     return await api.post("/ritten/force-sync");
 };
 
+export const cancelRit = (ritId) => api.post(`/ritten/${ritId}/cancel`);
+
 export const importVolledigeWedstrijd = (url) =>
     api.post("/admin/import-volledige-wedstrijd", { url });
 

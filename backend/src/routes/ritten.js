@@ -233,6 +233,69 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// --- RIT ANNULEREN (CANCEL STAGE) ---
+router.post('/:id/cancel', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        console.log(`🚫 Rit ${id} wordt geannuleerd...`);
+
+        // 1. Haal de huidige rit op om te weten welke wedstrijd het is en welk ritnummer
+        const { data: huidigeRit, error: ritErr } = await supabase
+            .from('ritten')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (ritErr || !huidigeRit) throw new Error("Rit niet gevonden.");
+
+        // 2. Verwijder alle (foutief gescrapete) uitslagen en punten voor deze rit
+        await supabase.from('ritresultaten').delete().eq('rit_id', id);
+
+        // 3. Zoek de truien van de VORIGE rit (rit_nummer - 1)
+        let vorigeTruien = { algemeen: null, punten: null, berg: null, jongeren: null };
+
+        if (huidigeRit.rit_nummer > 1) {
+            const { data: vorigeRit } = await supabase
+                .from('ritten')
+                .select('leider_algemeen, leider_punten, leider_berg, leider_jongeren')
+                .eq('wedstrijd_id', huidigeRit.wedstrijd_id)
+                .eq('rit_nummer', huidigeRit.rit_nummer - 1)
+                .single();
+
+            if (vorigeRit) {
+                vorigeTruien = {
+                    algemeen: vorigeRit.leider_algemeen,
+                    punten: vorigeRit.leider_punten,
+                    berg: vorigeRit.leider_berg,
+                    jongeren: vorigeRit.leider_jongeren
+                };
+            }
+        }
+
+        // 4. Update de gecancelde rit: zet gescrapet op true (zodat auto-scraper hem negeert)
+        // en vul de truien van gisteren in!
+        const { error: updateErr } = await supabase
+            .from('ritten')
+            .update({
+                gescrapet: true,
+                geannuleerd: true,
+                leider_algemeen: vorigeTruien.algemeen,
+                leider_punten: vorigeTruien.punten,
+                leider_berg: vorigeTruien.berg,
+                leider_jongeren: vorigeTruien.jongeren
+            })
+            .eq('id', id);
+
+        if (updateErr) throw updateErr;
+
+        res.json({ success: true, message: `Rit ${huidigeRit.rit_nummer} geannuleerd! Punten zijn gewist en truien van gisteren zijn behouden.` });
+
+    } catch (error) {
+        console.error("❌ Fout bij annuleren rit:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 router.post('/wedstrijd/:wedstrijdId/scrape-past', async (req, res) => {
     const { wedstrijdId } = req.params;
@@ -494,6 +557,7 @@ router.post('/wedstrijd/:wedstrijdId/reset-all', async (req, res) => {
                 .from('ritten')
                 .update({
                     gescrapet: false,
+                    geannuleerd: false,
                     leider_algemeen: null,
                     leider_punten: null,
                     leider_berg: null,
@@ -530,6 +594,7 @@ router.post('/:id/reset', async (req, res) => {
             .from('ritten')
             .update({
                 gescrapet: false,
+                geannuleerd: false,
                 leider_algemeen: null,
                 leider_punten: null,
                 leider_berg: null,
