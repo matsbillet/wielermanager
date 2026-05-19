@@ -223,10 +223,6 @@ export default function RitPage() {
   const truiStijlen = getTruiStijl(rit);
   return (
     <div className="rit-container">
-      <button onClick={() => navigate(`/races/${rit?.wedstrijden?.slug}`)}
-        className="back-button">
-        ⬅ Terug naar rittenoverzicht
-      </button>
 
       {scrapping && (
         <div className="scrape-overlay">
@@ -260,10 +256,18 @@ export default function RitPage() {
       <div
         className={`content-wrapper ${scrapping ? "is-loading" : "fade-in"}`}
       >
-        <header className="rit-header">
-          <h1>
+        <header className="rit-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <h1 style={{ margin: 0 }}>
             Rit {rit.rit_nummer}: <span className="rit-naam">{rit.naam}</span>
           </h1>
+
+          <button
+            onClick={() => navigate(`/races/${rit?.wedstrijden?.slug}`)}
+            className="back-button"
+            style={{ margin: 0 }}
+          >
+            ⬅ Terug naar rittenoverzicht
+          </button>
         </header>
 
         {rit.gescrapet && (

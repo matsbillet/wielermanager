@@ -308,19 +308,47 @@ export default function RaceDetailPage() {
       </>
     );
   }
+
   return (
-    <div>
-      <div className="section-head">
-        <h2>{wedstrijd.naam}</h2>
-        <Link className="section-link" to="/races">
-          ← Terug naar koersenoverzicht
-        </Link>
+    <div style={{ textAlign: "right" }}>
+      {/* 1. De styling voor de knop in de scope houden */}
+      <style>{`
+        .back-button { 
+          background: none; 
+          border: 1px solid #444; 
+          color: #aaa; 
+          padding: 8px 15px; 
+          border-radius: 5px; 
+          cursor: pointer; 
+          margin-bottom: 20px; 
+          display: inline-block;
+          font-size: 14px;
+          text-decoration: none; 
+          transition: all 0.2s ease;
+        }
+        .back-button:hover { 
+          border-color: #22d3ee; 
+          color: #22d3ee; 
+          background: rgba(34, 211, 238, 0.1); 
+        }
+      `}</style>
+
+      {/* 2. De knop staat nu vast linksboven (zoals in RitPage) */}
+      <Link className="back-button" to="/races">
+        ⬅ Terug naar koersenoverzicht
+      </Link>
+
+      {/* 3. Titel container netjes eronder geplaatst */}
+      <div className="section-head" style={{ marginTop: "5px" }}>
+        <h2 style={{ textAlign: "right", margin: 0 }}>{wedstrijd.naam}</h2>
       </div>
 
+      {/* 4. Meldingen blok */}
       {melding && (
         <div
           style={{
             marginBottom: "1rem",
+            marginTop: "1rem",
             padding: "1rem",
             borderRadius: "4px",
             backgroundColor: melding.includes("✅")
@@ -333,7 +361,8 @@ export default function RaceDetailPage() {
         </div>
       )}
 
-      <section className="banner card">
+      {/* 5. Banner Sectie (nu onaangetast qua inhoud) */}
+      <section className="banner card" style={{ marginTop: "1rem" }}>
         <div className="banner-title">{wedstrijd.naam}</div>
         <div className="banner-sub">
           Jaar: {wedstrijd.jaar} • {wedstrijd.aantal_ritten} ritten
@@ -434,11 +463,11 @@ export default function RaceDetailPage() {
         </p>
       </section>
 
-      <div className="section-head">
-        <h2>Ritten</h2>
+      <div className="section-head" style={{ marginTop: "2rem" }}>
+        <h2 style={{ textAlign: "left", margin: 0 }}>Ritten</h2>
       </div>
 
-      <section className="rit-grid">
+      <section className="rit-grid" style={{ marginTop: "1rem" }}>
         {gesorteerdeRitten.map((rit) => {
           // Bepaal de naam dynamisch, zodat we deze ook in de alert kunnen gebruiken
           const ritNaamWeergave =
