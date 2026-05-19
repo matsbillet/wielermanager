@@ -113,7 +113,10 @@ async function verwerkRitResultaat(ritId, resultaat, wedstrijdNaam = "") {
     // --- LOGICA: Controleer of het een grote ronde is en de trui ontbreekt ---
     const naamLower = wedstrijdNaam.toLowerCase();
     const isGrandTour = naamLower.includes('tour de france') || naamLower.includes('giro') || naamLower.includes('vuelta');
-    const heeftAlgemeneTrui = !!resultaat.truien?.algemeen;
+    const heeftAlgemeneTrui =
+        !!resultaat.truien?.algemeen &&
+        resultaat.truien?.algemeen !== "GEEN_ZICHTBARE_TABEL" &&
+        resultaat.truien?.algemeen !== "GEEN_RENNER_LINK_GEVONDEN";
 
     // Mag de rit definitief afgevinkt worden?
     const magAfgevinktWorden = isGrandTour ? heeftAlgemeneTrui : true;
