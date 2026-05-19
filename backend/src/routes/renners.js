@@ -18,32 +18,46 @@ router.get("/", async (req, res) => {
     }
 });
 
-// POST: Handmatig renner toevoegen
-router.post('/renners', async (req, res) => {
-    const { naam, team, pcs_id } = req.body;
+// --- RENNER HANDMATIG TOEVOEGEN + DIRECT KOPPELEN AAN WEDSTRIJD ---
+router.post('/', async (req, res) => {
+    // We verwachten nu ook een wedstrijd_id mee te krijgen!
+    const { naam, slug, team, pcs_id, wedstrijd_id } = req.body;
 
-    if (!naam) {
-        return res.status(400).json({ error: "Naam is verplicht." });
-    }
+    // Als de frontend 'pcs_id' stuurt (zoals je had), of 'slug', of we maken er zelf één:
+    const rennerSlug = slug || pcs_id || naam.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
     try {
-        const { data, error } = await supabase
+        if (!wedstrijd_id) {
+            return res.status(400).json({ error: "Selecteer een wedstrijd waar je de renner aan wilt toevoegen." });
+        }
+
+        // 1. Maak de renner aan in de algemene 'renners' tabel (als hij nog niet bestaat)
+        const { data: renner, error: insertErr } = await supabase
             .from('renners')
-            .insert([
-                {
-                    naam: naam,
-                    team: team || null,
-                    pcs_id: pcs_id || null
-                }
-            ])
-            .select();
+            .upsert(
+                { naam, slug: rennerSlug, ploeg: team || null },
+                { onConflict: 'slug' } // Als de slug al bestaat, update hij hem gewoon
+            )
+            .select('id')
+            .single();
 
-        if (error) throw error;
+        if (insertErr) throw insertErr;
 
-        res.status(201).json({ message: "Renner succesvol toegevoegd", renner: data[0] });
+        // 2. Koppel de renner aan de wedstrijd, zodat hij zichtbaar wordt in de draft!
+        const { error: koppelErr } = await supabase
+            .from('wedstrijd_deelnemers')
+            .upsert(
+                { wedstrijd_id: wedstrijd_id, renner_id: renner.id },
+                { onConflict: 'wedstrijd_id,renner_id' }
+            );
+
+        if (koppelErr) throw koppelErr;
+
+        res.json({ success: true, message: "Renner succesvol toegevoegd aan de draft!" });
+
     } catch (err) {
-        console.error("Fout bij toevoegen renner:", err.message);
-        res.status(500).json({ error: "Kon renner niet toevoegen aan database." });
+        console.error("Fout bij handmatig renner toevoegen:", err);
+        res.status(500).json({ error: err.message || "Fout op de server bij opslaan renner." });
     }
 });
 

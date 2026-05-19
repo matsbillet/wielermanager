@@ -122,7 +122,7 @@ export default function AdminPage() {
 
     // --- STATES VOOR HANDMATIG RENNER TOEVOEGEN ---
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [formData, setFormData] = useState({ voornaam: "", achternaam: "", team: "" });
+    const [formData, setFormData] = useState({ voornaam: "", achternaam: "", wedstrijd_id: "" });
     const [loadingToevoegen, setLoadingToevoegen] = useState(false);
 
     // --- STATES VOOR HANDMATIGE UITSLAG ---
@@ -148,20 +148,33 @@ export default function AdminPage() {
 
     const handleVoegRennerToe = async (e) => {
         e.preventDefault();
+
+        // Check of er een koers is geselecteerd
+        if (!formData.wedstrijd_id) {
+            return alert("⚠️ Selecteer een wedstrijd waaraan je deze renner wilt toevoegen!");
+        }
+
         setLoadingToevoegen(true);
 
         const slug = genereerSlug(formData.voornaam, formData.achternaam);
         const volledigeNaam = `${formData.voornaam} ${formData.achternaam}`.trim();
 
         try {
-            await voegRennerToe({ naam: volledigeNaam, pcs_id: slug, team: formData.team });
-            alert(`✅ ${volledigeNaam} succesvol toegevoegd!`);
+            // We sturen nu het wedstrijd_id mee in plaats van team
+            await voegRennerToe({
+                naam: volledigeNaam,
+                slug: slug,
+                wedstrijd_id: formData.wedstrijd_id
+            });
+            alert(`✅ ${volledigeNaam} succesvol toegevoegd aan de koers!`);
             setIsModalOpen(false);
-            setFormData({ voornaam: "", achternaam: "", team: "" });
+            setFormData({ voornaam: "", achternaam: "", wedstrijd_id: "" });
             await fetchData();
         } catch (error) {
             console.error("Fout bij toevoegen renner:", error);
-            alert("❌ Er ging iets mis bij het toevoegen.");
+            // Haal de échte foutmelding uit de backend op:
+            const echteFout = error.response?.data?.error || error.response?.data?.message || error.message;
+            alert(`❌ Fout bij toevoegen: ${echteFout}`);
         } finally {
             setLoadingToevoegen(false);
         }
@@ -972,8 +985,17 @@ export default function AdminPage() {
                                 </div>
                             </div>
                             <div>
-                                <label style={{ display: "block", marginBottom: "0.5rem", color: "#94a3b8", fontSize: "0.9rem" }}>Team (Optioneel)</label>
-                                <input type="text" value={formData.team} onChange={(e) => setFormData({ ...formData, team: e.target.value })} style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid #333", backgroundColor: "#0f172a", color: "#fff" }} />
+                                {/* In je modal return () ergens onderaan: */}
+                                <select
+                                    value={formData.wedstrijd_id}
+                                    onChange={(e) => setFormData({ ...formData, wedstrijd_id: e.target.value })}
+                                    required
+                                >
+                                    <option value="">-- Kies een wedstrijd --</option>
+                                    {wedstrijden.map(w => (
+                                        <option key={w.id} value={w.id}>{w.naam} ({w.jaar})</option>
+                                    ))}
+                                </select>
                             </div>
                             <p style={{ fontSize: "0.8rem", color: "#64748b", fontStyle: "italic", margin: 0 }}>
                                 Automatische Slug: <strong style={{ color: "#22d3ee" }}>{genereerSlug(formData.voornaam, formData.achternaam) || "..."}</strong>
