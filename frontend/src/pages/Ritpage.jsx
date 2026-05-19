@@ -176,6 +176,16 @@ export default function RitPage() {
           const resDrafts = await getAdminDrafts(wId); // Nu met wedstrijdId
           setDrafts(resDrafts.data || []);
         }
+
+        // 🔥 HIER IS DE FIX: Start de scraper als de rit leeg, niet gescrapet én niet geannuleerd is!
+        if (!ritData.gescrapet && !ritData.geannuleerd) {
+          const isLocked = localStorage.getItem(`scraping_active_${id}`);
+
+          if (!isLocked) {
+            voerScrapeUit();
+          }
+        }
+
       } catch (err) {
         console.error("Fout bij laden:", err);
       } finally {
@@ -183,7 +193,10 @@ export default function RitPage() {
       }
     };
     laadAlles();
-  }, [id]); // Alleen opnieuw uitvoeren als het rit-id verandert
+
+    // Zorg ervoor dat we voerScrapeUit kunnen aanroepen zonder linting errors
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   if (loading)
     return (

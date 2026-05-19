@@ -510,7 +510,7 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
             return results;
         });
 
-        // 3. NIEUWE TRUIEN LOGICA: Gebruik specifieke URL's
+        // 3. NIEUWE TRUIEN LOGICA MET FALLBACK: Gebruik specifieke URL's
         data.truien = { algemeen: null, punten: null, berg: null, jongeren: null };
 
         if (!isEendagskoers && baseStageUrl) {
@@ -518,33 +518,41 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
 
             // Helper functie om de nummer 1 te halen van een specifieke PCS pagina
             const scrapeLeiderVanUrl = async (suffix) => {
-                const truiUrl = `${baseStageUrl}-${suffix}`;
+                const truiUrl = `${baseStageUrl}-${suffix}`; // Bv: /stage-21-gc
+                const fallbackUrl = `${cleanBase}/${suffix}`; // Bv: /gc (De finale fallback)
+
                 console.log(`\n▶️ [Scraper Truien] Zoeken naar: ${suffix.toUpperCase()} via ${truiUrl}`);
 
                 const truiPage = await browser.newPage();
                 try {
                     await truiPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
-                    // domcontentloaded is super snel en we wachten maximaal 30 sec
+                    // Dit blokje leest de tabel uit (handig herbruikbaar voor de fallback)
+                    const extractLeader = async () => {
+                        return await truiPage.evaluate(() => {
+                            const allTables = Array.from(document.querySelectorAll('table.results'));
+                            const visibleTable = allTables.find(t => t.offsetWidth > 0 && t.offsetHeight > 0);
+
+                            if (!visibleTable) return "GEEN_ZICHTBARE_TABEL";
+
+                            const firstRowLink = visibleTable.querySelector('tbody tr:first-child a[href^="rider/"]');
+                            if (!firstRowLink) return "GEEN_RENNER_LINK_GEVONDEN";
+
+                            return firstRowLink.getAttribute('href').replace('rider/', '').split('/')[0];
+                        });
+                    };
+
+                    // Poging 1: De normale rit URL
                     await truiPage.goto(truiUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                    let leaderSlug = await extractLeader();
 
-                    const leaderSlug = await truiPage.evaluate(() => {
-                        // Haal alle tabellen op
-                        const allTables = Array.from(document.querySelectorAll('table.results'));
+                    // Poging 2: Geen tabel gevonden? Dan is het waarschijnlijk de laatste rit!
+                    if (leaderSlug === "GEEN_ZICHTBARE_TABEL") {
+                        console.log(`⚠️ Tabel niet gevonden op normale URL. Fallback naar eindklassement proberen: ${fallbackUrl}`);
 
-                        // Zoek de tabel die daadwerkelijk ZICHTBAAR is op het scherm
-                        // (PCS verbergt andere tabellen met display: none, wat resulteert in offsetWidth === 0)
-                        const visibleTable = allTables.find(t => t.offsetWidth > 0 && t.offsetHeight > 0);
-
-                        if (!visibleTable) return "GEEN_ZICHTBARE_TABEL";
-
-                        // We pakken de eerste rij van de body
-                        const firstRowLink = visibleTable.querySelector('tbody tr:first-child a[href^="rider/"]');
-
-                        if (!firstRowLink) return "GEEN_RENNER_LINK_GEVONDEN";
-
-                        return firstRowLink.getAttribute('href').replace('rider/', '').split('/')[0];
-                    });
+                        await truiPage.goto(fallbackUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                        leaderSlug = await extractLeader();
+                    }
 
                     console.log(`✅ Resultaat gevonden voor ${suffix}: ${leaderSlug}`);
                     return leaderSlug;
@@ -556,6 +564,7 @@ async function scrapeRitDetails(racePcsUrl, ritNummer, isEendagskoers = false) {
                     await truiPage.close();
                 }
             };
+
             // Haal ze netjes één voor één op om PCS niet te overbelasten
             data.truien.algemeen = await scrapeLeiderVanUrl('gc');
             data.truien.punten = await scrapeLeiderVanUrl('points');
