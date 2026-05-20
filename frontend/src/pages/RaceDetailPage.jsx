@@ -310,8 +310,8 @@ export default function RaceDetailPage() {
   }
 
   return (
-    <div style={{ textAlign: "right" }}>
-      {/* 1. De styling voor de knop in de scope houden */}
+    // 1. OPGELOST: textAlign is weer "left" zodat de banner en teksten normaal staan
+    <div style={{ textAlign: "left" }}>
       <style>{`
         .back-button { 
           background: none; 
@@ -320,7 +320,6 @@ export default function RaceDetailPage() {
           padding: 8px 15px; 
           border-radius: 5px; 
           cursor: pointer; 
-          margin-bottom: 20px; 
           display: inline-block;
           font-size: 14px;
           text-decoration: none; 
@@ -333,17 +332,14 @@ export default function RaceDetailPage() {
         }
       `}</style>
 
-      {/* 2. De knop staat nu vast linksboven (zoals in RitPage) */}
-      <Link className="back-button" to="/races">
-        ⬅ Terug naar koersenoverzicht
-      </Link>
-
-      {/* 3. Titel container netjes eronder geplaatst */}
-      <div className="section-head" style={{ marginTop: "5px" }}>
-        <h2 style={{ textAlign: "right", margin: 0 }}>{wedstrijd.naam}</h2>
+      {/* 2. OPGELOST: Header met titel links en de knop strak rechts op dezelfde lijn */}
+      <div className="section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px" }}>
+        <h2 style={{ margin: 0 }}>{wedstrijd.naam}</h2>
+        <Link className="back-button" to="/races">
+          Terug naar koersenoverzicht ➡
+        </Link>
       </div>
 
-      {/* 4. Meldingen blok */}
       {melding && (
         <div
           style={{
@@ -361,105 +357,57 @@ export default function RaceDetailPage() {
         </div>
       )}
 
-      {/* 5. Banner Sectie (nu onaangetast qua inhoud) */}
-      <section className="banner card" style={{ marginTop: "1rem" }}>
+      {/* Banner Sectie */}
+      <section className="banner card" style={{ marginTop: "1rem", textAlign: "center" }}>
         <div className="banner-title">{wedstrijd.naam}</div>
         <div className="banner-sub">
           Jaar: {wedstrijd.jaar} • {wedstrijd.aantal_ritten} ritten
         </div>
 
-        {/* Knoppen Groep */}
-        <div
-          style={{
-            marginTop: "1.5rem",
-            display: "flex",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
-          {/* Startlijst Knop */}
+        <div style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
           <div>
             <button
               onClick={handleSyncStartlist}
               className="pill-btn"
               disabled={syncingStartlist || scrapingPast}
-              style={{
-                backgroundColor: syncingStartlist ? "#475569" : "#22d3ee",
-                color: "#0f172a",
-                fontWeight: "bold",
-                cursor:
-                  syncingStartlist || scrapingPast ? "not-allowed" : "pointer",
-                opacity: syncingStartlist || scrapingPast ? 0.7 : 1,
-              }}
+              style={{ backgroundColor: syncingStartlist ? "#475569" : "#22d3ee", color: "#0f172a", fontWeight: "bold", cursor: syncingStartlist || scrapingPast ? "not-allowed" : "pointer", opacity: syncingStartlist || scrapingPast ? 0.7 : 1 }}
             >
               {syncingStartlist ? "⏳ Bezig..." : "👥 Importeer Startlijst"}
             </button>
           </div>
-
-          {/* Bulk Scrape Knop */}
           <div>
             <button
               onClick={handleScrapePastRitten}
               className="pill-btn"
               disabled={scrapingPast || syncingStartlist}
-              style={{
-                backgroundColor: scrapingPast ? "#475569" : "#f59e0b",
-                color: "#0f172a",
-                fontWeight: "bold",
-                cursor:
-                  scrapingPast || syncingStartlist ? "not-allowed" : "pointer",
-                opacity: scrapingPast || syncingStartlist ? 0.7 : 1,
-              }}
+              style={{ backgroundColor: scrapingPast ? "#475569" : "#f59e0b", color: "#0f172a", fontWeight: "bold", cursor: scrapingPast || syncingStartlist ? "not-allowed" : "pointer", opacity: scrapingPast || syncingStartlist ? 0.7 : 1 }}
             >
-              {scrapingPast
-                ? "⏳ Ritten scrapen..."
-                : "⚡ Haal Gereden Ritten In"}
+              {scrapingPast ? "⏳ Ritten scrapen..." : "⚡ Haal Gereden Ritten In"}
             </button>
           </div>
-
-          {/* RESET KNOP VOOR DEMO */}
           <div>
             <button
               onClick={handleResetAll}
               className="pill-btn"
               disabled={resetingAll || syncingStartlist || scrapingPast}
-              style={{
-                backgroundColor: resetingAll ? "#475569" : "#ef4444", // Rood
-                color: "white",
-                fontWeight: "bold",
-                cursor:
-                  resetingAll || syncingStartlist || scrapingPast
-                    ? "not-allowed"
-                    : "pointer",
-                opacity:
-                  resetingAll || syncingStartlist || scrapingPast ? 0.7 : 1,
-              }}
+              style={{ backgroundColor: resetingAll ? "#475569" : "#ef4444", color: "white", fontWeight: "bold", cursor: resetingAll || syncingStartlist || scrapingPast ? "not-allowed" : "pointer", opacity: resetingAll || syncingStartlist || scrapingPast ? 0.7 : 1 }}
             >
               {resetingAll ? "⏳ Wissen..." : "🗑️ Reset Alle Ritten (Demo)"}
             </button>
           </div>
-
           <div>
             <button
               onClick={handleScrapeEindklassement}
               className="pill-btn"
               disabled={scrapingEind || syncingStartlist || scrapingPast}
-              style={{
-                backgroundColor: scrapingEind ? "#475569" : "#a855f7",
-                color: "white",
-                fontWeight: "bold",
-                cursor: scrapingEind ? "not-allowed" : "pointer",
-                opacity: scrapingEind ? 0.7 : 1,
-              }}
+              style={{ backgroundColor: scrapingEind ? "#475569" : "#a855f7", color: "white", fontWeight: "bold", cursor: scrapingEind ? "not-allowed" : "pointer", opacity: scrapingEind ? 0.7 : 1 }}
             >
               {scrapingEind ? "⏳ Ophalen..." : "🏆 Haal Eindklassement Op"}
             </button>
           </div>
         </div>
         <p style={{ fontSize: "0.8rem", marginTop: "1rem", opacity: 0.7 }}>
-          Gebruik "Importeer Startlijst" om renners in te laden. Gebruik "Haal
-          Gereden Ritten In" om ontbrekende uitslagen van eerdere dagen
-          automatisch op te halen.
+          Gebruik "Importeer Startlijst" om renners in te laden. Gebruik "Haal Gereden Ritten In" om ontbrekende uitslagen van eerdere dagen automatisch op te halen.
         </p>
       </section>
 
@@ -467,28 +415,29 @@ export default function RaceDetailPage() {
         <h2 style={{ textAlign: "left", margin: 0 }}>Ritten</h2>
       </div>
 
-      <section className="rit-grid" style={{ marginTop: "1rem" }}>
+      {/* 3. OPGELOST: Slimmere grid. Als het klassiekers zijn, maken we de blokken breder (minmax 280px). Anders gebruiken we je standaard CSS voor normale Tours. */}
+      <section
+        className={wedstrijd.slug === "voorjaarsklassiekers" ? "" : "rit-grid"}
+        style={{
+          marginTop: "1rem",
+          display: wedstrijd.slug === "voorjaarsklassiekers" ? "grid" : undefined,
+          gridTemplateColumns: wedstrijd.slug === "voorjaarsklassiekers" ? "repeat(auto-fill, minmax(280px, 1fr))" : undefined,
+          gap: "10px"
+        }}
+      >
         {gesorteerdeRitten.map((rit) => {
-          // Bepaal de naam dynamisch, zodat we deze ook in de alert kunnen gebruiken
-          const ritNaamWeergave =
-            wedstrijd.slug === "voorjaarsklassiekers"
-              ? rit.naam
-              : `Rit ${rit.rit_nummer}`;
+          const ritNaamWeergave = wedstrijd.slug === "voorjaarsklassiekers" ? rit.naam : `Rit ${rit.rit_nummer}`;
 
           return (
-            <div
-              key={rit.id}
-              style={{ display: "flex", alignItems: "stretch", gap: "8px" }}
-            >
+            <div key={rit.id} style={{ display: "flex", alignItems: "stretch", gap: "8px" }}>
               <Link
                 to={`/rit/${rit.id}`}
                 className={`rit-link ${rit.gescrapet ? "" : "pending"}`}
-                style={{ flex: 1, margin: 0 }}
+                style={{ flex: 1, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "10px" }}
               >
                 {ritNaamWeergave}
               </Link>
 
-              {/* DE NIEUWE VERWIJDER / RESET KNOP */}
               <button
                 onClick={() => handleResetRit(rit.id, ritNaamWeergave)}
                 title={`${ritNaamWeergave} resetten`}
@@ -497,7 +446,7 @@ export default function RaceDetailPage() {
                   border: "1px solid rgba(239, 68, 68, 0.3)",
                   borderRadius: "4px",
                   cursor: "pointer",
-                  padding: "0 12px",
+                  padding: "0 15px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -507,16 +456,15 @@ export default function RaceDetailPage() {
                 onMouseEnter={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)"}
                 onMouseLeave={(e) => e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)"}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />
                 </svg>
               </button>
-
-
             </div>
           );
         })}
       </section>
+
       {wedstrijd.status === 'finished' && (
         <EindklassementSectie wedstrijdId={wedstrijd.id} wedstrijd={wedstrijd} />
       )}
