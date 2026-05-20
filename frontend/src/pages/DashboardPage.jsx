@@ -1,10 +1,12 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
     getDashboardStats,
     getSessieVoorCompetitie,
     getUitvallers,
-    getScoreboard
+    getScoreboard,
+    getSystemLogs,
+    clearSystemLogs
 } from "../services/api";
 import CountdownTimer from "../components/CountdownTimer";
 
@@ -13,7 +15,84 @@ const capitalize = (text) => {
     return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
+// De Terminal Box Component
+const TerminalBox = () => {
+    const [logs, setLogs] = useState([]);
+    // 1. Nieuwe ref die we op de scrollbare container gaan zetten
+    const scrollRef = useRef(null);
+
+    useEffect(() => {
+        // Haal elke 2 seconden de nieuwste logs op
+        const interval = setInterval(async () => {
+            try {
+                const res = await getSystemLogs();
+                setLogs(res.data);
+            } catch (e) {
+                // Foutje stil negeren
+            }
+        }, 2000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // 2. De slimmere scroll-functie: scrolt alleen de div zelf, niet de webpagina!
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+    }, [logs]);
+
+    const handleClear = async () => {
+        await clearSystemLogs();
+        setLogs([]);
+    };
+
+    return (
+        <div style={{ marginTop: '2rem', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 15px', backgroundColor: '#1e293b', borderBottom: '1px solid #334155' }}>
+                <span style={{ color: '#94a3b8', fontSize: '14px', fontWeight: 'bold', display: 'flex', gap: '8px' }}>
+                    <span style={{ color: '#ef4444' }}>●</span>
+                    <span style={{ color: '#eab308' }}>●</span>
+                    <span style={{ color: '#22c55e' }}>●</span>
+                    Systeem Terminal (Admin Only)
+                </span>
+                <button onClick={handleClear} style={{ background: 'none', border: '1px solid #475569', color: '#94a3b8', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.2s' }} onMouseEnter={(e) => e.target.style.color = '#fff'} onMouseLeave={(e) => e.target.style.color = '#94a3b8'}>
+                    Wis Terminal
+                </button>
+            </div>
+
+            {/* 3. De scrollRef zit nu aan deze div vast, en de lege div onderaan is verwijderd */}
+            <div ref={scrollRef} style={{ height: '250px', overflowY: 'auto', padding: '15px', fontFamily: 'monospace', fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {logs.length === 0 ? (
+                    <span style={{ color: '#475569' }}>Wachten op scraper activiteit...</span>
+                ) : (
+                    logs.map((log, index) => (
+                        <div key={`${log.id}-${index}`} style={{ color: log.type === 'error' ? '#ef4444' : '#22c55e' }}>
+                            <span style={{ color: '#64748b', marginRight: '10px' }}>[{log.time}]</span>
+                            {log.msg}
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+};
+
 export default function DashboardPage() {
+    // --- ADMIN CHECK AANGEPAST VOOR JOUW DATA STRUCTUUR ---
+    let isAdmin = false;
+    try {
+        // Kijk in je F12 onder 'Key' hoe dit object precies heet. Vaak is dit 'user', 'gebruiker' of 'session'.
+        // Pas 'user' hieronder aan als jouw sleutel anders heet!
+        const opgeslagenData = localStorage.getItem('gebruiker');
+
+        if (opgeslagenData) {
+            const userObject = JSON.parse(opgeslagenData);
+            isAdmin = userObject.is_admin === true;
+        }
+    } catch (error) {
+        console.error("Fout bij het uitlezen van admin status", error);
+    }
+
     const [stats, setStats] = useState({
         naam: "Manager",
         totaalPunten: 0,
@@ -23,7 +102,7 @@ export default function DashboardPage() {
 
     const [uitvallers, setUitvallers] = useState([]);
     const [lastStageTruien, setLastStageTruien] = useState(null);
-    const [topSpelers, setTopSpelers] = useState([]); // --- NIEUW: State voor de top 3 spelers ---
+    const [topSpelers, setTopSpelers] = useState([]);
     const [deadlines, setDeadlines] = useState(null);
 
     const [loading, setLoading] = useState(true);
@@ -50,7 +129,6 @@ export default function DashboardPage() {
                 setStats(statsRes.data);
                 setLastStageTruien(scoreboardRes.data?.truien || null);
 
-                // --- NIEUW: Pak de top 3 spelers uit het actuele scoreboard ---
                 const top3 = [...(scoreboardRes.data?.scoreboard || [])]
                     .sort((a, b) => Number(b.totaal || 0) - Number(a.totaal || 0))
                     .slice(0, 3);
@@ -181,7 +259,6 @@ export default function DashboardPage() {
                 <StatCard title="Totaal Punten" value={stats.totaalPunten} icon="🏆" color="#22d3ee" />
                 <StatCard title="Ranglijst" value={`#${stats.positie}`} icon="📊" color="#fbbf24" />
 
-                {/* --- AANGEPAST: HET MINI SCOREBORD VAN SPELERS --- */}
                 <MiniScoreboardCard
                     title="Top 3 Spelers"
                     spelers={topSpelers}
@@ -236,6 +313,9 @@ export default function DashboardPage() {
                 </div>
             </div>
 
+            {/* 🔥 DE NIEUWE GEHEIME ADMIN TERMINAL (ONDER DE HIGHLIGHTS) */}
+            {isAdmin && <TerminalBox />}
+
             <style>{`
                 .live-dot { width: 10px; height: 10px; background: #22d3ee; border-radius: 50%; box-shadow: 0 0 8px #22d3ee; animation: pulse 2s infinite; }
                 @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.5; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.5; } }
@@ -273,7 +353,7 @@ export default function DashboardPage() {
     );
 }
 
-// --- AANGEPAST COMPONENT: Mini Scorebord ---
+// --- Component: Mini Scorebord ---
 function MiniScoreboardCard({ title, spelers, icon, color }) {
     return (
         <div className="card" style={{ borderLeft: `4px solid ${color}`, padding: "1.25rem", display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -285,18 +365,13 @@ function MiniScoreboardCard({ title, spelers, icon, color }) {
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", flexGrow: 1 }}>
                 {spelers && spelers.length > 0 ? (
                     spelers.map((speler, idx) => {
-                        // --- SLIMME ZOEKER: Nu kijkt hij in de gekoppelde 'gebruikers' tabel! ---
                         const spelerNaam = speler.speler || speler.naam || "Onbekend";
                         const spelerPunten = speler.totaal ?? 0;
 
                         return (
                             <div key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "1rem", borderBottom: idx < spelers.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none", paddingBottom: idx < spelers.length - 1 ? "6px" : "0" }}>
                                 <span style={{
-                                    fontWeight: idx === 0 ? "bold" : "normal", ccolor: idx === 0
-                                        ? color
-                                        : document.body.classList.contains("light-mode")
-                                            ? "#1e293b"
-                                            : "#e2e8f0"
+                                    fontWeight: idx === 0 ? "bold" : "normal"
                                 }}>
                                     {idx + 1}. {capitalize(spelerNaam)}
                                 </span>
@@ -313,6 +388,7 @@ function MiniScoreboardCard({ title, spelers, icon, color }) {
         </div>
     );
 }
+
 function StatCard({ title, value, icon, color }) {
     return (
         <div className="card" style={{ borderLeft: `4px solid ${color}`, padding: "1.5rem" }}>

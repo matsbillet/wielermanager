@@ -7,6 +7,33 @@ const { startLokaleMotor } = require('./services/automationService');
 
 const app = express();
 
+// --- MAGISCHE TERMINAL LOGGER ---
+global.appLogs = [];
+const MAX_LOGS = 200; // Bewaar maximaal 200 regels in het geheugen
+
+// Bewaar de originele console functies
+const originalLog = console.log;
+const originalError = console.error;
+
+// Onderschep console.log
+console.log = (...args) => {
+    originalLog(...args); // Print nog steeds in je terminal
+    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+    global.appLogs.push({ id: Date.now(), time: new Date().toLocaleTimeString(), type: 'info', msg });
+    if (global.appLogs.length > MAX_LOGS) global.appLogs.shift();
+};
+
+// Onderschep console.error
+console.error = (...args) => {
+    originalError(...args); // Print nog steeds in je terminal
+    const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+    global.appLogs.push({ id: Date.now(), time: new Date().toLocaleTimeString(), type: 'error', msg });
+    if (global.appLogs.length > MAX_LOGS) global.appLogs.shift();
+};
+
+// ==========================================
+// 1. EERST DE BEVEILIGING EN MIDDLEWARE
+// ==========================================
 app.use(cors({
     origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
@@ -16,6 +43,23 @@ app.use(cors({
 
 app.use(express.json());
 
+// ==========================================
+// 2. DAARNA PAS ALLE ROUTES
+// ==========================================
+
+// --- NIEUWE LOG ROUTES ---
+// Haal alle logs op
+app.get('/api/logs', (req, res) => {
+    res.json(global.appLogs);
+});
+
+// Wis de terminal
+app.delete('/api/logs', (req, res) => {
+    global.appLogs = [];
+    res.json({ success: true });
+});
+
+// Bestaande routes
 app.get('/test', (req, res) => {
     res.send('De server reageert!');
 });

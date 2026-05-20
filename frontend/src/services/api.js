@@ -137,6 +137,10 @@ export const resetRit = async (ritId) => {
     return await api.post(`/ritten/${ritId}/reset`);
 };
 
+// Logs
+export const getSystemLogs = () => api.get('/logs'); // Let op: pas aan naar '/api/logs' als jouw baseURL geen /api bevat
+export const clearSystemLogs = () => api.delete('/logs');
+
 export const scrapeEindklassement = (wedstrijdId) => {
     return api.post(`/wedstrijden/${wedstrijdId}/scrape-eindklassement`);
 };
